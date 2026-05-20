@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 16: Architectures, Extensions &amp; Practical Deployment</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .dive-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.82rem; }
+  .dive-table th { text-align: left; padding: 0.45rem 0.6rem; background: rgba(56,189,248,0.08); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; }
+  .dive-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .dive-table tr:hover td { background: rgba(56,189,248,0.03); }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .dive-table { font-size: 0.75rem; } .dive-table th, .dive-table td { padding: 0.3rem 0.4rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 16 &middot; 10 Topics</div>
+  <h1>Architectures, Extensions &amp; Practical Deployment</h1>
+  <p>From sparse expert routing to deployment governance &mdash; the decisions that separate a solid prototype from a durable production system.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>By the time a team reaches production, the discussion is no longer only about prompts and base models. Teams must decide whether sparse expert routing is worth the operational complexity, whether structured knowledge should complement retrieval, how to tune hyperparameters responsibly, and how to manage bias, privacy, interpretability, and cost under real workloads. These topics distinguish a solid prototype from a durable system and frequently appear in senior interviews because they force candidates to connect model architecture to product governance.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Architecture &amp; Scaling</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Mixture of Experts</a>
+      <a href="#topic-2"><span class="toc-num">2</span> MoE Failure Modes</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Adaptive Softmax</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Knowledge &amp; Ecosystems</div>
+      <a href="#topic-4"><span class="toc-num">4</span> Knowledge Graphs + LLMs</a>
+      <a href="#topic-5"><span class="toc-num">5</span> KG vs Vector Retrieval</a>
+      <a href="#topic-6"><span class="toc-num">6</span> Model Ecosystems</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Production Governance</div>
+      <a href="#topic-7"><span class="toc-num">7</span> Hyperparameters Beyond LR</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Bias &amp; Incorrect Outputs</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Interpretability &amp; Privacy</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Deployment Bottlenecks</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Architecture &amp; Scaling</span></div>
+    <p class="group-intro">Sparse scaling, efficient output layers, and the architectural patterns that let models grow without proportional compute cost.</p>
+
+<!-- TOPIC 1 -->
+<section class="topic" id="topic-1">
+  <div class="topic-header">
+    <div class="topic-num">1</div>
+    <h2>Mixture of Experts (MoE)</h2>
+  </div>
+  <div class="quick-take">A Mixture of Experts model contains multiple expert subnetworks and a routing mechanism that activates only a subset for each token. This creates sparse architecture: total parameter count can be very large, but compute per token stays small.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Think of a hospital with many specialists. Each patient sees only the relevant doctors, not the entire staff. The hospital has enormous total expertise, but the cost of treating one patient stays manageable because routing directs them to the right experts.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t01-canvas" width="700" height="320"></canvas>
+    <div class="vis-btns" style="margin-top:0.75rem;">
+      <button class="vis-btn active" onclick="c16t01_draw('sparse')">Sparse MoE (top-2)</button>
+      <button class="vis-btn" onclick="c16t01_draw('dense')">Dense (all active)</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How MoE Works</h3>
+    <p>In a standard (dense) transformer, every token passes through every feed-forward network (FFN) layer. In an MoE transformer, each FFN layer is replaced with <strong>N expert FFNs</strong> and a lightweight <strong>gating network</strong> (router) that decides which experts to use for each token. Typically, only the top-k experts (often k=1 or k=2) are activated per token.</p>
+
+    <h3>Why MoE Is Attractive</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Property</th><th>Dense Model</th><th>MoE Model</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Total parameters</td><td>All active every step</td><td>Many params, few active per token</td></tr>
+        <tr><td>Compute per token</td><td>Proportional to param count</td><td>Proportional to active expert count</td></tr>
+        <tr><td>Scaling efficiency</td><td>Linear compute growth</td><td>Sublinear compute growth</td></tr>
+        <tr><td>Memory footprint</td><td>Must load all params</td><td>Must load all params (serving concern)</td></tr>
+        <tr><td>Training stability</td><td>Generally stable</td><td>Requires load balancing losses</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Switch Transformers and Beyond</h3>
+    <p>Switch Transformers (Fedus et al., 2022) simplified MoE by routing each token to exactly one expert (top-1), demonstrating that sparse scaling can work efficiently at trillion-parameter scale. Later work explored top-2 routing, expert parallelism across GPUs, and more sophisticated load-balancing strategies.</p>
+
+    <div class="key-box"><strong>Interview frame:</strong> MoE captures a core scaling idea: you can increase capacity without paying the full dense-compute cost on every step. But this trades dense simplicity for conditional capacity, which introduces new failure modes (see <a href="#topic-2" class="xref">Topic 2: MoE Failure Modes</a>).</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> MoE models decouple parameter count from per-token compute cost. This makes them attractive for scaling, but they require careful routing, load balancing, and serving infrastructure. The total model must still fit in memory even though only a fraction is active.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Simplified MoE routing layer</summary>
+<pre><span class="com"># Simplified Mixture of Experts routing layer.</span>
+<span class="com"># The router (gating network) assigns each token to top-k experts.</span>
+<span class="com"># Only selected experts process each token, keeping compute sparse.</span>
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="kw">class</span> <span class="fn">MoELayer</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, d_model, n_experts, top_k=<span class="num">2</span>):
+        <span class="fn">super</span>().__init__()
+        self.n_experts = n_experts
+        self.top_k = top_k
+
+        <span class="com"># Each expert is an independent FFN</span>
+        self.experts = nn.<span class="fn">ModuleList</span>([
+            nn.<span class="fn">Sequential</span>(
+                nn.<span class="fn">Linear</span>(d_model, d_model * <span class="num">4</span>),  <span class="com"># Expand</span>
+                nn.<span class="fn">GELU</span>(),
+                nn.<span class="fn">Linear</span>(d_model * <span class="num">4</span>, d_model)   <span class="com"># Project back</span>
+            ) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(n_experts)
+        ])
+
+        <span class="com"># Router: lightweight linear layer that scores experts</span>
+        self.router = nn.<span class="fn">Linear</span>(d_model, n_experts, bias=<span class="kw">False</span>)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        <span class="com"># x shape: (batch, seq_len, d_model)</span>
+        gate_scores = self.router(x)                        <span class="com"># (batch, seq, n_experts)</span>
+        top_vals, top_idx = gate_scores.<span class="fn">topk</span>(self.top_k)    <span class="com"># Select top-k experts</span>
+        weights = torch.<span class="fn">softmax</span>(top_vals, dim=-<span class="num">1</span>)            <span class="com"># Normalize gate weights</span>
+
+        <span class="com"># Dispatch tokens to selected experts (simplified)</span>
+        output = torch.<span class="fn">zeros_like</span>(x)
+        <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(self.top_k):
+            <span class="kw">for</span> e <span class="kw">in</span> <span class="fn">range</span>(self.n_experts):
+                mask = (top_idx[..., k] == e)                <span class="com"># Tokens routed to expert e</span>
+                <span class="kw">if</span> mask.<span class="fn">any</span>():
+                    expert_out = self.experts[e](x[mask])    <span class="com"># Run expert on its tokens</span>
+                    output[mask] += weights[mask, k:k+<span class="num">1</span>] * expert_out
+        <span class="kw">return</span> output</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How does expert parallelism work across GPUs?</summary>
+      <div class="fq-a">In <strong>expert parallelism</strong>, different experts are placed on different GPUs. The router sends tokens to the correct GPU via all-to-all communication. This distributes memory (each GPU holds fewer experts) but introduces network overhead for token routing. It is often combined with data and tensor parallelism for maximum efficiency.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Why does MoE memory footprint remain high despite sparse compute?</summary>
+      <div class="fq-a">All expert parameters must be <strong>loaded into memory</strong> even though only a subset activates per token. A model with 8 experts has ~8x the FFN parameters of a dense model. During inference, you cannot predict which experts will be needed, so all must be resident. This is why MoE models require more GPUs for serving despite lower per-token FLOPs.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the load-balancing loss in MoE training?</summary>
+      <div class="fq-a">Without intervention, the router can collapse to routing most tokens to a <strong>few dominant experts</strong>, leaving others undertrained. The load-balancing loss adds a penalty term that encourages even distribution of tokens across experts. Switch Transformers use an auxiliary loss proportional to the fraction of tokens assigned to each expert times the average gate probability for that expert.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 2 -->
+<section class="topic" id="topic-2">
+  <div class="topic-header">
+    <div class="topic-num">2</div>
+    <h2>MoE Failure Modes</h2>
+  </div>
+  <div class="quick-take">Sparse routing adds its own risks: expert overload, router collapse, training instability, and debugging complexity. MoE models trade dense simplicity for conditional capacity, requiring careful load balancing, routing diagnostics, and serving-aware infrastructure.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Imagine a call center where the routing system keeps sending all calls to the same two agents while the rest sit idle. Those two agents become overwhelmed, callers get bad service, and the idle agents never develop expertise. That is router collapse.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t02-canvas" width="700" height="280"></canvas>
+    <div class="vis-btns" style="margin-top:0.75rem;">
+      <button class="vis-btn active" onclick="c16t02_draw('balanced')">Balanced Routing</button>
+      <button class="vis-btn" onclick="c16t02_draw('collapsed')">Router Collapse</button>
+      <button class="vis-btn" onclick="c16t02_draw('overloaded')">Expert Overload</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Key Failure Modes</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Failure Mode</th><th>What Happens</th><th>Root Cause</th><th>Mitigation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Router collapse</td><td>Most tokens go to 1-2 experts</td><td>Rich-get-richer dynamics</td><td>Load-balancing auxiliary loss</td></tr>
+        <tr><td>Expert overload</td><td>Popular experts cannot handle volume</td><td>Uneven token distribution</td><td>Expert capacity factors, overflow buffers</td></tr>
+        <tr><td>Training instability</td><td>Loss spikes, divergence</td><td>Discrete routing decisions</td><td>Jitter, temperature-scaled gating</td></tr>
+        <tr><td>Quality regression opacity</td><td>Hard to attribute errors to specific experts</td><td>Routing hides which expert produced output</td><td>Per-expert logging, routing diagnostics</td></tr>
+        <tr><td>Serving complexity</td><td>Uneven GPU utilization</td><td>Some experts receive more traffic</td><td>Dynamic expert placement, caching</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Router Collapse in Detail</h3>
+    <p>Router collapse occurs when a <strong>positive feedback loop</strong> causes the router to favor a small subset of experts. Those experts get more training signal, become more capable, and attract even more tokens. Without a load-balancing loss, this can happen early in training and is difficult to reverse.</p>
+
+    <h3>Debugging MoE Systems</h3>
+    <p>Quality regressions in MoE systems may reflect <strong>routing behavior</strong> rather than base-model quality. Debugging requires:</p>
+    <ul>
+      <li><strong>Per-expert utilization metrics:</strong> Monitor which experts are being used and how often</li>
+      <li><strong>Routing entropy:</strong> Low entropy means the router is not spreading tokens across experts</li>
+      <li><strong>Expert-level quality metrics:</strong> Compare output quality when specific experts are active</li>
+      <li><strong>Token-expert assignment logs:</strong> Trace which expert produced which part of a problematic output</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> MoE models trade dense simplicity for conditional capacity. The new failure modes (router collapse, expert overload, debugging opacity) require load-balancing losses, routing diagnostics, and per-expert monitoring that dense models do not need.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Load-balancing loss for MoE training</summary>
+<pre><span class="com"># Load-balancing auxiliary loss to prevent router collapse.</span>
+<span class="com"># Encourages even distribution of tokens across experts</span>
+<span class="com"># by penalizing both over- and under-utilization.</span>
+<span class="kw">import</span> torch
+
+<span class="kw">def</span> <span class="fn">load_balancing_loss</span>(gate_probs, top_indices, n_experts):
+    <span class="str">"""
+    Compute the Switch Transformer load-balancing loss.
+
+    gate_probs: (batch*seq, n_experts) - softmax router probabilities
+    top_indices: (batch*seq,) - index of the selected expert per token
+    n_experts: int - total number of experts
+    """</span>
+    <span class="com"># f_i = fraction of tokens assigned to expert i</span>
+    one_hot = torch.nn.functional.<span class="fn">one_hot</span>(top_indices, n_experts).<span class="fn">float</span>()
+    f = one_hot.<span class="fn">mean</span>(dim=<span class="num">0</span>)  <span class="com"># (n_experts,)</span>
+
+    <span class="com"># p_i = average gate probability for expert i across all tokens</span>
+    p = gate_probs.<span class="fn">mean</span>(dim=<span class="num">0</span>)  <span class="com"># (n_experts,)</span>
+
+    <span class="com"># Loss = n_experts * sum(f_i * p_i)</span>
+    <span class="com"># Minimized when f and p are uniform (1/n_experts each)</span>
+    loss = n_experts * (f * p).<span class="fn">sum</span>()
+
+    <span class="kw">return</span> loss  <span class="com"># Add to main loss with a small coefficient (e.g., 0.01)</span></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you detect router collapse during training?</summary>
+      <div class="fq-a">Monitor <strong>routing entropy</strong> and per-expert token counts. If entropy drops sharply or a few experts receive >50% of tokens while others receive near zero, the router is collapsing. Many frameworks log these metrics as training curves alongside loss. Early detection allows increasing the load-balancing coefficient before the collapse becomes irreversible.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can expert overload cause serving latency spikes?</summary>
+      <div class="fq-a">Yes. In expert-parallel serving, if one expert receives disproportionate traffic, the GPU hosting it becomes a <strong>bottleneck while other GPUs idle</strong>. This manifests as tail latency spikes (high P99) even when average throughput looks healthy. Dynamic expert replication (placing popular experts on multiple GPUs) can help.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 3 -->
+<section class="topic" id="topic-3">
+  <div class="topic-header">
+    <div class="topic-num">3</div>
+    <h2>Adaptive Softmax</h2>
+  </div>
+  <div class="quick-take">Adaptive softmax speeds training and inference for very large vocabularies by spending less computation on rare words than on frequent words. It organizes the vocabulary into clusters so common tokens are evaluated cheaply while still supporting a very large overall vocabulary.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Imagine a dictionary where the 1,000 most-used words are in the front section (quick lookup), and the remaining 50,000 rare words are organized by topic in the back. You check the front section first and only go to the back when needed. That is adaptive softmax.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t03-canvas" width="700" height="260"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Problem: Output Bottleneck</h3>
+    <p>The final softmax layer in a language model computes a probability distribution over the entire vocabulary. For a vocabulary of 100K+ tokens, this means a matrix multiplication of <code>(hidden_dim x vocab_size)</code> at every decoding step. This can become a significant compute and memory bottleneck.</p>
+
+    <h3>How Adaptive Softmax Works</h3>
+    <p>Adaptive softmax partitions the vocabulary into <strong>frequency-based clusters</strong>:</p>
+    <ul>
+      <li><strong>Head cluster:</strong> The most frequent tokens (e.g., top 2,000) get a full-dimension projection. These cover ~80-90% of token occurrences.</li>
+      <li><strong>Tail clusters:</strong> Progressively rarer tokens are grouped into clusters with <strong>reduced-dimension projections</strong>. Since they are rarely needed, the smaller projection saves compute on most steps.</li>
+    </ul>
+    <p>When predicting, the model first scores the head cluster and cluster-level probabilities. If a tail cluster has high probability, its internal scores are computed. On most steps, only the head computation runs.</p>
+
+    <h3>When to Use Adaptive Softmax</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Scenario</th><th>Benefit</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Very large vocabularies (100K+)</td><td>Major compute savings</td><td>Most relevant for character or multilingual models</td></tr>
+        <tr><td>Resource-constrained training</td><td>Faster training per step</td><td>Reduces output layer from dominant to minor cost</td></tr>
+        <tr><td>Standard BPE vocab (~32K-50K)</td><td>Marginal benefit</td><td>Vocab is small enough that full softmax is fast</td></tr>
+      </tbody>
+    </table>
+
+    <div class="key-box"><strong>Interview frame:</strong> Adaptive softmax is a good example of how systems efficiency and model math are deeply connected. It is less visible in interview prep than attention or LoRA, but it demonstrates understanding of the full compute pipeline beyond the attention mechanism.</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Adaptive softmax trades uniform vocabulary treatment for frequency-aware efficiency. It matters most for large-vocabulary settings where the output layer becomes a bottleneck, and demonstrates the connection between model architecture and systems efficiency.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Using PyTorch AdaptiveLogSoftmaxWithLoss</summary>
+<pre><span class="com"># PyTorch provides AdaptiveLogSoftmaxWithLoss for efficient large-vocabulary models.</span>
+<span class="com"># It partitions the vocabulary into clusters by frequency,</span>
+<span class="com"># using smaller projections for rare tokens.</span>
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="com"># Configuration</span>
+d_model = <span class="num">512</span>       <span class="com"># Hidden dimension</span>
+vocab_size = <span class="num">100000</span>  <span class="com"># Large vocabulary (e.g., multilingual)</span>
+
+<span class="com"># Define cluster cutoffs: [2000, 10000, 100000]</span>
+<span class="com"># - Head: tokens 0-1999 (most frequent, full-dim projection)</span>
+<span class="com"># - Tail 1: tokens 2000-9999 (reduced-dim projection)</span>
+<span class="com"># - Tail 2: tokens 10000-99999 (smallest projection)</span>
+adaptive_softmax = nn.<span class="fn">AdaptiveLogSoftmaxWithLoss</span>(
+    in_features=d_model,
+    n_classes=vocab_size,
+    cutoffs=[<span class="num">2000</span>, <span class="num">10000</span>],  <span class="com"># Frequency-based cluster boundaries</span>
+    div_value=<span class="num">4.0</span>             <span class="com"># Dimension reduction factor for tail clusters</span>
+)
+
+<span class="com"># Forward pass: computes log-probabilities and loss efficiently</span>
+hidden = torch.<span class="fn">randn</span>(<span class="num">32</span>, d_model)   <span class="com"># Batch of hidden states</span>
+targets = torch.<span class="fn">randint</span>(<span class="num">0</span>, vocab_size, (<span class="num">32</span>,))  <span class="com"># Target token ids</span>
+
+output = <span class="fn">adaptive_softmax</span>(hidden, targets)
+<span class="fn">print</span>(<span class="str">f"Loss: {output.loss.item():.4f}"</span>)
+
+<span class="com"># For inference: get full log-probabilities (when needed)</span>
+log_probs = adaptive_softmax.<span class="fn">log_prob</span>(hidden)  <span class="com"># (batch, vocab_size)</span></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How does adaptive softmax compare to sampled softmax?</summary>
+      <div class="fq-a"><strong>Sampled softmax</strong> approximates the full softmax by only computing scores for a random subset of negative classes. Adaptive softmax is exact for the classes it evaluates &mdash; it just organizes computation hierarchically. Adaptive softmax gives better gradient quality because it does not approximate, but sampled softmax is simpler to implement and does not require frequency-based vocabulary ordering.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is adaptive softmax still relevant with modern BPE vocabularies?</summary>
+      <div class="fq-a">For standard BPE vocabularies (32K-50K tokens), the output layer is typically <strong>not the bottleneck</strong> &mdash; attention and FFN dominate. Adaptive softmax becomes relevant again for character-level models, multilingual models with 200K+ tokens, or specialized vocabularies (e.g., genomics, chemical notation) where vocabulary size is very large.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Knowledge &amp; Ecosystems</span></div>
+    <p class="group-intro">How structured knowledge augments retrieval, and how to think about comparing model ecosystems without hard-coding assumptions that change by release.</p>
+
+<!-- TOPIC 4 -->
+<section class="topic" id="topic-4">
+  <div class="topic-header">
+    <div class="topic-num">4</div>
+    <h2>Knowledge Graphs + LLMs</h2>
+  </div>
+  <div class="quick-take">Knowledge graphs represent entities and their relations in structured form. They complement LLMs by providing explicit factual constraints, cleaner entity linking, and multi-hop relational reasoning that is sometimes harder to recover from unstructured text alone.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>An LLM is like a well-read person who knows a lot but sometimes confuses details. A knowledge graph is like a verified reference database. Combining them is like giving that person access to a fact-checked encyclopedia they can consult before answering.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t04-canvas" width="700" height="300"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Knowledge Graphs Provide</h3>
+    <p>Unlike unstructured text, knowledge graphs represent facts as <strong>triples: (subject, relation, object)</strong>. For example: (Aspirin, treats, Headache), (Aspirin, manufactured_by, Bayer). This structured representation enables:</p>
+    <ul>
+      <li><strong>Entity disambiguation:</strong> "Apple" the company vs "apple" the fruit is explicit in the graph</li>
+      <li><strong>Multi-hop reasoning:</strong> Follow chains of relations (Who manufactures drugs that treat X?)</li>
+      <li><strong>Factual grounding:</strong> Facts are explicit and verifiable, not implicit in model weights</li>
+      <li><strong>Traceability:</strong> Answers can cite specific graph paths, not just "the model said so"</li>
+    </ul>
+
+    <h3>Integration Patterns</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Pattern</th><th>How It Works</th><th>Best For</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>KG as context</td><td>Query the graph, inject triples into the prompt</td><td>Factual Q&amp;A, entity-rich tasks</td></tr>
+        <tr><td>KG for validation</td><td>Check LLM output against graph constraints</td><td>Reducing hallucination on known entities</td></tr>
+        <tr><td>KG-guided retrieval</td><td>Use graph structure to expand or filter retrieval</td><td>Multi-hop questions, structured domains</td></tr>
+        <tr><td>LLM for KG construction</td><td>Use LLM to extract triples from text</td><td>Building graphs from unstructured data</td></tr>
+      </tbody>
+    </table>
+
+    <h3>When KGs Help Most</h3>
+    <p>Knowledge graphs help most when the product depends on <strong>stable entities and relationships</strong>: products, people, regulations, scientific concepts, or enterprise assets. They are especially valuable when traceability matters as much as fluency. See <a href="#topic-5" class="xref">Topic 5: KG vs Vector Retrieval</a> for a detailed comparison.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Knowledge graphs complement LLMs by providing structured, verifiable facts with explicit relations. They are most valuable in domains where entity accuracy, multi-hop reasoning, and traceability are critical requirements.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Querying a knowledge graph to augment LLM context</summary>
+<pre><span class="com"># Query a knowledge graph and inject structured facts into an LLM prompt.</span>
+<span class="com"># This pattern grounds the model in verified entities and relations,</span>
+<span class="com"># reducing hallucination on factual questions.</span>
+<span class="kw">from</span> neo4j <span class="kw">import</span> GraphDatabase
+
+<span class="kw">class</span> <span class="fn">KGAugmenter</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, uri, auth):
+        self.driver = <span class="fn">GraphDatabase.driver</span>(uri, auth=auth)
+
+    <span class="kw">def</span> <span class="fn">get_entity_context</span>(self, entity_name: <span class="fn">str</span>, max_hops: <span class="fn">int</span> = <span class="num">2</span>) -> <span class="fn">str</span>:
+        <span class="str">"""Retrieve structured facts about an entity from the knowledge graph."""</span>
+        query = <span class="str">"""
+        MATCH (e {name: $name})-[r*1..%d]-(related)
+        RETURN e.name, type(r[0]), related.name
+        LIMIT 20
+        """</span> % max_hops
+
+        <span class="kw">with</span> self.driver.<span class="fn">session</span>() <span class="kw">as</span> session:
+            results = session.<span class="fn">run</span>(query, name=entity_name)
+            <span class="com"># Format triples as structured context for the LLM</span>
+            facts = []
+            <span class="kw">for</span> record <span class="kw">in</span> results:
+                facts.<span class="fn">append</span>(
+                    <span class="str">f"({record[0]}) --[{record[1]}]--> ({record[2]})"</span>
+                )
+        <span class="kw">return</span> <span class="str">"\n"</span>.<span class="fn">join</span>(facts)
+
+    <span class="kw">def</span> <span class="fn">build_augmented_prompt</span>(self, question: <span class="fn">str</span>, entity: <span class="fn">str</span>) -> <span class="fn">str</span>:
+        <span class="str">"""Combine KG facts with the user question."""</span>
+        facts = self.<span class="fn">get_entity_context</span>(entity)
+        <span class="kw">return</span> <span class="str">f"""Known facts from our knowledge graph:
+{facts}
+
+Based on these verified facts, answer: {question}"""</span></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle knowledge graph staleness?</summary>
+      <div class="fq-a">Knowledge graphs require <strong>maintenance workflows</strong>: automated extraction pipelines, human validation for critical facts, versioning, and freshness scores on edges. Stale facts are worse than missing facts because they create confident but wrong answers. Good systems timestamp triples and deprecate facts that have not been validated within a freshness window.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can LLMs build knowledge graphs automatically?</summary>
+      <div class="fq-a">Yes, LLMs can extract (subject, relation, object) triples from unstructured text with reasonable accuracy. However, automated extraction produces <strong>noisy graphs</strong> that require deduplication, entity resolution, and human validation for high-stakes use cases. The best approach is LLM extraction with human-in-the-loop curation for critical entities.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What are the limitations of knowledge graphs?</summary>
+      <div class="fq-a">KGs are <strong>expensive to build and maintain</strong>, struggle with implicit or nuanced knowledge (sarcasm, context-dependent facts), have limited coverage (only contain what has been explicitly encoded), and require schema design that may not fit evolving domains. They work best as a complement to retrieval, not a replacement.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 5 -->
+<section class="topic" id="topic-5">
+  <div class="topic-header">
+    <div class="topic-num">5</div>
+    <h2>Knowledge Graphs vs Vector Retrieval</h2>
+  </div>
+  <div class="quick-take">Vector retrieval excels at semantic similarity over text but struggles with explicit graph structure: hierarchies, ownership chains, typed relations, and multi-hop constraints. The strongest systems use both &mdash; vector retrieval for broad evidence discovery and graph reasoning for entity-grounded logic.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Vector search is like searching by "vibes" &mdash; it finds documents that feel similar. Graph search is like following a map &mdash; it navigates explicit connections. You need vibes to discover relevant territory, but you need the map to navigate it precisely.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t05-canvas" width="700" height="280"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Head-to-Head Comparison</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Dimension</th><th>Vector Retrieval</th><th>Knowledge Graph</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Query type</td><td>Semantic similarity ("find related text")</td><td>Structured traversal ("follow this relation")</td></tr>
+        <tr><td>Multi-hop reasoning</td><td>Weak (each hop is a separate query)</td><td>Native (graph traversal)</td></tr>
+        <tr><td>Entity disambiguation</td><td>Relies on embedding proximity</td><td>Explicit entity identity</td></tr>
+        <tr><td>Coverage</td><td>Any indexed text</td><td>Only what has been explicitly encoded</td></tr>
+        <tr><td>Setup cost</td><td>Low (embed + index)</td><td>High (schema design + curation)</td></tr>
+        <tr><td>Maintenance</td><td>Re-embed when docs change</td><td>Continuous curation and validation</td></tr>
+        <tr><td>Traceability</td><td>Can cite source chunks</td><td>Can cite specific fact paths</td></tr>
+      </tbody>
+    </table>
+
+    <h3>When to Use Which</h3>
+    <ul>
+      <li><strong>Vector retrieval alone:</strong> Broad Q&amp;A over document collections, semantic search, content recommendation</li>
+      <li><strong>Knowledge graph alone:</strong> Strict entity queries, compliance checks, structured data navigation</li>
+      <li><strong>Both together:</strong> Vector retrieval discovers relevant passages; KG validates entities and relations mentioned in those passages. This is the strongest pattern for production systems that need both coverage and accuracy.</li>
+    </ul>
+
+    <div class="key-box"><strong>Interview frame:</strong> The strongest answer is comparative rather than ideological. Many strong systems use both: vector retrieval for broad evidence discovery and graph-based reasoning for entity-grounded logic. Avoid declaring one universally better than the other. See <a href="#topic-4" class="xref">Topic 4: Knowledge Graphs + LLMs</a> for integration patterns.</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Vector retrieval and knowledge graphs solve different problems. Vector search finds semantically similar content; graphs navigate explicit entity relationships. The best systems combine both for coverage plus precision.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Hybrid retrieval combining vector search and KG lookup</summary>
+<pre><span class="com"># Hybrid retrieval: vector search finds relevant passages,</span>
+<span class="com"># then knowledge graph validates and enriches entity references.</span>
+<span class="com"># This gives you broad coverage + entity precision.</span>
+
+<span class="kw">class</span> <span class="fn">HybridRetriever</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, vector_store, kg_client, entity_extractor):
+        self.vectors = vector_store       <span class="com"># e.g., Pinecone, Weaviate, pgvector</span>
+        self.kg = kg_client               <span class="com"># e.g., Neo4j, Amazon Neptune</span>
+        self.extractor = entity_extractor  <span class="com"># NER model for entity detection</span>
+
+    <span class="kw">def</span> <span class="fn">retrieve</span>(self, query: <span class="fn">str</span>, top_k: <span class="fn">int</span> = <span class="num">5</span>) -> <span class="fn">dict</span>:
+        <span class="str">"""Two-stage retrieval: vector search + KG enrichment."""</span>
+
+        <span class="com"># Stage 1: Vector retrieval for broad evidence discovery</span>
+        passages = self.vectors.<span class="fn">search</span>(query, top_k=top_k)
+
+        <span class="com"># Stage 2: Extract entities mentioned in query and passages</span>
+        entities = self.extractor.<span class="fn">extract</span>(query)
+        <span class="kw">for</span> p <span class="kw">in</span> passages:
+            entities.<span class="fn">extend</span>(self.extractor.<span class="fn">extract</span>(p.text))
+        entities = <span class="fn">list</span>(<span class="fn">set</span>(entities))  <span class="com"># Deduplicate</span>
+
+        <span class="com"># Stage 3: KG lookup for structured facts about those entities</span>
+        kg_facts = []
+        <span class="kw">for</span> entity <span class="kw">in</span> entities:
+            facts = self.kg.<span class="fn">get_relations</span>(entity, max_hops=<span class="num">2</span>)
+            kg_facts.<span class="fn">extend</span>(facts)
+
+        <span class="kw">return</span> {
+            <span class="str">"passages"</span>: passages,     <span class="com"># Semantic evidence (from vectors)</span>
+            <span class="str">"facts"</span>: kg_facts,         <span class="com"># Structured facts (from KG)</span>
+            <span class="str">"entities"</span>: entities       <span class="com"># Detected entities</span>
+        }</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle entities that exist in the KG but not in retrieved passages?</summary>
+      <div class="fq-a">This gap means the vector retrieval missed relevant content, or the entity is only represented structurally. Solutions include <strong>KG-guided retrieval expansion</strong> (use graph neighbors to generate additional search queries) and including KG facts directly in the prompt even without supporting passages. The model then reasons over both evidence types.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the latency impact of adding KG lookups to retrieval?</summary>
+      <div class="fq-a">KG lookups typically add <strong>10-50ms</strong> for shallow queries (1-2 hops) against indexed graph databases. This is negligible compared to LLM generation time (hundreds of milliseconds to seconds). The bigger latency concern is entity extraction from passages, which may require an NER model inference step. Pipeline design should parallelize where possible.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 6 -->
+<section class="topic" id="topic-6">
+  <div class="topic-header">
+    <div class="topic-num">6</div>
+    <h2>Model Ecosystem Comparison</h2>
+  </div>
+  <div class="quick-take">Frontier model ecosystems (Claude, GPT, Gemini, open-weight models) differ in packaging, product defaults, tool interfaces, context windows, and platform ergonomics. The right comparison is empirical: benchmark candidate models on your workload, your prompts, and your latency budget.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Choosing a model ecosystem is like choosing a programming language for a project. Each has strengths, trade-offs, and community effects. The answer is always "it depends on the workload" &mdash; never "this one is universally best."</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t06-canvas" width="700" height="260"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Comparison Dimensions</h3>
+    <p>Developers compare model ecosystems less by brand identity and more by <strong>task fit</strong>. The relevant dimensions include:</p>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Dimension</th><th>What to Evaluate</th><th>Why It Matters</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Reasoning quality</td><td>Complex multi-step tasks, code, math</td><td>Determines which tasks the model can handle</td></tr>
+        <tr><td>Tool use / function calling</td><td>Reliability of structured output, tool invocation</td><td>Critical for agentic and structured workflows</td></tr>
+        <tr><td>Context window</td><td>Maximum tokens, quality at various lengths</td><td>Affects RAG design and long-document tasks</td></tr>
+        <tr><td>Latency</td><td>TTFT, ITL at different input/output sizes</td><td>User experience in interactive applications</td></tr>
+        <tr><td>Pricing</td><td>Cost per input/output token, caching discounts</td><td>Unit economics at scale</td></tr>
+        <tr><td>Safety controls</td><td>Content filtering, refusal behavior, customization</td><td>Determines fitness for regulated industries</td></tr>
+        <tr><td>Deployment options</td><td>API only, self-hosted, fine-tunable, on-premise</td><td>Data residency, compliance, customization</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Avoiding Common Interview Mistakes</h3>
+    <p>A good interview answer stays <strong>current-aware and avoids hard-coding assumptions</strong> that can change by release. The capabilities of frontier models shift frequently. Instead of memorizing a comparison table, emphasize your evaluation methodology:</p>
+    <ul>
+      <li>Benchmark on <strong>your actual workload</strong>, not public leaderboards alone</li>
+      <li>Test with <strong>your actual prompts</strong>, not synthetic benchmarks</li>
+      <li>Measure <strong>your latency budget</strong> and cost constraints</li>
+      <li>Consider the <strong>ecosystem</strong>: documentation, SDKs, community, support</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Model ecosystem comparisons should be empirical, not tribal. Benchmark candidate models on your specific workload, prompts, and constraints. Capabilities shift between releases, so evaluation methodology matters more than memorized rankings.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Model comparison evaluation harness</summary>
+<pre><span class="com"># A simple evaluation harness for comparing models empirically.</span>
+<span class="com"># Runs the same test suite against multiple providers and</span>
+<span class="com"># reports quality, latency, and cost metrics.</span>
+<span class="kw">import</span> time
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="fn">EvalResult</span>:
+    model: <span class="fn">str</span>
+    task: <span class="fn">str</span>
+    score: <span class="fn">float</span>        <span class="com"># Task-specific quality metric (0-1)</span>
+    ttft_ms: <span class="fn">float</span>      <span class="com"># Time to first token</span>
+    total_ms: <span class="fn">float</span>     <span class="com"># Total generation time</span>
+    cost_usd: <span class="fn">float</span>     <span class="com"># Estimated cost per request</span>
+
+<span class="kw">class</span> <span class="fn">ModelComparator</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, models, evaluator, test_suite):
+        self.models = models         <span class="com"># Dict of model_name -> client</span>
+        self.evaluator = evaluator   <span class="com"># Scores output quality per task</span>
+        self.test_suite = test_suite <span class="com"># List of (task_name, prompt, expected)</span>
+
+    <span class="kw">def</span> <span class="fn">run_comparison</span>(self) -> <span class="fn">list</span>:
+        <span class="str">"""Run all test cases against all models."""</span>
+        results = []
+        <span class="kw">for</span> model_name, client <span class="kw">in</span> self.models.<span class="fn">items</span>():
+            <span class="kw">for</span> task, prompt, expected <span class="kw">in</span> self.test_suite:
+                <span class="com"># Measure timing</span>
+                start = time.<span class="fn">perf_counter</span>()
+                output = client.<span class="fn">generate</span>(prompt)
+                elapsed = (time.<span class="fn">perf_counter</span>() - start) * <span class="num">1000</span>
+
+                <span class="com"># Score quality</span>
+                score = self.evaluator.<span class="fn">score</span>(output, expected, task)
+
+                results.<span class="fn">append</span>(<span class="fn">EvalResult</span>(
+                    model=model_name, task=task,
+                    score=score, ttft_ms=output.ttft_ms,
+                    total_ms=elapsed, cost_usd=output.usage_cost
+                ))
+        <span class="kw">return</span> results</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Should you use open-weight models or API-based models?</summary>
+      <div class="fq-a">The choice depends on constraints: <strong>API models</strong> offer frontier quality with zero infrastructure burden but create vendor dependency and data-residency concerns. <strong>Open-weight models</strong> (Llama, Mistral, Qwen) offer full control, customization via fine-tuning, and data sovereignty, but require GPU infrastructure and ML ops expertise. Many teams use a hybrid: APIs for prototyping and complex tasks, self-hosted for high-volume or privacy-sensitive workloads.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How often should you re-evaluate model choices?</summary>
+      <div class="fq-a">Re-evaluate at every <strong>major model release</strong> (typically every 3-6 months for frontier providers) and whenever your workload characteristics change significantly. Maintain an evaluation suite that can be run quickly against new models. The cost of switching should be low if your architecture uses model-agnostic abstractions in the serving layer.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Production Governance</span></div>
+    <p class="group-intro">The operational realities that determine whether a deployed LLM system is durable: hyperparameter management, bias detection, privacy architecture, and the bottlenecks teams underestimate.</p>
+
+<!-- TOPIC 7 -->
+<section class="topic" id="topic-7">
+  <div class="topic-header">
+    <div class="topic-num">7</div>
+    <h2>Hyperparameters Beyond the Learning Rate</h2>
+  </div>
+  <div class="quick-take">Hyperparameters control much more than optimization speed. Batch size, weight decay, sequence length, decoding parameters, retrieval settings, reranker depth, and chunk size are all operational hyperparameters in real LLM systems. Good teams treat them as part of the system design, not as afterthoughts.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Hyperparameters are all the knobs on a mixing board. The learning rate is the master volume, but equalization, compression, reverb, and pan all affect the final sound. A good engineer adjusts the whole board, not just the volume.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t07-canvas" width="700" height="300"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Full Hyperparameter Landscape</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Category</th><th>Hyperparameter</th><th>What It Controls</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Optimization</td><td>Learning rate, schedule, warmup</td><td>Convergence speed and stability</td></tr>
+        <tr><td>Optimization</td><td>Batch size</td><td>Gradient noise, hardware efficiency, generalization</td></tr>
+        <tr><td>Regularization</td><td>Weight decay, dropout</td><td>Overfitting prevention, generalization</td></tr>
+        <tr><td>Architecture</td><td>Sequence length</td><td>Memory pressure, context capacity</td></tr>
+        <tr><td>Decoding</td><td>Temperature, top-p, top-k</td><td>Output quality, determinism, diversity</td></tr>
+        <tr><td>Retrieval</td><td>Chunk size, overlap, top-k</td><td>Retrieval quality, context efficiency</td></tr>
+        <tr><td>Retrieval</td><td>Reranker depth, score threshold</td><td>Precision vs recall in retrieved context</td></tr>
+        <tr><td>Fine-tuning</td><td>LoRA rank, alpha, target modules</td><td>Adaptation capacity vs efficiency</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Batch Size: More Than Just Speed</h3>
+    <p>Batch size is often treated as a hardware constraint, but it has deep effects on training dynamics:</p>
+    <ul>
+      <li><strong>Small batches:</strong> More gradient noise, can improve generalization (implicit regularization), but slower wall-clock convergence</li>
+      <li><strong>Large batches:</strong> Lower noise, faster convergence, but may generalize worse and require learning rate scaling (linear scaling rule)</li>
+      <li><strong>Practical concern:</strong> Batch size determines GPU memory usage, gradient accumulation strategy, and distributed training configuration</li>
+    </ul>
+
+    <h3>Retrieval as Hyperparameters</h3>
+    <p>In RAG systems, <strong>chunk size, overlap, top-k, and reranker depth are operational hyperparameters</strong> that dramatically affect output quality. A team that carefully tunes the learning rate but uses default chunk sizes is optimizing the wrong knobs.</p>
+
+    <div class="key-box"><strong>Interview frame:</strong> Show that you think broadly: hyperparameters are any knobs set by the engineer rather than learned by the model. Good teams treat them as part of the system design, running systematic sweeps on the full parameter surface, not just learning rate and batch size.</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> In production LLM systems, hyperparameters extend far beyond learning rate. Retrieval chunk size, reranker depth, decoding temperature, and LoRA rank are all system-design decisions that must be tuned, validated, and versioned alongside the model itself.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Systematic hyperparameter configuration for a RAG system</summary>
+<pre><span class="com"># Define a complete hyperparameter configuration for a RAG system.</span>
+<span class="com"># This shows that production LLM tuning goes far beyond learning rate.</span>
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="fn">RAGConfig</span>:
+    <span class="str">"""Full hyperparameter surface for a RAG-based LLM system."""</span>
+
+    <span class="com"># --- Retrieval hyperparameters ---</span>
+    chunk_size: <span class="fn">int</span> = <span class="num">512</span>            <span class="com"># Tokens per chunk (affects granularity)</span>
+    chunk_overlap: <span class="fn">int</span> = <span class="num">64</span>          <span class="com"># Overlap between chunks (context continuity)</span>
+    retrieval_top_k: <span class="fn">int</span> = <span class="num">10</span>        <span class="com"># Candidates from vector search</span>
+    reranker_top_n: <span class="fn">int</span> = <span class="num">3</span>          <span class="com"># Final candidates after reranking</span>
+    similarity_threshold: <span class="fn">float</span> = <span class="num">0.7</span>  <span class="com"># Minimum relevance score</span>
+
+    <span class="com"># --- Decoding hyperparameters ---</span>
+    temperature: <span class="fn">float</span> = <span class="num">0.3</span>        <span class="com"># Low for factual RAG tasks</span>
+    top_p: <span class="fn">float</span> = <span class="num">0.85</span>              <span class="com"># Nucleus sampling threshold</span>
+    max_output_tokens: <span class="fn">int</span> = <span class="num">1024</span>   <span class="com"># Output budget (cost + latency)</span>
+
+    <span class="com"># --- Model hyperparameters ---</span>
+    model_name: <span class="fn">str</span> = <span class="str">"claude-sonnet"</span>   <span class="com"># Model selection</span>
+    context_budget: <span class="fn">int</span> = <span class="num">8000</span>       <span class="com"># Max tokens for retrieved context</span>
+
+    <span class="com"># --- Fine-tuning hyperparameters (if applicable) ---</span>
+    lora_rank: <span class="fn">int</span> = <span class="num">16</span>              <span class="com"># LoRA rank (adaptation capacity)</span>
+    lora_alpha: <span class="fn">float</span> = <span class="num">32.0</span>         <span class="com"># LoRA scaling factor</span>
+    weight_decay: <span class="fn">float</span> = <span class="num">0.01</span>       <span class="com"># Regularization</span>
+
+<span class="com"># Example: create configs for different use cases</span>
+factual_config = <span class="fn">RAGConfig</span>(temperature=<span class="num">0.1</span>, retrieval_top_k=<span class="num">20</span>, reranker_top_n=<span class="num">5</span>)
+creative_config = <span class="fn">RAGConfig</span>(temperature=<span class="num">0.8</span>, top_p=<span class="num">0.95</span>, retrieval_top_k=<span class="num">5</span>)</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you decide which hyperparameters to tune first?</summary>
+      <div class="fq-a">Use <strong>sensitivity analysis</strong>: vary one parameter at a time and measure the effect on your primary metric. In RAG systems, chunk size and retrieval top-k often have the largest impact. In training, learning rate is usually the most sensitive. Start with the highest-impact parameters and fix the rest at reasonable defaults.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should hyperparameters be version-controlled?</summary>
+      <div class="fq-a"><strong>Absolutely.</strong> Hyperparameters should be stored as configuration files in version control alongside the code. Changes to hyperparameters should go through the same review process as code changes, with associated evaluation results. This enables reproducibility, rollback, and attribution when quality changes.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 8 -->
+<section class="topic" id="topic-8">
+  <div class="topic-header">
+    <div class="topic-num">8</div>
+    <h2>Bias &amp; Systematically Incorrect Outputs</h2>
+  </div>
+  <div class="quick-take">Start by making the failure concrete: identify which groups, topics, or scenarios show systematic problems. Then improve the stack at the appropriate layer &mdash; better data, stronger evaluation sets, retrieval constraints, calibrated refusals, post-generation validation, or targeted fine-tuning.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Bias is like a compass that consistently points slightly off true north. You cannot fix it by looking at just one reading &mdash; you need systematic measurement across many directions, and the correction may require adjusting the instrument, the map, or both.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t08-canvas" width="700" height="260"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>A Systematic Approach</h3>
+    <p>"Fixing bias" must be an <strong>engineering process</strong>, not a slogan. The approach follows these steps:</p>
+    <ol>
+      <li><strong>Identify:</strong> Discover systematic failures through disaggregated evaluation, user reports, and red-teaming</li>
+      <li><strong>Characterize:</strong> Determine the scope &mdash; which groups, topics, or scenarios are affected and how</li>
+      <li><strong>Locate:</strong> Determine where in the stack the problem originates (data, model, retrieval, post-processing)</li>
+      <li><strong>Intervene:</strong> Apply the appropriate fix at the right layer</li>
+      <li><strong>Validate:</strong> Measure whether the fix works without introducing new problems</li>
+      <li><strong>Monitor:</strong> Continuously track for regressions</li>
+    </ol>
+
+    <h3>Intervention Layers</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Layer</th><th>Intervention</th><th>When to Use</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Training data</td><td>Better curation, deduplication, representation</td><td>Systematic bias from data distribution</td></tr>
+        <tr><td>Evaluation</td><td>Disaggregated metrics, representative edge cases</td><td>Measuring and tracking all biases</td></tr>
+        <tr><td>Retrieval</td><td>Source diversity constraints, fairness-aware ranking</td><td>Bias from retrieval corpus composition</td></tr>
+        <tr><td>Decoding</td><td>Calibrated refusals, constrained generation</td><td>Known unsafe or unreliable output patterns</td></tr>
+        <tr><td>Post-processing</td><td>Output validators, bias classifiers</td><td>Last-resort catch for deployment</td></tr>
+        <tr><td>Fine-tuning</td><td>Targeted training on underrepresented scenarios</td><td>Model-level capability gaps</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Disaggregated Evaluation</h3>
+    <p>Aggregate metrics hide bias. A model with 92% accuracy overall may have <strong>75% accuracy on minority demographics</strong> and 97% on the majority. Disaggregated evaluation breaks performance down by relevant dimensions (demographics, topics, edge cases) to expose these disparities.</p>
+
+    <div class="key-box"><strong>Interview frame:</strong> A strong answer includes measurement. Teams need disaggregated evaluation, representative edge cases, and clear escalation policies. Otherwise "fixing bias" becomes a slogan rather than an engineering process.</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Addressing bias requires systematic identification, layered intervention, and continuous measurement. No single blanket fix solves every bias &mdash; the correction must target the right layer of the stack (data, model, retrieval, or post-processing).</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Disaggregated evaluation framework</summary>
+<pre><span class="com"># Disaggregated evaluation: break overall metrics into subgroup metrics</span>
+<span class="com"># to expose hidden bias that aggregate numbers mask.</span>
+<span class="kw">from</span> collections <span class="kw">import</span> defaultdict
+
+<span class="kw">class</span> <span class="fn">DisaggregatedEvaluator</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, dimensions):
+        <span class="str">"""
+        dimensions: list of metadata keys to disaggregate by
+                    e.g., ["demographic", "topic", "language", "complexity"]
+        """</span>
+        self.dimensions = dimensions
+        self.results = defaultdict(<span class="kw">lambda</span>: defaultdict(<span class="fn">list</span>))
+
+    <span class="kw">def</span> <span class="fn">record</span>(self, prediction, ground_truth, metadata: <span class="fn">dict</span>):
+        <span class="str">"""Record one evaluation result with its metadata."""</span>
+        is_correct = self.<span class="fn">_score</span>(prediction, ground_truth)
+
+        <span class="com"># Record overall</span>
+        self.results[<span class="str">"_overall"</span>][<span class="str">"all"</span>].<span class="fn">append</span>(is_correct)
+
+        <span class="com"># Record per dimension</span>
+        <span class="kw">for</span> dim <span class="kw">in</span> self.dimensions:
+            <span class="kw">if</span> dim <span class="kw">in</span> metadata:
+                self.results[dim][metadata[dim]].<span class="fn">append</span>(is_correct)
+
+    <span class="kw">def</span> <span class="fn">report</span>(self):
+        <span class="str">"""Generate disaggregated performance report."""</span>
+        <span class="kw">for</span> dim, groups <span class="kw">in</span> self.results.<span class="fn">items</span>():
+            <span class="fn">print</span>(<span class="str">f"\n--- {dim} ---"</span>)
+            <span class="kw">for</span> group, scores <span class="kw">in</span> <span class="fn">sorted</span>(groups.<span class="fn">items</span>()):
+                acc = <span class="fn">sum</span>(scores) / <span class="fn">len</span>(scores)
+                <span class="fn">print</span>(<span class="str">f"  {group}: {acc:.1%} ({len(scores)} samples)"</span>)
+
+                <span class="com"># Flag significant disparities</span>
+                overall_acc = <span class="fn">sum</span>(self.results[<span class="str">"_overall"</span>][<span class="str">"all"</span>]) / \
+                              <span class="fn">len</span>(self.results[<span class="str">"_overall"</span>][<span class="str">"all"</span>])
+                <span class="kw">if</span> <span class="fn">abs</span>(acc - overall_acc) > <span class="num">0.1</span>:
+                    <span class="fn">print</span>(<span class="str">f"    WARNING: {abs(acc-overall_acc):.1%} gap vs overall"</span>)</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you red-team for bias?</summary>
+      <div class="fq-a">Red-teaming for bias involves <strong>diverse adversarial testers</strong> who systematically probe the system with inputs designed to trigger biased outputs. This includes varying demographic attributes in otherwise identical prompts, testing edge cases for underrepresented groups, and checking whether the model makes different assumptions based on names, locations, or cultural references. Automated red-teaming can scale this with template-based prompt generation.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the difference between bias and hallucination?</summary>
+      <div class="fq-a"><strong>Bias</strong> is a systematic skew in outputs that affects certain groups or topics disproportionately. <strong>Hallucination</strong> is generating confident but factually incorrect content. They can overlap (biased hallucinations about certain groups) but are distinct problems requiring different mitigations. Bias needs fairness-aware evaluation; hallucination needs factual grounding and retrieval.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should you fix bias in the model or in the pipeline?</summary>
+      <div class="fq-a"><strong>Both.</strong> Model-level fixes (better training data, targeted fine-tuning) address root causes but are expensive and slow. Pipeline-level fixes (retrieval constraints, output validators, prompt engineering) are faster to deploy but are band-aids. A mature approach layers both: fix what you can in the model, and add pipeline guardrails for the rest.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 9 -->
+<section class="topic" id="topic-9">
+  <div class="topic-header">
+    <div class="topic-num">9</div>
+    <h2>Interpretability &amp; Privacy</h2>
+  </div>
+  <div class="quick-take">Interpretability is hard because large neural networks do not expose simple rules for why a response emerged. Privacy is hard because the model may process sensitive data, retrieve confidential documents, or call tools on protected systems. Together they create a governance challenge: visibility without exposure.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Imagine auditing a decision-maker who speaks a language you do not fully understand, while also ensuring they never reveal any confidential information they were given. That is the dual challenge of interpretability and privacy in LLM deployment.</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t09-canvas" width="700" height="280"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Interpretability Challenges</h3>
+    <p>LLMs are not inherently interpretable. Current approaches provide partial visibility:</p>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Technique</th><th>What It Reveals</th><th>Limitation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Attention visualization</td><td>Which tokens the model attends to</td><td>Attention is not always causal attribution</td></tr>
+        <tr><td>Probing classifiers</td><td>What information is encoded in representations</td><td>Does not show how information is used</td></tr>
+        <tr><td>Chain-of-thought</td><td>Model's stated reasoning steps</td><td>May not reflect actual computation (post-hoc rationalization)</td></tr>
+        <tr><td>Mechanistic interpretability</td><td>Specific circuits and features in the network</td><td>Scales poorly to large models</td></tr>
+        <tr><td>Feature attribution (SHAP/LIME)</td><td>Input token importance scores</td><td>Approximations; can be misleading for seq2seq</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Privacy Architecture</h3>
+    <p>Privacy in LLM systems is an <strong>architecture problem</strong>, not just a policy problem:</p>
+    <ul>
+      <li><strong>Access control:</strong> Who can query which data through the model, and what the model can retrieve</li>
+      <li><strong>Data minimization:</strong> Only include necessary context; do not dump entire databases into prompts</li>
+      <li><strong>Logging policy:</strong> What gets logged, how long it is retained, and who can access logs</li>
+      <li><strong>Redaction:</strong> PII detection and removal before logging and in model outputs</li>
+      <li><strong>Retention:</strong> How long prompts, responses, and intermediate data are stored</li>
+      <li><strong>Data residency:</strong> Where data is processed and stored (on-premise, cloud region, provider)</li>
+    </ul>
+
+    <h3>The Governance Tension</h3>
+    <p>Organizations need <strong>visibility into model behavior</strong> (for debugging, compliance, quality assurance) while simultaneously <strong>limiting exposure</strong> of sensitive data. This tension requires careful architectural choices:</p>
+    <ul>
+      <li>Log <strong>metadata</strong> (latency, token counts, safety scores) without logging <strong>content</strong> (prompts, responses)</li>
+      <li>Use <strong>aggregate analytics</strong> instead of individual request inspection where possible</li>
+      <li>Implement <strong>role-based access</strong> to debugging tools and logs</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Interpretability and privacy are intertwined governance challenges. You need visibility without exposure. Connect privacy to architecture: access control, data minimization, logging policy, retention, and redaction are product decisions as much as model decisions.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Privacy-aware logging middleware</summary>
+<pre><span class="com"># Privacy-aware logging middleware that captures metrics</span>
+<span class="com"># without storing sensitive content. This balances</span>
+<span class="com"># observability needs with data protection requirements.</span>
+<span class="kw">import</span> hashlib
+<span class="kw">import</span> time
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="fn">PrivacySafeLog</span>:
+    <span class="str">"""Log entry that captures operational metrics without PII."""</span>
+    request_hash: <span class="fn">str</span>     <span class="com"># One-way hash for deduplication, not content</span>
+    timestamp: <span class="fn">float</span>
+    model: <span class="fn">str</span>
+    input_tokens: <span class="fn">int</span>      <span class="com"># Count only, not content</span>
+    output_tokens: <span class="fn">int</span>
+    ttft_ms: <span class="fn">float</span>
+    total_ms: <span class="fn">float</span>
+    safety_score: <span class="fn">float</span>    <span class="com"># Safety classifier output</span>
+    pii_detected: <span class="fn">bool</span>     <span class="com"># Whether PII was found (not what it was)</span>
+    user_tier: <span class="fn">str</span>          <span class="com"># Anonymized user group, not user ID</span>
+
+<span class="kw">class</span> <span class="fn">PrivacyLogger</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, pii_detector, log_store):
+        self.pii_det = pii_detector
+        self.store = log_store
+
+    <span class="kw">def</span> <span class="fn">log_request</span>(self, prompt, response, metadata):
+        <span class="str">"""Log metrics about a request without storing content."""</span>
+        <span class="com"># Hash the prompt for deduplication (cannot be reversed)</span>
+        prompt_hash = hashlib.<span class="fn">sha256</span>(prompt.<span class="fn">encode</span>()).<span class="fn">hexdigest</span>()[:<span class="num">16</span>]
+
+        <span class="com"># Check for PII without logging what was found</span>
+        has_pii = self.pii_det.<span class="fn">contains_pii</span>(response)
+
+        <span class="com"># Store only safe metadata</span>
+        entry = <span class="fn">PrivacySafeLog</span>(
+            request_hash=prompt_hash,
+            timestamp=time.<span class="fn">time</span>(),
+            model=metadata[<span class="str">"model"</span>],
+            input_tokens=metadata[<span class="str">"input_tokens"</span>],
+            output_tokens=metadata[<span class="str">"output_tokens"</span>],
+            ttft_ms=metadata[<span class="str">"ttft_ms"</span>],
+            total_ms=metadata[<span class="str">"total_ms"</span>],
+            safety_score=metadata[<span class="str">"safety_score"</span>],
+            pii_detected=has_pii,
+            user_tier=metadata.<span class="fn">get</span>(<span class="str">"user_tier"</span>, <span class="str">"unknown"</span>)
+        )
+        self.store.<span class="fn">write</span>(entry)
+        <span class="com"># Content (prompt, response) is NEVER stored</span></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can chain-of-thought be trusted as interpretability?</summary>
+      <div class="fq-a">Chain-of-thought shows the model's <strong>stated reasoning</strong>, but research shows this can be post-hoc rationalization rather than a faithful representation of the computation. The model may reach a conclusion through internal patterns and then generate a plausible-sounding justification. CoT is useful for debugging and user transparency but should not be treated as ground-truth interpretability.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle GDPR right-to-deletion for LLM systems?</summary>
+      <div class="fq-a">For data in prompts and logs, implement <strong>retention policies and deletion workflows</strong>. For data in model weights (training data memorization), this is harder &mdash; you cannot easily "unlearn" specific training examples. Mitigations include not fine-tuning on PII, using differential privacy during training, and ensuring retrieval systems (not model weights) are the source of personal data so deletion is straightforward.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is differential privacy in the context of LLM training?</summary>
+      <div class="fq-a"><strong>Differential privacy (DP)</strong> adds calibrated noise during training to provide mathematical guarantees that individual training examples cannot be extracted from the model. DP-SGD (differentially private stochastic gradient descent) clips gradients and adds noise. The trade-off is significant quality degradation at strong privacy budgets, making it impractical for many LLM applications. It is most useful for specific fine-tuning on sensitive datasets.</div>
+    </details>
+  </div>
+</section>
+
+<!-- TOPIC 10 -->
+<section class="topic" id="topic-10">
+  <div class="topic-header">
+    <div class="topic-num">10</div>
+    <h2>Deployment Bottlenecks</h2>
+  </div>
+  <div class="quick-take">Teams often underestimate evaluation maintenance, prompt and model version drift, access-control complexity, long-tail latency, and the human cost of debugging failures that span retrieval, tools, and model behavior. Compute cost matters, but operational ambiguity is often the more painful bottleneck.<button class="qt-copy">Copy</button></div>
+  <div class="mental-model"><span class="mm-icon">&#x1f9e0;</span><span>Deploying an LLM is like opening a restaurant. Everyone worries about the kitchen equipment (compute), but the real bottlenecks are often supply chain management (data freshness), health inspections (compliance), staff training (prompt management), and customer complaints (debugging failures).</span></div>
+
+  <div class="visual-container">
+    <canvas id="c16t10-canvas" width="700" height="320"></canvas>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Commonly Underestimated Bottlenecks</h3>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Bottleneck</th><th>Why It Hurts</th><th>Mitigation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Evaluation maintenance</td><td>Eval suites go stale as the product evolves</td><td>Version evals alongside prompts; automate refresh</td></tr>
+        <tr><td>Prompt/model version drift</td><td>Prompts break when models change</td><td>Pin model versions; test prompts on new versions before switching</td></tr>
+        <tr><td>Access control complexity</td><td>Per-user, per-document permissions interact with retrieval</td><td>Design access control into the retrieval layer from day one</td></tr>
+        <tr><td>Long-tail latency</td><td>P99 spikes from long prompts, cache misses, queue buildup</td><td>Load shedding, priority queues, SLO budgets</td></tr>
+        <tr><td>Cross-component debugging</td><td>Failures span retrieval + tools + model + post-processing</td><td>End-to-end tracing, structured logging, replay tools</td></tr>
+        <tr><td>Cost attribution</td><td>Cannot assign spend to features/teams for budgeting</td><td>Tag requests with feature/team metadata; per-request cost tracking</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Deployment Governance Matrix</h3>
+    <p>Production readiness requires explicit controls across four areas:</p>
+    <table class="dive-table">
+      <thead>
+        <tr><th>Area</th><th>Example Control</th><th>Why It Matters</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Privacy</td><td>Redaction, access control, data minimization</td><td>Limits leakage risk with sensitive data</td></tr>
+        <tr><td>Quality</td><td>Regression sets and scenario testing</td><td>Detects drift before users absorb the failure</td></tr>
+        <tr><td>Safety</td><td>Moderation, refusal paths, human escalation</td><td>Reduces harm from unsafe behavior</td></tr>
+        <tr><td>Operations</td><td>Logging, tracing, rollback, versioning</td><td>Makes failures diagnosable instead of mysterious</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Notebook-to-Production Gap</h3>
+    <p>Production LLM work is difficult because quality depends on the whole pipeline. A model that looks excellent in a notebook can still fail once <strong>real documents, real permissions, and real users</strong> enter the loop. The hardest deployment problems are usually cross-layer problems, where retrieval, permissions, evaluation, and model behavior fail together rather than one at a time.</p>
+
+    <div class="key-box"><strong>Interview frame:</strong> "The hardest deployment problems are usually cross-layer problems, where retrieval, permissions, evaluation, and model behavior fail together rather than one at a time." This sentence demonstrates senior-level systems thinking. See <a href="#topic-9" class="xref">Topic 9: Interpretability &amp; Privacy</a> for the privacy dimension of this challenge.</div>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2714;</span><span><strong>Key Takeaway:</strong> Compute cost gets the attention, but operational ambiguity is often the worse bottleneck. Evaluation maintenance, version drift, access control, debugging across components, and cost attribution are the problems that actually slow production teams down.</span></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Deployment readiness checklist</summary>
+<pre><span class="com"># Deployment readiness checklist that codifies the governance matrix.</span>
+<span class="com"># Run this before any production deployment to ensure all areas are covered.</span>
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="fn">DeploymentCheck</span>:
+    name: <span class="fn">str</span>
+    area: <span class="fn">str</span>         <span class="com"># privacy | quality | safety | operations</span>
+    passed: <span class="fn">bool</span> = <span class="kw">False</span>
+    notes: <span class="fn">str</span> = <span class="str">""</span>
+
+<span class="kw">class</span> <span class="fn">DeploymentReadiness</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        self.checks = [
+            <span class="com"># Privacy controls</span>
+            <span class="fn">DeploymentCheck</span>(<span class="str">"PII detection enabled"</span>, <span class="str">"privacy"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Access control integrated with retrieval"</span>, <span class="str">"privacy"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Logging policy reviewed (no content in logs)"</span>, <span class="str">"privacy"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Data retention policy configured"</span>, <span class="str">"privacy"</span>),
+
+            <span class="com"># Quality controls</span>
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Regression test suite passes"</span>, <span class="str">"quality"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Eval suite versioned with prompts"</span>, <span class="str">"quality"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"A/B test plan defined"</span>, <span class="str">"quality"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Prompt pinned to model version"</span>, <span class="str">"quality"</span>),
+
+            <span class="com"># Safety controls</span>
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Input safety classifier deployed"</span>, <span class="str">"safety"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Output moderation enabled"</span>, <span class="str">"safety"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Human escalation path configured"</span>, <span class="str">"safety"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Red-team results reviewed"</span>, <span class="str">"safety"</span>),
+
+            <span class="com"># Operations controls</span>
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Tracing enabled (end-to-end request IDs)"</span>, <span class="str">"operations"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Rollback procedure tested"</span>, <span class="str">"operations"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"SLO dashboards configured"</span>, <span class="str">"operations"</span>),
+            <span class="fn">DeploymentCheck</span>(<span class="str">"Cost attribution tags in place"</span>, <span class="str">"operations"</span>),
+        ]
+
+    <span class="kw">def</span> <span class="fn">report</span>(self):
+        <span class="str">"""Print deployment readiness status."""</span>
+        <span class="kw">for</span> area <span class="kw">in</span> [<span class="str">"privacy"</span>, <span class="str">"quality"</span>, <span class="str">"safety"</span>, <span class="str">"operations"</span>]:
+            area_checks = [c <span class="kw">for</span> c <span class="kw">in</span> self.checks <span class="kw">if</span> c.area == area]
+            passed = <span class="fn">sum</span>(<span class="num">1</span> <span class="kw">for</span> c <span class="kw">in</span> area_checks <span class="kw">if</span> c.passed)
+            <span class="fn">print</span>(<span class="str">f"\n{area.upper()}: {passed}/{len(area_checks)}"</span>)
+            <span class="kw">for</span> c <span class="kw">in</span> area_checks:
+                status = <span class="str">"PASS"</span> <span class="kw">if</span> c.passed <span class="kw">else</span> <span class="str">"FAIL"</span>
+                <span class="fn">print</span>(<span class="str">f"  [{status}] {c.name}"</span>)</pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle prompt-model version drift?</summary>
+      <div class="fq-a"><strong>Pin model versions</strong> in your configuration, and test all prompts against new model versions in a staging environment before switching. Maintain a prompt regression suite that runs automatically when the model version changes. Version your prompts in source control alongside the model version they were tested against.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What makes cross-component debugging so hard?</summary>
+      <div class="fq-a">A single user-visible failure may involve: retrieval returning wrong chunks, the model misinterpreting context, a tool returning stale data, and post-processing truncating the answer. Each component works fine in isolation. <strong>End-to-end tracing</strong> with request IDs that propagate across all components is essential. Without it, debugging requires reconstructing the full request path manually.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How should teams handle evaluation suite staleness?</summary>
+      <div class="fq-a">Treat evaluation suites as <strong>living test suites</strong>, not static artifacts. Schedule regular reviews (monthly or per release) to add new failure cases, remove outdated tests, and update expected behaviors. Automate eval freshness alerts: if the eval suite has not been updated in N releases, flag it. Include production failure cases in the eval suite as they are discovered.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+/* === Shared helper === */
+function hexToRgba(hex, alpha) {
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return 'rgba('+r+','+g+','+b+','+alpha+')';
+}
+
+/* === TOPIC 1: MoE Visual === */
+var c16t01_mode = 'sparse';
+function c16t01_draw(mode) {
+  c16t01_mode = mode;
+  document.querySelectorAll('#topic-1 .vis-btn').forEach(function(b){b.classList.remove('active');});
+  event.target.classList.add('active');
+  c16t01_render();
+}
+(function(){
+  window.c16t01_render = function() {
+    var canvas = document.getElementById('c16t01-canvas');
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(c16t01_mode === 'sparse' ? 'Sparse MoE: Router activates top-2 experts per token' : 'Dense: All parameters active for every token', w/2, 20);
+
+    /* Input tokens */
+    var tokens = ['The','model','processes','each','token'];
+    var tokY = 60;
+    tokens.forEach(function(t, i) {
+      var x = 100 + i * 110;
+      ctx.fillStyle = hexToRgba('#38bdf8', 0.12);
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(x-30, tokY-14, 60, 28, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#e2e8f0'; ctx.font = '10px monospace'; ctx.fillText(t, x, tokY+4);
+    });
+
+    /* Router */
+    var routerY = 120;
+    if(c16t01_mode === 'sparse') {
+      ctx.fillStyle = hexToRgba('#fbbf24', 0.12);
+      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(w/2-50, routerY-15, 100, 30, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fbbf24'; ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillText('Router', w/2, routerY+4);
+
+      /* Lines from tokens to router */
+      tokens.forEach(function(t, i) {
+        var x = 100 + i * 110;
+        ctx.strokeStyle = hexToRgba('#fbbf24', 0.3); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, tokY+14); ctx.lineTo(w/2, routerY-15); ctx.stroke();
+      });
+    }
+
+    /* Experts */
+    var experts = ['Expert 1','Expert 2','Expert 3','Expert 4','Expert 5','Expert 6','Expert 7','Expert 8'];
+    var expY = 200;
+    var expColors = ['#38bdf8','#4ade80','#f472b6','#818cf8','#fbbf24','#38bdf8','#4ade80','#f472b6'];
+    var activeExperts = c16t01_mode === 'sparse' ? [1,4] : [0,1,2,3,4,5,6,7];
+
+    experts.forEach(function(exp, i) {
+      var x = 55 + i * 80;
+      var isActive = activeExperts.indexOf(i) >= 0;
+      var color = expColors[i];
+
+      ctx.fillStyle = hexToRgba(color, isActive ? 0.2 : 0.05);
+      ctx.strokeStyle = isActive ? color : hexToRgba(color, 0.2);
+      ctx.lineWidth = isActive ? 1.5 : 0.5;
+      ctx.beginPath(); ctx.roundRect(x-32, expY-16, 64, 32, 6); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = isActive ? '#e2e8f0' : '#334155';
+      ctx.font = '9px -apple-system, sans-serif';
+      ctx.fillText('E'+(i+1), x, expY+4);
+
+      /* Lines from router to experts */
+      if(c16t01_mode === 'sparse') {
+        if(isActive) {
+          ctx.strokeStyle = hexToRgba(color, 0.6); ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = hexToRgba('#334155', 0.2); ctx.lineWidth = 0.5;
+        }
+        ctx.beginPath(); ctx.moveTo(w/2, routerY+15); ctx.lineTo(x, expY-16); ctx.stroke();
+      } else {
+        /* Dense: lines from all tokens to all experts */
+        ctx.strokeStyle = hexToRgba(color, 0.15); ctx.lineWidth = 0.5;
+        tokens.forEach(function(t, ti) {
+          var tx = 100 + ti * 110;
+          ctx.beginPath(); ctx.moveTo(tx, tokY+14); ctx.lineTo(x, expY-16); ctx.stroke();
+        });
+      }
+    });
+
+    /* Compute indicator */
+    var compY = 270;
+    var computeRatio = c16t01_mode === 'sparse' ? 2/8 : 1.0;
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('Compute per token:', 40, compY);
+    ctx.fillStyle = hexToRgba('#334155', 0.5);
+    ctx.fillRect(180, compY-8, 400, 14);
+    var barColor = c16t01_mode === 'sparse' ? '#4ade80' : '#f472b6';
+    ctx.fillStyle = hexToRgba(barColor, 0.5);
+    ctx.fillRect(180, compY-8, 400*computeRatio, 14);
+    ctx.fillStyle = barColor; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(Math.round(computeRatio*100)+'%', 180+400*computeRatio+8, compY+3);
+
+    /* Active label */
+    ctx.fillStyle = '#64748b'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(c16t01_mode === 'sparse' ? 'Only 2 of 8 experts active = 25% compute' : 'All 8 experts active = 100% compute', w/2, h-8);
+  };
+  c16t01_render();
+})();
+
+/* === TOPIC 2: MoE Failure Modes Visual === */
+var c16t02_activeMode = 'balanced';
+function c16t02_draw(mode) {
+  c16t02_activeMode = mode;
+  document.querySelectorAll('#topic-2 .vis-btn').forEach(function(b){b.classList.remove('active');});
+  event.target.classList.add('active');
+  c16t02_render();
+}
+(function(){
+  window.c16t02_render = function() {
+    var canvas = document.getElementById('c16t02-canvas');
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+
+    var distributions = {
+      balanced: [12,13,11,14,12,13,12,13],
+      collapsed: [45,30,5,5,5,3,4,3],
+      overloaded: [8,8,8,8,35,8,8,17]
+    };
+
+    var colors = ['#38bdf8','#4ade80','#f472b6','#818cf8','#fbbf24','#c084fc','#fb923c','#22d3ee'];
+    var data = distributions[c16t02_activeMode];
+    var maxVal = Math.max.apply(null, data);
+
+    var labels = {
+      balanced: 'Balanced: tokens distributed evenly across experts',
+      collapsed: 'Router Collapse: most tokens go to experts 1-2',
+      overloaded: 'Expert Overload: expert 5 receives disproportionate traffic'
+    };
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(labels[c16t02_activeMode], w/2, 20);
+
+    var barW = 55, gap = 20, chartH = h - 100;
+    var startX = (w - data.length * (barW+gap)) / 2 + gap/2;
+
+    /* Ideal line */
+    var idealPct = 100 / data.length;
+    var idealY = 50 + chartH - (idealPct / maxVal) * (chartH - 20);
+    ctx.strokeStyle = hexToRgba('#4ade80', 0.3); ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(startX-10, idealY); ctx.lineTo(startX + data.length*(barW+gap), idealY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#4ade80'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('Ideal: '+idealPct.toFixed(1)+'%', startX + data.length*(barW+gap)+5, idealY+3);
+
+    data.forEach(function(val, i) {
+      var x = startX + i * (barW + gap);
+      var barH = (val / maxVal) * (chartH - 20);
+      var y = 50 + chartH - barH;
+
+      var isProblematic = false;
+      if(c16t02_activeMode === 'collapsed' && i < 2) isProblematic = true;
+      if(c16t02_activeMode === 'overloaded' && i === 4) isProblematic = true;
+
+      var color = isProblematic ? '#f472b6' : colors[i];
+      ctx.fillStyle = hexToRgba(color, isProblematic ? 0.5 : 0.3);
+      ctx.beginPath(); ctx.roundRect(x, y, barW, barH, [6,6,0,0]); ctx.fill();
+
+      if(isProblematic) {
+        ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(x, y, barW, barH, [6,6,0,0]); ctx.stroke();
+      }
+
+      /* Label */
+      ctx.fillStyle = '#e2e8f0'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('E'+(i+1), x+barW/2, 50+chartH+16);
+
+      /* Value */
+      ctx.fillStyle = color; ctx.font = '10px monospace';
+      ctx.fillText(val+'%', x+barW/2, y-5);
+    });
+
+    /* Warning label */
+    if(c16t02_activeMode !== 'balanced') {
+      ctx.fillStyle = '#f472b6'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
+      var warnText = c16t02_activeMode === 'collapsed'
+        ? 'Router has collapsed: Experts 1-2 receive 75% of tokens'
+        : 'Expert 5 is overloaded at 35% (ideal: 12.5%)';
+      ctx.fillText(warnText, w/2, h-8);
+    }
+  };
+  c16t02_render();
+})();
+
+/* === TOPIC 3: Adaptive Softmax Visual === */
+(function(){
+  var canvas = document.getElementById('c16t03-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Adaptive Softmax: Frequency-Based Vocabulary Clustering', w/2, 20);
+
+  var clusters = [
+    {label:'Head Cluster', tokens:'Top 2,000 tokens', coverage:'~85% of occurrences', dim:'Full dim (512)', color:'#38bdf8', width:0.5},
+    {label:'Tail Cluster 1', tokens:'Tokens 2,000-10,000', coverage:'~12% of occurrences', dim:'Reduced (128)', color:'#818cf8', width:0.3},
+    {label:'Tail Cluster 2', tokens:'Tokens 10,000-100,000', coverage:'~3% of occurrences', dim:'Reduced (32)', color:'#f472b6', width:0.15}
+  ];
+
+  var startY = 50, blockH = 55, gap = 12;
+  var maxW = w - 200;
+
+  clusters.forEach(function(c, i) {
+    var y = startY + i * (blockH + gap);
+    var bw = maxW * c.width;
+
+    /* Block */
+    ctx.fillStyle = hexToRgba(c.color, 0.15);
+    ctx.strokeStyle = c.color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(80, y, bw, blockH, 8); ctx.fill(); ctx.stroke();
+
+    /* Labels inside */
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(c.label, 92, y+18);
+    ctx.fillStyle = c.color; ctx.font = '9px monospace';
+    ctx.fillText(c.tokens, 92, y+34);
+    ctx.fillText(c.coverage, 92, y+48);
+
+    /* Dimension label on right */
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(c.dim, bw + 95, y+blockH/2+3);
+
+    /* Compute indicator */
+    var compX = w - 100;
+    var compW = 60 * c.width / 0.5;
+    ctx.fillStyle = hexToRgba(c.color, 0.3);
+    ctx.fillRect(compX, y+blockH/2-5, compW, 10);
+    ctx.fillStyle = c.color; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(Math.round(c.width/0.5*100)+'%', compX+compW+5, y+blockH/2+3);
+  });
+
+  /* Column headers */
+  ctx.fillStyle = '#64748b'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Vocabulary Cluster Size', maxW/2+80, h-8);
+  ctx.fillText('Compute', w-70, h-8);
+})();
+
+/* === TOPIC 4: Knowledge Graph Visual === */
+(function(){
+  var canvas = document.getElementById('c16t04-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Knowledge Graph: Entities and Relations', w/2, 20);
+
+  var nodes = [
+    {id:'aspirin',label:'Aspirin',x:350,y:100,color:'#38bdf8'},
+    {id:'headache',label:'Headache',x:550,y:80,color:'#4ade80'},
+    {id:'bayer',label:'Bayer',x:180,y:80,color:'#f472b6'},
+    {id:'nsaid',label:'NSAID',x:350,y:200,color:'#818cf8'},
+    {id:'ibuprofen',label:'Ibuprofen',x:520,y:200,color:'#38bdf8'},
+    {id:'inflammation',label:'Inflammation',x:180,y:200,color:'#4ade80'},
+    {id:'fever',label:'Fever',x:550,y:280,color:'#fbbf24'},
+    {id:'pharma',label:'Pharmaceutical',x:100,y:140,color:'#c084fc'}
+  ];
+
+  var edges = [
+    {from:'aspirin',to:'headache',label:'treats'},
+    {from:'bayer',to:'aspirin',label:'manufactures'},
+    {from:'aspirin',to:'nsaid',label:'is_a'},
+    {from:'ibuprofen',to:'nsaid',label:'is_a'},
+    {from:'nsaid',to:'inflammation',label:'treats'},
+    {from:'ibuprofen',to:'fever',label:'treats'},
+    {from:'bayer',to:'pharma',label:'is_a'},
+    {from:'aspirin',to:'fever',label:'treats'}
+  ];
+
+  /* Draw edges */
+  edges.forEach(function(e) {
+    var from = nodes.find(function(n){return n.id===e.from;});
+    var to = nodes.find(function(n){return n.id===e.to;});
+    ctx.strokeStyle = hexToRgba('#475569', 0.5); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+
+    /* Edge label */
+    var mx = (from.x+to.x)/2, my = (from.y+to.y)/2;
+    ctx.fillStyle = hexToRgba('#0f172a', 0.8);
+    var labelW = ctx.measureText(e.label).width + 8;
+    ctx.fillRect(mx-labelW/2, my-8, labelW, 14);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(e.label, mx, my+3);
+  });
+
+  /* Draw nodes */
+  nodes.forEach(function(n) {
+    ctx.fillStyle = hexToRgba(n.color, 0.2);
+    ctx.strokeStyle = n.color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(n.x, n.y, 28, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(n.label, n.x, n.y+4);
+  });
+})();
+
+/* === TOPIC 5: KG vs Vector Visual === */
+(function(){
+  var canvas = document.getElementById('c16t05-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Vector Retrieval vs Knowledge Graph: Strengths Comparison', w/2, 20);
+
+  var dimensions = [
+    {label:'Semantic Search', vector:0.95, kg:0.3},
+    {label:'Multi-hop Reasoning', vector:0.2, kg:0.9},
+    {label:'Entity Disambiguation', vector:0.35, kg:0.95},
+    {label:'Coverage / Flexibility', vector:0.9, kg:0.4},
+    {label:'Setup Speed', vector:0.85, kg:0.25},
+    {label:'Traceability', vector:0.5, kg:0.9},
+    {label:'Maintenance Cost', vector:0.8, kg:0.3}
+  ];
+
+  var barH = 28, gap = 6, startY = 45;
+  var maxW = 200;
+
+  dimensions.forEach(function(d, i) {
+    var y = startY + i * (barH + gap);
+
+    /* Label */
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(d.label, w/2, y+barH/2+3);
+
+    /* Vector bar (left) */
+    var vW = d.vector * maxW;
+    ctx.fillStyle = hexToRgba('#38bdf8', 0.3);
+    ctx.beginPath(); ctx.roundRect(w/2-80-vW, y, vW, barH, 4); ctx.fill();
+    ctx.fillStyle = '#38bdf8'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(d.vector*100)+'%', w/2-80-vW-5, y+barH/2+3);
+
+    /* KG bar (right) */
+    var kW = d.kg * maxW;
+    ctx.fillStyle = hexToRgba('#4ade80', 0.3);
+    ctx.beginPath(); ctx.roundRect(w/2+80, y, kW, barH, 4); ctx.fill();
+    ctx.fillStyle = '#4ade80'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(Math.round(d.kg*100)+'%', w/2+80+kW+5, y+barH/2+3);
+  });
+
+  /* Legend */
+  ctx.fillStyle = hexToRgba('#38bdf8',0.3); ctx.fillRect(w/2-160, h-20, 12, 12);
+  ctx.fillStyle = '#38bdf8'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('Vector Retrieval', w/2-143, h-10);
+
+  ctx.fillStyle = hexToRgba('#4ade80',0.3); ctx.fillRect(w/2+60, h-20, 12, 12);
+  ctx.fillStyle = '#4ade80';
+  ctx.fillText('Knowledge Graph', w/2+77, h-10);
+})();
+
+/* === TOPIC 6: Model Ecosystem Radar === */
+(function(){
+  var canvas = document.getElementById('c16t06-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Model Selection: Evaluation Dimensions (illustrative, not definitive)', w/2, 20);
+
+  var dims = ['Reasoning','Tool Use','Context','Latency','Price','Safety','Deploy Options'];
+  var centerX = w/2, centerY = h/2 + 15, radius = 90;
+
+  /* Draw radar axes */
+  dims.forEach(function(d, i) {
+    var angle = (Math.PI*2*i/dims.length) - Math.PI/2;
+    var ex = centerX + Math.cos(angle)*radius;
+    var ey = centerY + Math.sin(angle)*radius;
+
+    ctx.strokeStyle = hexToRgba('#334155', 0.5); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(ex, ey); ctx.stroke();
+
+    /* Label */
+    var lx = centerX + Math.cos(angle)*(radius+20);
+    var ly = centerY + Math.sin(angle)*(radius+20);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(d, lx, ly+3);
+  });
+
+  /* Concentric circles */
+  [0.25, 0.5, 0.75, 1.0].forEach(function(r) {
+    ctx.strokeStyle = hexToRgba('#334155', 0.3); ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(centerX, centerY, radius*r, 0, Math.PI*2); ctx.stroke();
+  });
+
+  /* Example profiles - illustrative */
+  var profiles = [
+    {name:'Profile A', color:'#38bdf8', vals:[0.9,0.85,0.9,0.7,0.6,0.85,0.3]},
+    {name:'Profile B', color:'#4ade80', vals:[0.85,0.8,0.7,0.8,0.7,0.8,0.4]},
+    {name:'Profile C', color:'#f472b6', vals:[0.7,0.6,0.6,0.9,0.9,0.6,0.95]}
+  ];
+
+  profiles.forEach(function(p) {
+    ctx.strokeStyle = p.color; ctx.lineWidth = 1.5;
+    ctx.fillStyle = hexToRgba(p.color, 0.08);
+    ctx.beginPath();
+    p.vals.forEach(function(v, i) {
+      var angle = (Math.PI*2*i/dims.length) - Math.PI/2;
+      var px = centerX + Math.cos(angle)*radius*v;
+      var py = centerY + Math.sin(angle)*radius*v;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  });
+
+  /* Legend */
+  var ly = h - 15;
+  profiles.forEach(function(p, i) {
+    var lx = w/2 - 120 + i*120;
+    ctx.fillStyle = p.color; ctx.fillRect(lx, ly-4, 10, 10);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(p.name, lx+14, ly+5);
+  });
+
+  ctx.fillStyle = '#475569'; ctx.font = '8px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Profiles are illustrative. Always benchmark on your own workload.', w/2, h-1);
+})();
+
+/* === TOPIC 7: Hyperparameter Landscape Visual === */
+(function(){
+  var canvas = document.getElementById('c16t07-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('The Full Hyperparameter Landscape', w/2, 20);
+
+  var categories = [
+    {label:'Optimization', params:['Learning Rate','Schedule','Warmup','Batch Size'], color:'#38bdf8', x:80, y:80},
+    {label:'Regularization', params:['Weight Decay','Dropout','Label Smoothing'], color:'#4ade80', x:280, y:80},
+    {label:'Architecture', params:['Seq Length','Layers','Heads','Hidden Dim'], color:'#818cf8', x:480, y:80},
+    {label:'Decoding', params:['Temperature','Top-p','Top-k','Max Tokens'], color:'#f472b6', x:80, y:200},
+    {label:'Retrieval', params:['Chunk Size','Overlap','Top-k','Reranker Depth'], color:'#fbbf24', x:280, y:200},
+    {label:'Fine-tuning', params:['LoRA Rank','Alpha','Target Modules'], color:'#c084fc', x:480, y:200}
+  ];
+
+  categories.forEach(function(cat) {
+    /* Category box */
+    ctx.fillStyle = hexToRgba(cat.color, 0.1);
+    ctx.strokeStyle = cat.color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(cat.x-70, cat.y-30, 140, 90, 10); ctx.fill(); ctx.stroke();
+
+    /* Label */
+    ctx.fillStyle = cat.color; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(cat.label, cat.x, cat.y-14);
+
+    /* Params */
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '8px monospace';
+    cat.params.forEach(function(p, i) {
+      ctx.fillText(p, cat.x, cat.y+4+i*12);
+    });
+  });
+
+  /* Central label */
+  ctx.fillStyle = hexToRgba('#e2e8f0', 0.1);
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(w/2, h/2+10, 25, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e2e8f0'; ctx.font = '8px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('System', w/2, h/2+8);
+  ctx.fillText('Design', w/2, h/2+18);
+
+  /* Connect all to center */
+  categories.forEach(function(cat) {
+    ctx.strokeStyle = hexToRgba('#475569', 0.3); ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(cat.x, cat.y+30); ctx.lineTo(w/2, h/2+10); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+})();
+
+/* === TOPIC 8: Bias Measurement Visual === */
+(function(){
+  var canvas = document.getElementById('c16t08-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Disaggregated Evaluation: Overall Score Hides Subgroup Disparities', w/2, 20);
+
+  var groups = [
+    {label:'Overall', score:0.92, color:'#38bdf8'},
+    {label:'Group A', score:0.97, color:'#4ade80'},
+    {label:'Group B', score:0.94, color:'#4ade80'},
+    {label:'Group C', score:0.88, color:'#fbbf24'},
+    {label:'Group D', score:0.75, color:'#f472b6'},
+    {label:'Edge Cases', score:0.61, color:'#f472b6'}
+  ];
+
+  var barH = 28, gap = 8, startY = 50;
+  var maxW = w - 240;
+
+  groups.forEach(function(g, i) {
+    var y = startY + i * (barH + gap);
+    var bw = g.score * maxW;
+
+    /* Background bar */
+    ctx.fillStyle = hexToRgba('#334155', 0.3);
+    ctx.beginPath(); ctx.roundRect(130, y, maxW, barH, 4); ctx.fill();
+
+    /* Score bar */
+    ctx.fillStyle = hexToRgba(g.color, 0.35);
+    ctx.beginPath(); ctx.roundRect(130, y, bw, barH, 4); ctx.fill();
+
+    /* Label */
+    ctx.fillStyle = i===0 ? '#e2e8f0' : '#94a3b8';
+    ctx.font = (i===0 ? '11' : '10') + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(g.label, 120, y+barH/2+4);
+
+    /* Score */
+    ctx.fillStyle = g.color; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText((g.score*100).toFixed(0)+'%', bw+140, y+barH/2+4);
+
+    /* Gap warning */
+    if(g.score < 0.85 && i > 0) {
+      var gap_val = groups[0].score - g.score;
+      ctx.fillStyle = '#f472b6'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('-'+(gap_val*100).toFixed(0)+'% gap', bw+175, y+barH/2+4);
+    }
+  });
+
+  /* Threshold line */
+  var threshX = 130 + 0.85 * maxW;
+  ctx.strokeStyle = hexToRgba('#fbbf24', 0.4); ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(threshX, 40); ctx.lineTo(threshX, startY + groups.length*(barH+gap)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#fbbf24'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Acceptable threshold', threshX, startY + groups.length*(barH+gap)+12);
+})();
+
+/* === TOPIC 9: Interpretability & Privacy Visual === */
+(function(){
+  var canvas = document.getElementById('c16t09-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('The Governance Tension: Visibility vs Exposure', w/2, 20);
+
+  /* Two sides */
+  var midX = w/2;
+
+  /* Interpretability side */
+  ctx.fillStyle = hexToRgba('#38bdf8', 0.08);
+  ctx.fillRect(20, 45, midX-40, h-65);
+  ctx.fillStyle = '#38bdf8'; ctx.font = '12px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('INTERPRETABILITY', midX/2+10, 65);
+  ctx.fillStyle = '#94a3b8'; ctx.font = '9px -apple-system, sans-serif';
+  ctx.fillText('"Why did the model say this?"', midX/2+10, 80);
+
+  var intItems = ['Attention Visualization','Probing Classifiers','Chain-of-Thought','Mechanistic Interp','Feature Attribution'];
+  intItems.forEach(function(item, i) {
+    var y = 100 + i*32;
+    ctx.fillStyle = hexToRgba('#38bdf8', 0.12);
+    ctx.beginPath(); ctx.roundRect(40, y, midX-80, 26, 6); ctx.fill();
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(item, 52, y+17);
+  });
+
+  /* Privacy side */
+  ctx.fillStyle = hexToRgba('#f472b6', 0.08);
+  ctx.fillRect(midX+20, 45, midX-40, h-65);
+  ctx.fillStyle = '#f472b6'; ctx.font = '12px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('PRIVACY', midX+midX/2+10, 65);
+  ctx.fillStyle = '#94a3b8'; ctx.font = '9px -apple-system, sans-serif';
+  ctx.fillText('"What data must we protect?"', midX+midX/2+10, 80);
+
+  var privItems = ['Access Control','Data Minimization','Logging Policy','PII Redaction','Data Residency'];
+  privItems.forEach(function(item, i) {
+    var y = 100 + i*32;
+    ctx.fillStyle = hexToRgba('#f472b6', 0.12);
+    ctx.beginPath(); ctx.roundRect(midX+40, y, midX-80, 26, 6); ctx.fill();
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(item, midX+52, y+17);
+  });
+
+  /* Tension arrows */
+  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(midX-12, h/2); ctx.lineTo(midX+12, h/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(midX-12, h/2); ctx.lineTo(midX-6, h/2-5); ctx.lineTo(midX-6, h/2+5); ctx.closePath(); ctx.fillStyle='#fbbf24'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(midX+12, h/2); ctx.lineTo(midX+6, h/2-5); ctx.lineTo(midX+6, h/2+5); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fbbf24'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('TENSION', midX, h/2+18);
+})();
+
+/* === TOPIC 10: Deployment Bottlenecks Visual === */
+(function(){
+  var canvas = document.getElementById('c16t10-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Deployment Governance Matrix', w/2, 20);
+
+  var areas = [
+    {
+      label: 'Privacy', color: '#f472b6', y: 55,
+      controls: ['PII Redaction','Access Control','Data Minimization','Retention Policy']
+    },
+    {
+      label: 'Quality', color: '#38bdf8', y: 120,
+      controls: ['Regression Tests','Scenario Testing','A/B Testing','Eval Versioning']
+    },
+    {
+      label: 'Safety', color: '#fbbf24', y: 185,
+      controls: ['Input Moderation','Output Filtering','Human Escalation','Red-teaming']
+    },
+    {
+      label: 'Operations', color: '#4ade80', y: 250,
+      controls: ['Logging/Tracing','Rollback','Versioning','Cost Attribution']
+    }
+  ];
+
+  areas.forEach(function(area) {
+    /* Area label */
+    ctx.fillStyle = hexToRgba(area.color, 0.15);
+    ctx.strokeStyle = area.color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(30, area.y, 100, 45, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = area.color; ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(area.label, 80, area.y+27);
+
+    /* Controls */
+    area.controls.forEach(function(ctrl, i) {
+      var cx = 170 + i * 135;
+      ctx.fillStyle = hexToRgba(area.color, 0.08);
+      ctx.strokeStyle = hexToRgba(area.color, 0.3); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(cx, area.y+5, 120, 34, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(ctrl, cx+60, area.y+26);
+
+      /* Connection line */
+      ctx.strokeStyle = hexToRgba(area.color, 0.2); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(130, area.y+22); ctx.lineTo(cx, area.y+22); ctx.stroke();
+    });
+  });
+
+  /* Bottom label */
+  ctx.fillStyle = '#475569'; ctx.font = '9px -apple-system, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Each area must be addressed for production readiness. Missing any creates blind spots.', w/2, h-8);
+})();
+
+/* === Scroll, TOC highlighting, copy === */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

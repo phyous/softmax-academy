@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 6: Classification with Large Language Models</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 6 &middot; 10 Topics</div>
+  <h1>Classification with Large Language Models</h1>
+  <p>How to use LLMs as classifiers &mdash; and when a smaller, dedicated model is the smarter production choice.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Although many teams first encounter LLMs as chat systems, they are also powerful classification engines. They can assign labels through prompting, produce rationales for audits, and adapt quickly to new taxonomies. But not every classification workload should be handed to a general-purpose generator. This chapter covers how to choose between prompting, zero-shot, few-shot, fine-tuned classifiers, and hybrid pipelines &mdash; with clear decision criteria for production.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Approaches &amp; Strategy</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Generative LLM as Classifier</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Prompting vs Fine-Tuning</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Zero-Shot vs Few-Shot</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Taxonomy Design</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Class Imbalance</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Production &amp; Reliability</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Multi-Label Classification</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Metrics That Matter</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Confidence Estimation</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Human in the Loop</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Production Failure Modes</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Approaches &amp; Strategy</span></div>
+    <p class="group-intro">How LLMs perform classification, when to prompt vs fine-tune, and how to design label systems that actually work.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c06t01-flow { display: flex; align-items: stretch; gap: 0; margin-bottom: 12px; }
+.c06t01-stage { flex: 1; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.c06t01-stage:not(:last-child)::after { content: ''; position: absolute; right: -1px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-left: 8px solid #334155; border-top: 8px solid transparent; border-bottom: 8px solid transparent; z-index: 1; }
+.c06t01-stage-icon { font-size: 1.2rem; }
+.c06t01-stage-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.c06t01-stage-desc { font-size: 0.78rem; color: #94a3b8; text-align: center; }
+.c06t01-demo { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+.c06t01-demo-label { font-size: 0.72rem; text-transform: uppercase; color: #64748b; margin-bottom: 6px; letter-spacing: 0.06em; }
+.c06t01-demo-text { font-size: 0.85rem; color: #e2e8f0; font-family: monospace; white-space: pre-wrap; }
+.c06t01-result { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; margin-top: 8px; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>Generative LLM as Classifier</h2></div>
+
+  <div class="quick-take">A generative LLM can classify by being prompted to map an input into one label from a defined set. Instead of a dedicated classifier head, it uses instruction-following and language understanding to produce the target class &mdash; often with a justification or structured output alongside.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Using an LLM for classification is like asking an expert to read a document and stamp it with a category label. The expert can also explain their reasoning, but they are slower and more expensive than a purpose-built sorting machine.</div>
+
+  <div class="visual-container" id="c06t01-visual">
+    <div class="vis-btns" id="c06t01-btns">
+      <button class="vis-btn active" data-example="sentiment">Sentiment</button>
+      <button class="vis-btn" data-example="topic">Topic</button>
+      <button class="vis-btn" data-example="intent">Intent</button>
+    </div>
+    <div class="c06t01-demo" id="c06t01-input-box">
+      <div class="c06t01-demo-label">Input</div>
+      <div class="c06t01-demo-text" id="c06t01-input-text">"This product is incredible, best purchase I've made all year!"</div>
+    </div>
+    <div style="text-align:center; padding:8px; color:#475569;">&#x2193; LLM classifies &#x2193;</div>
+    <div class="c06t01-demo">
+      <div class="c06t01-demo-label">Output</div>
+      <div class="c06t01-demo-text" id="c06t01-output-text">{"label": "positive", "confidence": "high", "reason": "Strongly positive language: 'incredible', 'best purchase'"}</div>
+      <div class="c06t01-result" id="c06t01-result" style="background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3);">POSITIVE</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How It Works</h3>
+    <p>A generative LLM performs classification by being prompted with instructions that define the label set and expected output format. The model uses its language understanding to map the input text to one of the defined categories. This works especially well when:</p>
+    <ul>
+      <li><strong>Classes are described in natural language</strong> &mdash; The model can understand what "urgent" or "billing_issue" means from its pretraining.</li>
+      <li><strong>Input is messy or unstructured</strong> &mdash; LLMs handle typos, slang, and mixed formats better than traditional classifiers.</li>
+      <li><strong>Examples are scarce</strong> &mdash; No labeled training data is needed for zero-shot classification.</li>
+    </ul>
+
+    <h3>The Trade-Off</h3>
+    <p>Generative classification is powerful but comes with costs. Compared to a dedicated classifier:</p>
+    <table>
+      <thead><tr><th>Factor</th><th>LLM Classifier</th><th>Dedicated Classifier</th></tr></thead>
+      <tbody>
+        <tr><td>Setup time</td><td>Minutes (write a prompt)</td><td>Days-weeks (train model)</td></tr>
+        <tr><td>Per-prediction cost</td><td>Higher (API call)</td><td>Lower (small model)</td></tr>
+        <tr><td>Latency</td><td>100ms&ndash;2s</td><td>1&ndash;10ms</td></tr>
+        <tr><td>Output stability</td><td>Can vary between calls</td><td>Deterministic</td></tr>
+        <tr><td>Explainability</td><td>Can generate rationale</td><td>Feature importance only</td></tr>
+      </tbody>
+    </table>
+    <p>For a detailed comparison of when to prompt versus fine-tune, see <a href="#topic-2" class="xref">Topic 2: Prompting vs Fine-Tuning</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>LLMs can classify through prompting alone &mdash; fast to set up and great for messy inputs. But they are slower, costlier, and less stable than dedicated classifiers, so the choice depends on your operational constraints.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; LLM-Based Classification</summary>
+    <pre><code><span class="kw">import</span> json
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+client = OpenAI()
+
+<span class="kw">def</span> <span class="fn">classify_with_llm</span>(text, labels):
+    <span class="str">"""Classify text into one of the given labels using an LLM."""</span>
+    prompt = <span class="str">f"""Classify the following text into exactly one of these labels:
+{json.dumps(labels)}
+
+Text: "{text}"
+
+Respond with JSON: {{"label": "...", "reason": "..."}}"</span>
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        <span class="dec">model</span>=<span class="str">"gpt-4o-mini"</span>,
+        <span class="dec">messages</span>=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}],
+        <span class="dec">temperature</span>=<span class="num">0</span>,  <span class="com"># Deterministic for classification</span>
+    )
+
+    <span class="kw">return</span> json.<span class="fn">loads</span>(response.choices[<span class="num">0</span>].message.content)
+
+<span class="com"># Example usage</span>
+result = <span class="fn">classify_with_llm</span>(
+    <span class="str">"This product is incredible, best purchase all year!"</span>,
+    [<span class="str">"positive"</span>, <span class="str">"negative"</span>, <span class="str">"neutral"</span>]
+)
+<span class="fn">print</span>(result)
+<span class="com"># {"label": "positive", "reason": "Strongly positive language..."}</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you constrain the LLM to only output valid labels?</summary>
+      <div class="fq-a">Use <strong>structured output modes</strong> (like OpenAI's JSON mode or function calling), explicitly list valid labels in the prompt, add a validation step that rejects or retries invalid outputs, or use <strong>constrained decoding</strong> (logit bias) to force the model to choose from a predefined set. Always validate the output programmatically &mdash; never trust raw model output in production.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can the LLM classify in languages it was not primarily trained on?</summary>
+      <div class="fq-a">Modern multilingual LLMs can classify in many languages, but performance degrades for <strong>low-resource languages</strong>. The model may misunderstand nuance, cultural context, or domain-specific terminology in those languages. Always evaluate on representative data in the target language before deploying.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What about using the LLM's log probabilities for classification?</summary>
+      <div class="fq-a">Some APIs expose <strong>token-level log probabilities</strong>, which can be used to compute the probability the model assigns to each label token. This provides a more calibrated confidence signal than verbal confidence statements. However, not all providers expose logprobs, and the technique requires careful prompt engineering to work reliably.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var examples = {
+    sentiment: {
+      input: '"This product is incredible, best purchase I\'ve made all year!"',
+      output: '{"label": "positive", "confidence": "high", "reason": "Strongly positive language: \'incredible\', \'best purchase\'"}',
+      result: 'POSITIVE', color: '#4ade80'
+    },
+    topic: {
+      input: '"The new firmware update bricked my router and customer support hasn\'t responded in 3 days."',
+      output: '{"label": "technical_support", "confidence": "high", "reason": "Hardware failure after update, unresolved support ticket"}',
+      result: 'TECHNICAL SUPPORT', color: '#38bdf8'
+    },
+    intent: {
+      input: '"Can I upgrade my plan to include international calls?"',
+      output: '{"label": "plan_change", "confidence": "high", "reason": "Customer requesting modification to their current service plan"}',
+      result: 'PLAN CHANGE', color: '#a78bfa'
+    }
+  };
+  document.querySelectorAll('#c06t01-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c06t01-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var ex = examples[btn.getAttribute('data-example')];
+      document.getElementById('c06t01-input-text').textContent = ex.input;
+      document.getElementById('c06t01-output-text').textContent = ex.output;
+      var res = document.getElementById('c06t01-result');
+      res.textContent = ex.result;
+      res.style.background = hexToRgba(ex.color, 0.15);
+      res.style.color = ex.color;
+      res.style.border = '1px solid ' + hexToRgba(ex.color, 0.3);
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c06t02-decision { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c06t02-option { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; transition: border-color 0.2s; cursor: pointer; }
+.c06t02-option:hover { border-color: #38bdf8; }
+.c06t02-option.selected { border-color: #38bdf8; }
+.c06t02-option-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; }
+.c06t02-option-list { list-style: none; padding: 0; }
+.c06t02-option-list li { font-size: 0.8rem; color: #94a3b8; padding: 3px 0; padding-left: 16px; position: relative; }
+.c06t02-option-list li::before { content: ''; position: absolute; left: 0; top: 10px; width: 6px; height: 6px; border-radius: 50%; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Prompting vs Fine-Tuning</h2></div>
+
+  <div class="quick-take">Use prompting when the taxonomy changes often, labeled data is limited, and you need to move quickly. Use fine-tuning when labels are stable, volume is high, and you need tighter consistency and lower latency. Prompting buys flexibility; fine-tuning buys specialization.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Prompting is like hiring a smart generalist and giving them a brief. Fine-tuning is like training a specialist for months. The generalist starts faster, but the specialist is better and cheaper at high volume.</div>
+
+  <div class="visual-container" id="c06t02-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Click each approach to see when it is the right choice.</div>
+    <div class="c06t02-decision">
+      <div class="c06t02-option selected" id="c06t02-prompt-card">
+        <div class="c06t02-option-title" style="color:#38bdf8;">Prompting</div>
+        <ul class="c06t02-option-list">
+          <li style="color:#cbd5e1;">&#x2713; Taxonomy changes frequently</li>
+          <li style="color:#cbd5e1;">&#x2713; Limited labeled data</li>
+          <li style="color:#cbd5e1;">&#x2713; Need explanations with labels</li>
+          <li style="color:#cbd5e1;">&#x2713; Rapid prototyping phase</li>
+          <li style="color:#94a3b8;">&#x2717; Higher per-prediction cost</li>
+          <li style="color:#94a3b8;">&#x2717; Output can be inconsistent</li>
+        </ul>
+      </div>
+      <div class="c06t02-option" id="c06t02-finetune-card">
+        <div class="c06t02-option-title" style="color:#a78bfa;">Fine-Tuning</div>
+        <ul class="c06t02-option-list">
+          <li style="color:#cbd5e1;">&#x2713; Stable label set</li>
+          <li style="color:#cbd5e1;">&#x2713; High prediction volume</li>
+          <li style="color:#cbd5e1;">&#x2713; Low latency required</li>
+          <li style="color:#cbd5e1;">&#x2713; Tight consistency needed</li>
+          <li style="color:#94a3b8;">&#x2717; Requires labeled training data</li>
+          <li style="color:#94a3b8;">&#x2717; Slower to iterate</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Decision Matrix</h3>
+    <p>The prompting-versus-fine-tuning decision is not about which is "better" &mdash; it is about matching the approach to the operational reality:</p>
+    <table>
+      <thead><tr><th>Factor</th><th>Favor Prompting</th><th>Favor Fine-Tuning</th></tr></thead>
+      <tbody>
+        <tr><td>Label stability</td><td>Labels change monthly</td><td>Labels fixed for 6+ months</td></tr>
+        <tr><td>Data availability</td><td>&lt;100 labeled examples</td><td>1,000+ labeled examples</td></tr>
+        <tr><td>Prediction volume</td><td>&lt;1,000/day</td><td>&gt;10,000/day</td></tr>
+        <tr><td>Latency target</td><td>&gt;500ms acceptable</td><td>&lt;50ms required</td></tr>
+        <tr><td>Explanation needs</td><td>Rationale required</td><td>Label only</td></tr>
+        <tr><td>Team ML maturity</td><td>Low (prompt-first team)</td><td>High (ML ops capability)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Lifecycle Pattern</h3>
+    <p>Many successful teams follow a lifecycle: <strong>start with prompting</strong> to validate the task definition and build an evaluation set, then <strong>migrate to fine-tuning</strong> once the taxonomy stabilizes and volume justifies the investment. The prompting phase generates labeled data that feeds the fine-tuning phase &mdash; a natural flywheel. See <a href="#topic-3" class="xref">Topic 3: Zero-Shot vs Few-Shot</a> for the intermediate step.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Prompting buys flexibility and speed; fine-tuning buys consistency and cost efficiency. The best teams start with prompting to validate, then graduate to fine-tuning when the task stabilizes.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Prompt-Based vs Fine-Tuned Classifier</summary>
+    <pre><code><span class="com"># === Approach 1: Prompt-based classification ===</span>
+<span class="com"># Fast to set up, no training data needed</span>
+<span class="kw">def</span> <span class="fn">prompt_classify</span>(text, labels):
+    prompt = <span class="str">f"Classify into one of {labels}: \"{text}\"\nLabel:"</span>
+    <span class="com"># response = llm.generate(prompt, temperature=0)</span>
+    <span class="com"># return response.strip()</span>
+    <span class="kw">pass</span>
+
+<span class="com"># === Approach 2: Fine-tuned classifier ===</span>
+<span class="com"># Requires labeled data, but faster and cheaper at scale</span>
+<span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="com"># After fine-tuning on your labeled dataset:</span>
+classifier = pipeline(
+    <span class="str">"text-classification"</span>,
+    <span class="dec">model</span>=<span class="str">"./my-fine-tuned-classifier"</span>,
+)
+
+<span class="com"># Inference: ~5ms, deterministic, well-calibrated</span>
+result = classifier(<span class="str">"The delivery was two weeks late."</span>)
+<span class="fn">print</span>(result)
+<span class="com"># [{"label": "complaint", "score": 0.94}]</span>
+
+<span class="com"># Cost comparison at 100K predictions/day:</span>
+<span class="com"># Prompting: ~$50-200/day (API costs)</span>
+<span class="com"># Fine-tuned: ~$5-10/day (self-hosted GPU)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can you fine-tune the LLM itself instead of training a separate classifier?</summary>
+      <div class="fq-a">Yes. You can fine-tune the LLM on classification examples so it produces labels more reliably. This gives you the LLM's language understanding with better consistency. However, it is more expensive than fine-tuning a small BERT-style model and you may lose some of the LLM's general capabilities (<strong>catastrophic forgetting</strong>). <strong>LoRA</strong> fine-tuning is a practical middle ground.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What if I need explanations but also want low latency?</summary>
+      <div class="fq-a">Use a <strong>two-stage pipeline</strong>: a fast fine-tuned classifier for the label, and an LLM call only when an explanation is requested (e.g., for audits or escalations). This keeps median latency low while preserving explainability where it matters. Alternatively, train the fine-tuned model to output both label and rationale.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How much labeled data do you need for fine-tuning to beat prompting?</summary>
+      <div class="fq-a">It depends on the task complexity, but a common rule of thumb is <strong>500-2,000 labeled examples</strong> for a fine-tuned model to match or exceed a well-crafted few-shot prompt. For very simple binary tasks, even 200 examples can suffice. For complex multi-class problems with subtle distinctions, you may need 5,000+.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<style>
+.c06t03-examples { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.c06t03-example-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(30,41,59,0.8); font-size: 0.82rem; }
+.c06t03-example-row:last-child { border-bottom: none; }
+.c06t03-example-text { flex: 1; color: #cbd5e1; }
+.c06t03-example-label { padding: 2px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Zero-Shot vs Few-Shot Classification</h2></div>
+
+  <div class="quick-take">Zero-shot classification gives the model only label definitions or instructions. Few-shot also provides a handful of examples showing how inputs map to classes. Few-shot examples are particularly helpful when labels are subtle, overlapping, or organization-specific &mdash; they turn the prompt into a tiny on-the-fly training signal.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Zero-shot is like telling a new employee "sort these into categories A, B, C" with no examples. Few-shot is like showing them 3 sorted items first. The examples dramatically reduce ambiguity.</div>
+
+  <div class="visual-container" id="c06t03-visual">
+    <div class="vis-btns" id="c06t03-btns">
+      <button class="vis-btn active" data-mode="zero">Zero-Shot</button>
+      <button class="vis-btn" data-mode="few">Few-Shot (3 examples)</button>
+    </div>
+    <div id="c06t03-zero" style="display:block;">
+      <div class="c06t03-examples">
+        <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:8px; letter-spacing:0.06em;">Prompt (instructions only)</div>
+        <div style="font-size:0.82rem; color:#cbd5e1; font-family:monospace; white-space:pre-wrap;">Classify the customer message as: billing, technical, or general.
+
+Message: "My card was charged twice for the same order."
+Label:</div>
+      </div>
+    </div>
+    <div id="c06t03-few" style="display:none;">
+      <div class="c06t03-examples">
+        <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:8px; letter-spacing:0.06em;">Prompt (instructions + examples)</div>
+        <div class="c06t03-example-row">
+          <span class="c06t03-example-text">"I can't log into my account"</span>
+          <span class="c06t03-example-label" style="background:rgba(56,189,248,0.15); color:#38bdf8;">technical</span>
+        </div>
+        <div class="c06t03-example-row">
+          <span class="c06t03-example-text">"Please update my billing address"</span>
+          <span class="c06t03-example-label" style="background:rgba(167,139,250,0.15); color:#a78bfa;">billing</span>
+        </div>
+        <div class="c06t03-example-row">
+          <span class="c06t03-example-text">"What are your business hours?"</span>
+          <span class="c06t03-example-label" style="background:rgba(52,211,153,0.15); color:#34d399;">general</span>
+        </div>
+        <div style="border-top:1px dashed #334155; margin-top:8px; padding-top:8px;">
+          <div style="font-size:0.82rem; color:#cbd5e1; font-family:monospace;">Message: "My card was charged twice for the same order."
+Label:</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When Zero-Shot Suffices</h3>
+    <p>Zero-shot classification works when labels are <strong>self-explanatory</strong> (like "positive" / "negative"), when the model's pretraining data covers the domain well, and when the task is common enough that the model has seen similar tasks during training. It is fastest to set up and requires no example curation.</p>
+
+    <h3>When Few-Shot Helps</h3>
+    <p>Few-shot examples are valuable when:</p>
+    <ul>
+      <li><strong>Labels are organization-specific</strong> &mdash; "P1" vs "P2" escalation levels that the model has never seen.</li>
+      <li><strong>Boundaries are subtle</strong> &mdash; When "billing" and "account" overlap, examples show where you draw the line.</li>
+      <li><strong>Format matters</strong> &mdash; Examples demonstrate the exact output structure you expect.</li>
+      <li><strong>Edge cases are common</strong> &mdash; Strategic examples can bias the model toward correct handling of tricky cases.</li>
+    </ul>
+    <p>GPT-3 (Brown et al., 2020) popularized in-context learning, where performance can improve substantially with well-chosen examples. The quality and diversity of examples matters more than quantity &mdash; 3-5 carefully chosen examples often outperform 20 random ones.</p>
+
+    <h3>Example Selection Strategy</h3>
+    <p>Choose few-shot examples that cover each class, include at least one edge case, and represent the actual distribution of inputs. Avoid examples that are too easy or too similar to each other. See <a href="#topic-4" class="xref">Topic 4: Taxonomy Design</a> for how label definitions interact with example selection.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Zero-shot works for obvious labels; few-shot works for subtle ones. The examples act as a tiny on-the-fly training signal that reduces ambiguity and improves boundary precision.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Zero-Shot vs Few-Shot Prompting</summary>
+    <pre><code><span class="com"># === Zero-shot: instructions only ===</span>
+zero_shot_prompt = <span class="str">"""Classify the customer message as: billing, technical, or general.
+
+Message: "My card was charged twice for the same order."
+Label:"""</span>
+
+<span class="com"># === Few-shot: instructions + examples ===</span>
+few_shot_prompt = <span class="str">"""Classify customer messages. Examples:
+
+"I can't log into my account" -> technical
+"Please update my billing address" -> billing
+"What are your business hours?" -> general
+
+Message: "My card was charged twice for the same order."
+Label:"""</span>
+
+<span class="com"># Few-shot typically improves accuracy by 10-30%</span>
+<span class="com"># on ambiguous or organization-specific labels</span>
+
+<span class="com"># Pro tip: use diverse, representative examples</span>
+<span class="com"># that cover edge cases, not just easy examples</span>
+<span class="kw">def</span> <span class="fn">select_examples</span>(examples, n_per_class=<span class="num">2</span>):
+    <span class="str">"""Select diverse examples covering each class."""</span>
+    selected = []
+    <span class="kw">for</span> label <span class="kw">in</span> <span class="fn">set</span>(e[<span class="str">"label"</span>] <span class="kw">for</span> e <span class="kw">in</span> examples):
+        class_examples = [e <span class="kw">for</span> e <span class="kw">in</span> examples <span class="kw">if</span> e[<span class="str">"label"</span>] == label]
+        <span class="com"># Pick diverse examples (e.g., by embedding distance)</span>
+        selected.extend(class_examples[:n_per_class])
+    <span class="kw">return</span> selected</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does the order of few-shot examples matter?</summary>
+      <div class="fq-a">Yes. LLMs can be sensitive to <strong>example ordering</strong>, with recency bias causing the model to favor labels seen in the last example. Best practice is to vary the order across calls or place the most representative (not the most recent) class last. Some research suggests randomizing order improves robustness.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How many few-shot examples are enough?</summary>
+      <div class="fq-a">For most classification tasks, <strong>3-5 examples per class</strong> provide the best accuracy-to-cost ratio. More examples increase prompt length (and cost) without proportional accuracy gains. However, for very subtle distinctions, up to 10 examples per class can help. Always measure the marginal improvement of additional examples.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can few-shot examples hurt performance?</summary>
+      <div class="fq-a">Yes. <strong>Misleading or unrepresentative examples</strong> can bias the model toward incorrect patterns. Examples that are too similar to each other reduce diversity. And mislabeled examples in the prompt directly teach the model wrong associations. Quality control of few-shot examples is critical.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  document.querySelectorAll('#c06t03-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c06t03-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var mode = btn.getAttribute('data-mode');
+      document.getElementById('c06t03-zero').style.display = mode === 'zero' ? 'block' : 'none';
+      document.getElementById('c06t03-few').style.display = mode === 'few' ? 'block' : 'none';
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<style>
+.c06t04-taxonomy { display: flex; flex-direction: column; gap: 8px; }
+.c06t04-label-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.c06t04-label-card:hover { border-color: #38bdf8; }
+.c06t04-label-card.bad { border-color: rgba(244,114,182,0.4); }
+.c06t04-label-card.good { border-color: rgba(74,222,128,0.4); }
+.c06t04-label-name { font-size: 0.85rem; font-weight: 600; flex-shrink: 0; width: 100px; }
+.c06t04-label-desc { font-size: 0.78rem; color: #94a3b8; flex: 1; }
+.c06t04-label-badge { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+</style>
+
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Taxonomy Design</h2></div>
+
+  <div class="quick-take">A label taxonomy should be mutually understandable, operationally useful, and as non-overlapping as possible. Labels need clear boundaries, inclusion rules, exclusion rules, and examples. If humans cannot classify consistently, the LLM will not fix the ontology for you.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Taxonomy design is product design, not modeling. A confused label system produces a confused classifier &mdash; no amount of model power fixes ambiguous definitions.</div>
+
+  <div class="visual-container" id="c06t04-visual">
+    <div class="vis-btns" id="c06t04-btns">
+      <button class="vis-btn active" data-quality="bad">Poor Taxonomy</button>
+      <button class="vis-btn" data-quality="good">Strong Taxonomy</button>
+    </div>
+    <div class="c06t04-taxonomy" id="c06t04-labels"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Principles of Good Taxonomy</h3>
+    <ul>
+      <li><strong>Mutual exclusivity</strong> &mdash; Each input should clearly belong to one class. If "billing complaint" and "service complaint" frequently overlap, merge or restructure them.</li>
+      <li><strong>Exhaustive coverage</strong> &mdash; Every expected input should map to at least one label. Include an "other" category for genuinely novel cases.</li>
+      <li><strong>Operational utility</strong> &mdash; Labels should map to different actions. If two labels trigger the same workflow, they should probably be merged.</li>
+      <li><strong>Clear definitions</strong> &mdash; Each label needs a description, inclusion criteria, exclusion criteria, and 2-3 examples.</li>
+    </ul>
+
+    <h3>The Human Agreement Test</h3>
+    <p>Before building any classifier, have 3-5 humans independently label a sample of 100+ items. Measure <strong>inter-annotator agreement</strong> (e.g., Cohen's kappa). If humans agree less than 80% of the time, the taxonomy is the problem, not the model. Fix the definitions before investing in model training.</p>
+
+    <h3>Taxonomy Evolution</h3>
+    <p>Taxonomies evolve. A well-designed system anticipates this by:</p>
+    <table>
+      <thead><tr><th>Strategy</th><th>Benefit</th></tr></thead>
+      <tbody>
+        <tr><td>Version your taxonomy</td><td>Track which labels existed at which time</td></tr>
+        <tr><td>Log raw predictions + inputs</td><td>Enables re-labeling when taxonomy changes</td></tr>
+        <tr><td>Include "other/unknown"</td><td>Catches inputs that don't fit current labels</td></tr>
+        <tr><td>Monitor confusion pairs</td><td>Identifies labels that need clearer boundaries</td></tr>
+      </tbody>
+    </table>
+    <p>This connects directly to <a href="#topic-5" class="xref">Topic 5: Class Imbalance</a> &mdash; poorly designed taxonomies often create artificial imbalance by merging common cases into one large class.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Many classification failures come from unclear class definitions, not weak models. Treat taxonomy design as product design: define boundaries, test with humans, and version your label system.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Taxonomy Definition &amp; Validation</summary>
+    <pre><code><span class="com"># A well-structured taxonomy definition for an LLM classifier</span>
+taxonomy = {
+    <span class="str">"billing"</span>: {
+        <span class="str">"description"</span>: <span class="str">"Issues related to charges, invoices, refunds, or payment methods"</span>,
+        <span class="str">"includes"</span>: [<span class="str">"double charges"</span>, <span class="str">"refund requests"</span>, <span class="str">"invoice errors"</span>],
+        <span class="str">"excludes"</span>: [<span class="str">"account access issues"</span>, <span class="str">"feature requests"</span>],
+        <span class="str">"examples"</span>: [
+            <span class="str">"I was charged twice for my subscription"</span>,
+            <span class="str">"Can I get a refund for last month?"</span>,
+        ],
+    },
+    <span class="str">"technical"</span>: {
+        <span class="str">"description"</span>: <span class="str">"Issues with product functionality, bugs, or access"</span>,
+        <span class="str">"includes"</span>: [<span class="str">"login failures"</span>, <span class="str">"app crashes"</span>, <span class="str">"feature not working"</span>],
+        <span class="str">"excludes"</span>: [<span class="str">"billing questions"</span>, <span class="str">"general inquiries"</span>],
+        <span class="str">"examples"</span>: [
+            <span class="str">"The app crashes when I try to upload a file"</span>,
+            <span class="str">"I can't reset my password"</span>,
+        ],
+    },
+}
+
+<span class="com"># Validate taxonomy quality: check for overlapping keywords</span>
+<span class="kw">def</span> <span class="fn">check_overlap</span>(taxonomy):
+    <span class="kw">for</span> l1, d1 <span class="kw">in</span> taxonomy.items():
+        <span class="kw">for</span> l2, d2 <span class="kw">in</span> taxonomy.items():
+            <span class="kw">if</span> l1 >= l2: <span class="kw">continue</span>
+            overlap = <span class="fn">set</span>(d1[<span class="str">"includes"</span>]) & <span class="fn">set</span>(d2[<span class="str">"includes"</span>])
+            <span class="kw">if</span> overlap:
+                <span class="fn">print</span>(<span class="str">f"WARNING: {l1} and {l2} overlap on: {overlap}"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How many classes can an LLM reliably handle?</summary>
+      <div class="fq-a">LLMs can handle <strong>dozens of classes</strong> if the labels are well-defined and distinct. Performance degrades when labels are semantically similar or when the prompt becomes too long with definitions. For very large taxonomies (100+ classes), consider a <strong>hierarchical approach</strong>: classify into broad categories first, then sub-classify within each category.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should the taxonomy be flat or hierarchical?</summary>
+      <div class="fq-a">Hierarchical taxonomies are better when you have many fine-grained categories that naturally group into broader themes. They reduce cognitive load on the model and allow graceful degradation &mdash; if the model gets the broad category right but the subcategory wrong, you still have useful information. Flat taxonomies are simpler but become unwieldy above ~20 classes.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What happens when the taxonomy changes in production?</summary>
+      <div class="fq-a">Taxonomy changes can silently break classifiers. <strong>Version your taxonomy</strong>, log raw inputs alongside predictions, and re-evaluate the model whenever labels change. For prompted classifiers, update the prompt immediately. For fine-tuned models, you need to retrain or at minimum re-evaluate and patch the most affected classes.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var taxonomies = {
+    bad: [
+      { name: 'Problem', desc: 'Something is wrong', quality: 'bad', note: 'Too vague' },
+      { name: 'Issue', desc: 'Customer has an issue', quality: 'bad', note: 'Overlaps with Problem' },
+      { name: 'Complaint', desc: 'Customer is unhappy', quality: 'bad', note: 'Overlaps with both' },
+      { name: 'Other', desc: 'Everything else', quality: 'bad', note: 'Catch-all without boundaries' }
+    ],
+    good: [
+      { name: 'Billing', desc: 'Charges, refunds, invoices, payment methods', quality: 'good', note: 'Clear scope' },
+      { name: 'Technical', desc: 'Product bugs, login failures, feature not working', quality: 'good', note: 'Distinct actions' },
+      { name: 'Account', desc: 'Profile changes, plan upgrades, cancellations', quality: 'good', note: 'Non-overlapping' },
+      { name: 'General', desc: 'Business hours, policies, other inquiries', quality: 'good', note: 'Well-bounded' }
+    ]
+  };
+  function render(quality) {
+    var container = document.getElementById('c06t04-labels');
+    container.innerHTML = '';
+    taxonomies[quality].forEach(function(l) {
+      var card = document.createElement('div');
+      card.className = 'c06t04-label-card ' + l.quality;
+      var color = l.quality === 'good' ? '#4ade80' : '#f472b6';
+      card.innerHTML = '<div class="c06t04-label-name" style="color:'+color+'">'+l.name+'</div>' +
+        '<div class="c06t04-label-desc">'+l.desc+'</div>' +
+        '<div class="c06t04-label-badge" style="background:'+hexToRgba(color,0.15)+'; color:'+color+'">'+l.note+'</div>';
+      container.appendChild(card);
+    });
+  }
+  render('bad');
+  document.querySelectorAll('#c06t04-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c06t04-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-quality'));
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<style>
+.c06t05-bar-chart { display: flex; flex-direction: column; gap: 6px; }
+.c06t05-bar-row { display: flex; align-items: center; gap: 10px; }
+.c06t05-bar-label { width: 80px; font-size: 0.8rem; color: #94a3b8; text-align: right; flex-shrink: 0; }
+.c06t05-bar-track { flex: 1; height: 24px; background: #0f172a; border-radius: 6px; overflow: hidden; }
+.c06t05-bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 8px; font-size: 0.75rem; font-weight: 600; transition: width 0.5s ease; }
+.c06t05-bar-count { width: 50px; font-size: 0.78rem; color: #64748b; text-align: right; flex-shrink: 0; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Class Imbalance</h2></div>
+
+  <div class="quick-take">Class imbalance means some categories appear far more often than others. Prompt-only systems may overpredict majority classes unless the prompt explicitly describes minority cases. Address imbalance through better examples, targeted evaluation, cost-sensitive policies, or reweighted training data.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Imbalance is like a search-and-rescue team that mostly finds lost hikers, not lost climbers. If you only measure "found people," you will think the team is great &mdash; even if they miss every climber.</div>
+
+  <div class="visual-container" id="c06t05-visual">
+    <div class="vis-btns" id="c06t05-btns">
+      <button class="vis-btn active" data-dist="imbalanced">Imbalanced</button>
+      <button class="vis-btn" data-dist="balanced">Balanced</button>
+    </div>
+    <div class="c06t05-bar-chart" id="c06t05-chart"></div>
+    <div style="margin-top:10px; padding:8px 12px; background:#0f172a; border-radius:8px; border:1px solid #334155;">
+      <div style="font-size:0.78rem; color:#64748b;" id="c06t05-note">Warning: "Fraud" has only 2% of samples. A naive model can reach 95% accuracy by never predicting fraud.</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Imbalance Matters</h3>
+    <p>In imbalanced datasets, a model can achieve high overall accuracy by simply predicting the majority class for every input. If 98% of transactions are legitimate, a model that always says "not fraud" is 98% accurate &mdash; but completely useless for its actual purpose.</p>
+    <p>For LLM-based classifiers, imbalance manifests differently. The model is not trained on your specific distribution, but its prompting behavior can be biased by the number of examples per class in the prompt or by the base rates in its pretraining data.</p>
+
+    <h3>Mitigation Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>Approach</th><th>When to Use</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt engineering</td><td>Explicitly describe minority classes with more detail and examples</td><td>Prompt-based systems</td></tr>
+        <tr><td>Balanced evaluation</td><td>Use per-class metrics (precision, recall, F1) rather than overall accuracy</td><td>Always</td></tr>
+        <tr><td>Cost-sensitive review</td><td>Route minority-class predictions to human review more aggressively</td><td>High-stakes domains</td></tr>
+        <tr><td>Reweighted training</td><td>Oversample minority classes or weight their loss higher during fine-tuning</td><td>Fine-tuned models</td></tr>
+        <tr><td>Threshold tuning</td><td>Adjust classification thresholds per class based on business cost</td><td>Production deployment</td></tr>
+      </tbody>
+    </table>
+    <p>Imbalance is both a <strong>data problem</strong> and a <strong>decision-policy problem</strong>. You may care more about minority recall in fraud, safety, or medical triage than about raw overall accuracy. The right evaluation metric should reflect that priority. See <a href="#topic-7" class="xref">Topic 7: Metrics That Matter</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Imbalance is not just a data problem &mdash; it is a decision-policy problem. Design your evaluation metrics, prompt strategies, and review policies around the cost of being wrong for each class.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Handling Class Imbalance</summary>
+    <pre><code><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> classification_report
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Simulated imbalanced predictions</span>
+y_true = [<span class="str">"normal"</span>]*<span class="num">980</span> + [<span class="str">"fraud"</span>]*<span class="num">20</span>
+y_pred = [<span class="str">"normal"</span>]*<span class="num">990</span> + [<span class="str">"fraud"</span>]*<span class="num">10</span>  <span class="com"># Misses 50% of fraud</span>
+
+<span class="com"># Overall accuracy looks great but is misleading</span>
+accuracy = <span class="fn">sum</span>(t == p <span class="kw">for</span> t, p <span class="kw">in</span> <span class="fn">zip</span>(y_true, y_pred)) / <span class="fn">len</span>(y_true)
+<span class="fn">print</span>(<span class="str">f"Overall accuracy: </span>{accuracy:.1%}<span class="str">"</span>)  <span class="com"># 98.0% - deceptive!</span>
+
+<span class="com"># Per-class metrics reveal the real problem</span>
+<span class="fn">print</span>(<span class="fn">classification_report</span>(y_true, y_pred))
+<span class="com"># fraud: recall = 0.50 (missing half of all fraud cases!)</span>
+
+<span class="com"># === For prompted LLMs: emphasize minority class ===</span>
+imbalance_aware_prompt = <span class="str">"""Classify transactions. Pay special attention to
+fraud indicators - it is critical not to miss fraud cases.
+
+Fraud signals: unusual amounts, new locations, rapid succession,
+mismatched billing details.
+
+IMPORTANT: When uncertain between fraud and normal, flag as fraud
+for human review. False negatives are much costlier than false positives."""</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does few-shot example balance affect LLM predictions?</summary>
+      <div class="fq-a">Yes. If your few-shot prompt has 5 examples of class A and 1 of class B, the model may develop a <strong>prior bias</strong> toward A. For balanced classification, provide roughly equal numbers of examples per class, or explicitly tell the model that classes are equally likely. This is different from real-world base rates, which can be encoded separately through instructions.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you evaluate on imbalanced data?</summary>
+      <div class="fq-a">Use <strong>stratified sampling</strong> for your evaluation set to ensure all classes are represented. Report <strong>per-class precision and recall</strong>, macro-F1 (which weights all classes equally), and a confusion matrix. Never rely on accuracy alone. For high-stakes minority classes, track recall specifically because missing a fraud case or safety violation is costlier than a false alarm.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can synthetic data help with minority classes?</summary>
+      <div class="fq-a">Yes. LLMs can <strong>generate synthetic examples</strong> for minority classes to augment training data or few-shot prompts. However, the synthetic examples must be validated against real data distributions to avoid introducing artifacts. The best approach is to generate candidates with an LLM and then have domain experts filter and correct them.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var dists = {
+    imbalanced: [
+      { label: 'Normal', count: 9500, color: '#38bdf8' },
+      { label: 'Billing', count: 300, color: '#a78bfa' },
+      { label: 'Technical', count: 150, color: '#34d399' },
+      { label: 'Fraud', count: 50, color: '#f472b6' }
+    ],
+    balanced: [
+      { label: 'Normal', count: 2500, color: '#38bdf8' },
+      { label: 'Billing', count: 2500, color: '#a78bfa' },
+      { label: 'Technical', count: 2500, color: '#34d399' },
+      { label: 'Fraud', count: 2500, color: '#f472b6' }
+    ]
+  };
+  var notes = {
+    imbalanced: 'Warning: "Fraud" has only 0.5% of samples. A naive model can reach 95%+ accuracy by never predicting fraud.',
+    balanced: 'Balanced distribution ensures each class gets equal representation during training and evaluation.'
+  };
+  function render(dist) {
+    var data = dists[dist];
+    var max = Math.max.apply(null, data.map(function(d) { return d.count; }));
+    var container = document.getElementById('c06t05-chart');
+    container.innerHTML = '';
+    data.forEach(function(d) {
+      var row = document.createElement('div');
+      row.className = 'c06t05-bar-row';
+      row.innerHTML = '<div class="c06t05-bar-label">'+d.label+'</div>' +
+        '<div class="c06t05-bar-track"><div class="c06t05-bar-fill" style="width:'+(d.count/max*100)+'%; background:'+hexToRgba(d.color,0.4)+'; color:'+d.color+';">'+d.label+'</div></div>' +
+        '<div class="c06t05-bar-count">'+d.count.toLocaleString()+'</div>';
+      container.appendChild(row);
+    });
+    document.getElementById('c06t05-note').textContent = notes[dist];
+  }
+  render('imbalanced');
+  document.querySelectorAll('#c06t05-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c06t05-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-dist'));
+    });
+  });
+})();
+</script>
+
+    <div class="group-divider"><span>Production &amp; Reliability</span></div>
+    <p class="group-intro">Multi-label challenges, evaluation metrics, confidence estimation, human review, and the failure modes that break classification systems in production.</p>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<style>
+.c06t06-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.c06t06-tag { padding: 4px 12px; border-radius: 16px; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.c06t06-tag.on { opacity: 1; }
+.c06t06-tag.off { opacity: 0.35; }
+.c06t06-input-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+</style>
+
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Multi-Label Classification</h2></div>
+
+  <div class="quick-take">In single-label classification, exactly one class is chosen. In multi-label, multiple labels may apply simultaneously. The prompt, schema, and evaluation strategy must all change &mdash; multi-label is not just a small extension of single-label; it changes the entire decision structure.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Single-label is like choosing one genre for a movie. Multi-label is like tagging a movie with all genres that apply: it can be both "comedy" and "romance" at the same time.</div>
+
+  <div class="visual-container" id="c06t06-visual">
+    <div class="c06t06-input-box">
+      <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:6px;">Input Text</div>
+      <div style="font-size:0.85rem; color:#e2e8f0;" id="c06t06-input">"I was charged twice and the app keeps crashing when I try to view my invoice."</div>
+    </div>
+    <div>
+      <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:6px;">Applicable Labels (click to toggle)</div>
+      <div class="c06t06-tags" id="c06t06-tags"></div>
+    </div>
+    <div style="margin-top:10px; font-size:0.8rem; color:#94a3b8;" id="c06t06-status">2 labels selected &mdash; multi-label allows this.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How Multi-Label Differs</h3>
+    <p>The structural differences between single-label and multi-label classification are significant:</p>
+    <table>
+      <thead><tr><th>Aspect</th><th>Single-Label</th><th>Multi-Label</th></tr></thead>
+      <tbody>
+        <tr><td>Decision rule</td><td>Pick the highest-scoring class</td><td>Each class has an independent threshold</td></tr>
+        <tr><td>Output format</td><td>One label string</td><td>List/set of label strings</td></tr>
+        <tr><td>Evaluation</td><td>Accuracy, macro-F1</td><td>Subset accuracy, Hamming loss, per-label F1</td></tr>
+        <tr><td>Common error</td><td>Picking wrong class</td><td>Under-tagging or over-tagging</td></tr>
+        <tr><td>Prompt design</td><td>"Choose ONE label"</td><td>"List ALL applicable labels"</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Challenges with LLMs</h3>
+    <p>LLMs tend to either <strong>under-tag</strong> (missing applicable labels) or <strong>over-tag</strong> (applying labels that are only marginally relevant). Specific challenges include:</p>
+    <ul>
+      <li><strong>Calibration</strong> &mdash; How confident must the model be to include a label? Each label needs its own inclusion threshold.</li>
+      <li><strong>Order effects</strong> &mdash; The model may apply the first few relevant labels and stop, missing later ones.</li>
+      <li><strong>Validation</strong> &mdash; Checking that a list of labels is valid is harder than checking a single label.</li>
+    </ul>
+    <p>For related guidance on evaluation metrics for multi-label settings, see <a href="#topic-7" class="xref">Topic 7: Metrics That Matter</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multi-label classification changes the decision structure, not just the output format. Each label needs its own inclusion threshold, and evaluation must account for both under-tagging and over-tagging.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Multi-Label LLM Classification</summary>
+    <pre><code><span class="kw">import</span> json
+
+<span class="kw">def</span> <span class="fn">multi_label_classify</span>(text, labels):
+    <span class="str">"""Classify text with ALL applicable labels (multi-label)."""</span>
+    prompt = <span class="str">f"""Analyze the following text and select ALL labels that apply.
+Only include a label if it is clearly relevant.
+
+Available labels: {json.dumps(labels)}
+
+Text: "{text}"
+
+Respond with JSON: {{"labels": ["label1", "label2", ...], "reasons": {{"label1": "...", ...}}}}"""</span>
+
+    <span class="com"># response = llm.generate(prompt)</span>
+    <span class="com"># result = json.loads(response)</span>
+    <span class="com"># return result</span>
+    <span class="kw">pass</span>
+
+<span class="com"># === Multi-label evaluation ===</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> hamming_loss, f1_score
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Binary vectors: [billing, technical, account, general]</span>
+y_true = np.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">1</span>,<span class="num">0</span>,<span class="num">0</span>], [<span class="num">0</span>,<span class="num">0</span>,<span class="num">1</span>,<span class="num">1</span>], [<span class="num">1</span>,<span class="num">0</span>,<span class="num">0</span>,<span class="num">0</span>]])
+y_pred = np.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">1</span>,<span class="num">0</span>,<span class="num">0</span>], [<span class="num">0</span>,<span class="num">1</span>,<span class="num">1</span>,<span class="num">0</span>], [<span class="num">1</span>,<span class="num">0</span>,<span class="num">0</span>,<span class="num">0</span>]])
+
+<span class="fn">print</span>(<span class="str">f"Hamming Loss: </span>{<span class="fn">hamming_loss</span>(y_true, y_pred):.3f}<span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"Micro F1:     </span>{<span class="fn">f1_score</span>(y_true, y_pred, <span class="dec">average</span>=<span class="str">'micro'</span>):.3f}<span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"Macro F1:     </span>{<span class="fn">f1_score</span>(y_true, y_pred, <span class="dec">average</span>=<span class="str">'macro'</span>):.3f}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you set thresholds for each label independently?</summary>
+      <div class="fq-a">For each label, use a <strong>calibration set</strong> to find the threshold that maximizes F1 or another target metric for that specific class. This means each label can have a different inclusion threshold &mdash; a common pattern is higher thresholds for labels with high false-positive costs and lower thresholds for labels where recall is critical.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should you use separate prompts for each label or one combined prompt?</summary>
+      <div class="fq-a">A <strong>combined prompt</strong> is more efficient (one API call) but may suffer from label interference. <strong>Separate prompts</strong> (one per label) give more independent predictions but cost more. The hybrid approach is to use a combined prompt for initial labeling and separate prompts for labels where the combined approach shows high confusion.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is Hamming loss and why use it for multi-label?</summary>
+      <div class="fq-a"><strong>Hamming loss</strong> measures the fraction of labels that are incorrectly predicted (either false positives or false negatives). It is a natural metric for multi-label because it penalizes each wrong label independently, unlike subset accuracy which requires the entire label set to match exactly. A Hamming loss of 0.05 means 5% of individual label decisions are wrong.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var labels = [
+    { name: 'billing', color: '#a78bfa', on: true },
+    { name: 'technical', color: '#38bdf8', on: true },
+    { name: 'account', color: '#34d399', on: false },
+    { name: 'general', color: '#fb923c', on: false },
+    { name: 'urgent', color: '#f472b6', on: false }
+  ];
+  function render() {
+    var container = document.getElementById('c06t06-tags');
+    container.innerHTML = '';
+    var count = 0;
+    labels.forEach(function(l, i) {
+      var tag = document.createElement('span');
+      tag.className = 'c06t06-tag ' + (l.on ? 'on' : 'off');
+      tag.style.background = hexToRgba(l.color, l.on ? 0.2 : 0.1);
+      tag.style.color = l.color;
+      tag.style.border = '1px solid ' + hexToRgba(l.color, l.on ? 0.4 : 0.15);
+      tag.textContent = l.name;
+      tag.addEventListener('click', function() { labels[i].on = !labels[i].on; render(); });
+      container.appendChild(tag);
+      if (l.on) count++;
+    });
+    document.getElementById('c06t06-status').textContent = count + ' label' + (count !== 1 ? 's' : '') + ' selected' + (count > 1 ? ' — multi-label allows this.' : count === 1 ? ' — single-label mode.' : ' — at least one label should apply.');
+  }
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c06t07-metric-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+.c06t07-metric-card:hover, .c06t07-metric-card.active { border-color: #38bdf8; }
+.c06t07-metric-name { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+.c06t07-metric-desc { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
+.c06t07-metric-formula { font-family: monospace; font-size: 0.78rem; color: #38bdf8; margin-top: 6px; padding: 4px 8px; background: rgba(56,189,248,0.08); border-radius: 4px; display: inline-block; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Metrics That Matter</h2></div>
+
+  <div class="quick-take">Accuracy is a starting point, but precision, recall, F1, confusion matrices, and calibration are usually more informative. The best metric is the one aligned to the cost of being wrong &mdash; if false negatives are expensive, optimize recall; if false positives trigger painful review, optimize precision.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Metrics are like medical tests: accuracy tells you how often the test is right, but it does not tell you whether it is catching the deadly conditions (recall) or sending healthy people for unnecessary surgery (precision).</div>
+
+  <div class="visual-container" id="c06t07-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Click a metric to see when and why it matters.</div>
+    <div id="c06t07-metrics">
+      <div class="c06t07-metric-card active" data-metric="precision">
+        <div class="c06t07-metric-name">Precision</div>
+        <div class="c06t07-metric-desc" id="c06t07-precision-desc">Of all items the model labeled positive, how many actually were? Optimize when false positives are costly.</div>
+        <div class="c06t07-metric-formula">TP / (TP + FP)</div>
+      </div>
+      <div class="c06t07-metric-card" data-metric="recall">
+        <div class="c06t07-metric-name">Recall</div>
+        <div class="c06t07-metric-desc">Of all items that actually were positive, how many did the model catch? Optimize when false negatives are dangerous.</div>
+        <div class="c06t07-metric-formula">TP / (TP + FN)</div>
+      </div>
+      <div class="c06t07-metric-card" data-metric="f1">
+        <div class="c06t07-metric-name">F1 Score</div>
+        <div class="c06t07-metric-desc">Harmonic mean of precision and recall. Useful when you need a single number that balances both concerns.</div>
+        <div class="c06t07-metric-formula">2 * (P * R) / (P + R)</div>
+      </div>
+      <div class="c06t07-metric-card" data-metric="macro">
+        <div class="c06t07-metric-name">Macro-F1</div>
+        <div class="c06t07-metric-desc">Average F1 across all classes, treating each class equally regardless of size. Critical for imbalanced datasets.</div>
+        <div class="c06t07-metric-formula">mean(F1_class_i for all i)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Choosing the Right Metric</h3>
+    <p>The metric you optimize should reflect the <strong>business cost of being wrong</strong>:</p>
+    <table>
+      <thead><tr><th>Scenario</th><th>Optimize</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Fraud detection</td><td>Recall</td><td>Missing fraud is catastrophic</td></tr>
+        <tr><td>Content moderation</td><td>Precision</td><td>Over-censoring drives users away</td></tr>
+        <tr><td>Medical triage</td><td>Recall (sensitivity)</td><td>Missing a critical case is unacceptable</td></tr>
+        <tr><td>Lead qualification</td><td>Precision</td><td>Sales time wasted on bad leads is expensive</td></tr>
+        <tr><td>General classification</td><td>Macro-F1</td><td>Balanced performance across all classes</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Beyond Standard Metrics</h3>
+    <p>Senior candidates distinguish themselves by mentioning operational metrics:</p>
+    <ul>
+      <li><strong>Abstention rate</strong> &mdash; How often does the system say "I don't know" and escalate?</li>
+      <li><strong>Reviewer overturn rate</strong> &mdash; How often do humans disagree with the model's label?</li>
+      <li><strong>Calibration</strong> &mdash; When the model says 90% confident, is it right 90% of the time? See <a href="#topic-8" class="xref">Topic 8: Confidence Estimation</a>.</li>
+      <li><strong>Confusion matrix patterns</strong> &mdash; Which specific class pairs are most frequently confused?</li>
+    </ul>
+    <p>These operational metrics connect to <a href="#topic-9" class="xref">Topic 9: Human in the Loop</a> and <a href="#topic-10" class="xref">Topic 10: Production Failure Modes</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The best metric is the one aligned to the cost of being wrong. Connect your evaluation to business risk: optimize recall when false negatives are expensive, precision when false positives are costly.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Classification Metrics</summary>
+    <pre><code><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> (
+    classification_report, confusion_matrix, f1_score
+)
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Ground truth and model predictions</span>
+y_true = [<span class="str">"billing"</span>]*<span class="num">30</span> + [<span class="str">"technical"</span>]*<span class="num">50</span> + [<span class="str">"general"</span>]*<span class="num">20</span>
+y_pred = [<span class="str">"billing"</span>]*<span class="num">25</span> + [<span class="str">"technical"</span>]*<span class="num">5</span> + \
+         [<span class="str">"technical"</span>]*<span class="num">45</span> + [<span class="str">"billing"</span>]*<span class="num">5</span> + \
+         [<span class="str">"general"</span>]*<span class="num">18</span> + [<span class="str">"technical"</span>]*<span class="num">2</span>
+
+<span class="com"># Full classification report with per-class metrics</span>
+<span class="fn">print</span>(<span class="fn">classification_report</span>(y_true, y_pred))
+
+<span class="com"># Macro-F1 treats all classes equally (important for imbalanced data)</span>
+macro = <span class="fn">f1_score</span>(y_true, y_pred, <span class="dec">average</span>=<span class="str">"macro"</span>)
+<span class="fn">print</span>(<span class="str">f"Macro F1: </span>{macro:.3f}<span class="str">"</span>)
+
+<span class="com"># Confusion matrix reveals which classes are confused</span>
+cm = <span class="fn">confusion_matrix</span>(y_true, y_pred, <span class="dec">labels</span>=[<span class="str">"billing"</span>,<span class="str">"technical"</span>,<span class="str">"general"</span>])
+<span class="fn">print</span>(<span class="str">"Confusion Matrix:"</span>)
+<span class="fn">print</span>(cm)
+<span class="com"># Rows = true, Cols = predicted</span>
+<span class="com"># Off-diagonal values show misclassification patterns</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>When should you use micro-F1 vs macro-F1?</summary>
+      <div class="fq-a"><strong>Micro-F1</strong> aggregates TP/FP/FN across all classes before computing F1, so larger classes dominate the score. <strong>Macro-F1</strong> computes F1 per class then averages, giving equal weight to all classes. Use macro-F1 when you care about performance on minority classes. Use micro-F1 when overall prediction accuracy matters most.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you interpret a confusion matrix for LLM classifiers?</summary>
+      <div class="fq-a">Look for <strong>clusters of off-diagonal values</strong> that indicate systematic confusion between specific class pairs. These patterns tell you where the taxonomy needs clearer boundaries (see <a href="#topic-4" class="xref">Topic 4: Taxonomy Design</a>), where few-shot examples should be added, or where the prompt needs more specific guidance about distinguishing those classes.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is calibration and why does it matter for classification?</summary>
+      <div class="fq-a"><strong>Calibration</strong> means the model's confidence scores match real-world accuracy. A well-calibrated model that says "90% confident" should be correct about 90% of the time. This matters for <strong>threshold-based routing</strong>: if you route low-confidence cases to humans, poor calibration means you are either escalating too much (wasting reviewer time) or too little (missing errors).</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<style>
+.c06t08-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.c06t08-method { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+.c06t08-method-name { font-size: 0.82rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+.c06t08-method-desc { font-size: 0.78rem; color: #94a3b8; }
+.c06t08-reliability { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.72rem; }
+.c06t08-reliability-bar { flex: 1; height: 4px; background: #334155; border-radius: 2px; overflow: hidden; }
+.c06t08-reliability-fill { height: 100%; border-radius: 2px; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Confidence Estimation</h2></div>
+
+  <div class="quick-take">Confidence can be estimated through constrained label probabilities, self-consistency checks, calibration sets, or agreement across prompt variants. Raw verbal confidence statements from the model are not reliable enough on their own &mdash; confidence should be measured externally whenever possible.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> An LLM saying "I'm 95% confident" is like a student saying "I'm sure I aced the test." You need an external measurement (the grade) to know if their self-assessment is accurate.</div>
+
+  <div class="visual-container" id="c06t08-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Confidence estimation methods, ranked by reliability.</div>
+    <div class="c06t08-methods">
+      <div class="c06t08-method">
+        <div class="c06t08-method-name" style="color:#4ade80;">Token Log Probabilities</div>
+        <div class="c06t08-method-desc">Use model's actual probability for the label token. Requires API support.</div>
+        <div class="c06t08-reliability"><span style="color:#64748b;">Reliability:</span><div class="c06t08-reliability-bar"><div class="c06t08-reliability-fill" style="width:90%; background:#4ade80;"></div></div><span style="color:#4ade80;">High</span></div>
+      </div>
+      <div class="c06t08-method">
+        <div class="c06t08-method-name" style="color:#38bdf8;">Self-Consistency</div>
+        <div class="c06t08-method-desc">Run same input N times with temperature &gt; 0. Agreement rate = confidence.</div>
+        <div class="c06t08-reliability"><span style="color:#64748b;">Reliability:</span><div class="c06t08-reliability-bar"><div class="c06t08-reliability-fill" style="width:75%; background:#38bdf8;"></div></div><span style="color:#38bdf8;">Good</span></div>
+      </div>
+      <div class="c06t08-method">
+        <div class="c06t08-method-name" style="color:#a78bfa;">Calibration Set</div>
+        <div class="c06t08-method-desc">Map model scores to real probabilities using held-out labeled data.</div>
+        <div class="c06t08-reliability"><span style="color:#64748b;">Reliability:</span><div class="c06t08-reliability-bar"><div class="c06t08-reliability-fill" style="width:85%; background:#a78bfa;"></div></div><span style="color:#a78bfa;">High</span></div>
+      </div>
+      <div class="c06t08-method">
+        <div class="c06t08-method-name" style="color:#fb923c;">Verbal Confidence</div>
+        <div class="c06t08-method-desc">Ask the model "how confident are you?" Cheapest but least reliable.</div>
+        <div class="c06t08-reliability"><span style="color:#64748b;">Reliability:</span><div class="c06t08-reliability-bar"><div class="c06t08-reliability-fill" style="width:30%; background:#fb923c;"></div></div><span style="color:#fb923c;">Low</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Verbal Confidence Fails</h3>
+    <p>When asked "how confident are you?", LLMs tend to be <strong>overconfident</strong>. They produce high verbal confidence even for wrong answers, because they are trained to generate plausible-sounding text, not calibrated probabilities. A model might say "95% confident" for an answer it gets wrong 40% of the time.</p>
+
+    <h3>Better Approaches</h3>
+    <table>
+      <thead><tr><th>Method</th><th>How It Works</th><th>Trade-Off</th></tr></thead>
+      <tbody>
+        <tr><td>Token logprobs</td><td>Extract the log probability the model assigns to the label token</td><td>Best signal, but not all APIs expose it</td></tr>
+        <tr><td>Self-consistency</td><td>Sample N responses and measure label agreement</td><td>Good signal, but costs N API calls per prediction</td></tr>
+        <tr><td>Prompt variants</td><td>Rephrase the prompt 3-5 ways and check agreement</td><td>Catches prompt sensitivity, moderately expensive</td></tr>
+        <tr><td>Calibration mapping</td><td>Use a held-out labeled set to build a mapping from raw scores to true probabilities</td><td>Excellent accuracy, requires labeled calibration data</td></tr>
+        <tr><td>Ensemble agreement</td><td>Run multiple models and check agreement</td><td>Most robust, most expensive</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Production Pattern</h3>
+    <p>Production systems typically combine multiple signals: model scores, retrieval evidence, schema validity, and historical error patterns. The combined signal feeds a <strong>routing decision</strong>: high-confidence cases are auto-routed, low-confidence cases go to human review. See <a href="#topic-9" class="xref">Topic 9: Human in the Loop</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Never trust verbal confidence alone. Measure confidence externally using logprobs, self-consistency, or calibration sets. Production systems combine multiple signals to decide when to auto-route vs escalate.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Self-Consistency Confidence</summary>
+    <pre><code><span class="kw">from</span> collections <span class="kw">import</span> Counter
+
+<span class="kw">def</span> <span class="fn">self_consistency_classify</span>(text, labels, n_samples=<span class="num">5</span>):
+    <span class="str">"""Run classification N times and use agreement as confidence."""</span>
+    predictions = []
+    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(n_samples):
+        <span class="com"># Each call uses temperature &gt; 0 for variation</span>
+        <span class="com"># pred = llm.classify(text, labels, temperature=0.7)</span>
+        <span class="com"># predictions.append(pred)</span>
+        <span class="kw">pass</span>
+
+    <span class="com"># Count label frequencies across samples</span>
+    counts = Counter(predictions)
+    top_label, top_count = counts.<span class="fn">most_common</span>(<span class="num">1</span>)[<span class="num">0</span>]
+
+    <span class="com"># Agreement rate = confidence estimate</span>
+    confidence = top_count / n_samples
+
+    <span class="kw">return</span> {
+        <span class="str">"label"</span>: top_label,
+        <span class="str">"confidence"</span>: confidence,
+        <span class="str">"distribution"</span>: <span class="fn">dict</span>(counts),
+        <span class="str">"should_escalate"</span>: confidence < <span class="num">0.6</span>,  <span class="com"># Low agreement = uncertain</span>
+    }
+
+<span class="com"># Example: 5 runs produce ["billing","billing","billing","technical","billing"]</span>
+<span class="com"># → label="billing", confidence=0.8, should_escalate=False</span>
+
+<span class="com"># Example: 5 runs produce ["billing","technical","billing","general","technical"]</span>
+<span class="com"># → label="billing", confidence=0.4, should_escalate=True</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you calibrate an LLM classifier?</summary>
+      <div class="fq-a">Collect a <strong>calibration dataset</strong> with known labels. Run the classifier and record its confidence scores. Then fit a calibration function (e.g., Platt scaling or isotonic regression) that maps raw scores to true probabilities. After calibration, a score of 0.9 should mean the model is correct about 90% of the time. Re-calibrate whenever the model or taxonomy changes.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is temperature 0 always best for classification?</summary>
+      <div class="fq-a"><strong>Temperature 0</strong> gives the most deterministic output, which is usually best for single-pass classification. However, for <strong>self-consistency confidence estimation</strong>, you need temperature > 0 to generate variation. The typical pattern is temperature=0 for the production classification call and temperature=0.5-0.7 for confidence estimation samples.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What threshold should trigger human review?</summary>
+      <div class="fq-a">The threshold depends on <strong>the cost of errors vs the cost of human review</strong>. Start with a conservative threshold (e.g., escalate everything below 80% confidence) and tune based on reviewer overturn rates. If reviewers rarely change the model's answer, raise the threshold. If they frequently disagree, lower it. The optimal threshold is where marginal review cost equals marginal error cost.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<style>
+.c06t09-flow-chart { display: flex; flex-direction: column; gap: 0; }
+.c06t09-flow-node { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; }
+.c06t09-flow-connector { display: flex; align-items: center; justify-content: center; padding: 4px 0; }
+.c06t09-flow-connector span { font-size: 0.8rem; color: #475569; }
+.c06t09-flow-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+.c06t09-flow-text { font-size: 0.82rem; color: #cbd5e1; }
+.c06t09-flow-label { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+</style>
+
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Human in the Loop</h2></div>
+
+  <div class="quick-take">Human review is appropriate when decisions are high-impact, ambiguous, novel, or compliance-sensitive. It is also valuable when the model has low confidence or conflicting evidence. A mature design routes easy cases automatically and reserves scarce reviewer attention for cases where it creates the most risk reduction.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Human-in-the-loop is like a hospital triage system: the nurse handles routine cases, but the doctor sees anything flagged as uncertain or high-risk. The goal is not to replace the nurse &mdash; it is to focus the doctor's time where it matters most.</div>
+
+  <div class="visual-container" id="c06t09-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">A typical classification pipeline with human escalation routing.</div>
+    <div class="c06t09-flow-chart">
+      <div class="c06t09-flow-node">
+        <div class="c06t09-flow-icon" style="background:rgba(56,189,248,0.15); color:#38bdf8;">1</div>
+        <div class="c06t09-flow-text"><strong style="color:#38bdf8;">LLM classifies</strong> input and produces label + confidence</div>
+      </div>
+      <div class="c06t09-flow-connector"><span>&#x2193;</span></div>
+      <div class="c06t09-flow-node">
+        <div class="c06t09-flow-icon" style="background:rgba(167,139,250,0.15); color:#a78bfa;">2</div>
+        <div class="c06t09-flow-text"><strong style="color:#a78bfa;">Route decision:</strong> confidence &gt; threshold?</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+        <div>
+          <div class="c06t09-flow-connector"><span>&#x2193; Yes (high confidence)</span></div>
+          <div class="c06t09-flow-node" style="border-color:rgba(74,222,128,0.3);">
+            <div class="c06t09-flow-icon" style="background:rgba(74,222,128,0.15); color:#4ade80;">&#x2713;</div>
+            <div class="c06t09-flow-text"><strong style="color:#4ade80;">Auto-route</strong> to action</div>
+            <div class="c06t09-flow-label" style="background:rgba(74,222,128,0.15); color:#4ade80;">~80% of volume</div>
+          </div>
+        </div>
+        <div>
+          <div class="c06t09-flow-connector"><span>&#x2193; No (low confidence)</span></div>
+          <div class="c06t09-flow-node" style="border-color:rgba(251,146,60,0.3);">
+            <div class="c06t09-flow-icon" style="background:rgba(251,146,60,0.15); color:#fb923c;">&#x1f441;</div>
+            <div class="c06t09-flow-text"><strong style="color:#fb923c;">Human review</strong> queue</div>
+            <div class="c06t09-flow-label" style="background:rgba(251,146,60,0.15); color:#fb923c;">~20% of volume</div>
+          </div>
+        </div>
+      </div>
+      <div class="c06t09-flow-connector"><span>&#x2193; Feedback loop</span></div>
+      <div class="c06t09-flow-node">
+        <div class="c06t09-flow-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">4</div>
+        <div class="c06t09-flow-text"><strong style="color:#f472b6;">Human decisions</strong> become training/evaluation data for model improvement</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When to Escalate</h3>
+    <p>Route to human review when:</p>
+    <ul>
+      <li><strong>Low model confidence</strong> &mdash; The classifier is uncertain (see <a href="#topic-8" class="xref">Topic 8: Confidence Estimation</a>).</li>
+      <li><strong>High-impact decision</strong> &mdash; Account suspension, medical triage, legal compliance.</li>
+      <li><strong>Novel input</strong> &mdash; The input looks different from what the model was trained or prompted on.</li>
+      <li><strong>Conflicting signals</strong> &mdash; Multiple models or prompt variants disagree.</li>
+      <li><strong>Frequently confused classes</strong> &mdash; The specific class pair has a high historical confusion rate.</li>
+    </ul>
+
+    <h3>Human Review as a Data Engine</h3>
+    <p>The most valuable aspect of human review is not the individual decision &mdash; it is the <strong>data it generates</strong>. Human decisions on escalated cases are the highest-quality training and evaluation data available because they represent the hardest, most informative examples. Feed this data back into:</p>
+    <ul>
+      <li><strong>Evaluation sets</strong> &mdash; Hard cases make evaluation more realistic.</li>
+      <li><strong>Few-shot examples</strong> &mdash; Resolved edge cases become great prompt examples.</li>
+      <li><strong>Fine-tuning data</strong> &mdash; Labeled hard cases improve model weak spots.</li>
+      <li><strong>Taxonomy refinement</strong> &mdash; Patterns in escalations reveal where labels need clearer boundaries (see <a href="#topic-4" class="xref">Topic 4: Taxonomy Design</a>).</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Human review is a precision tool, not a sign of system weakness. A mature design routes easy cases automatically and treats reviewer decisions as the most valuable data source for model improvement.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Confidence-Based Routing</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">classify_and_route</span>(text, confidence_threshold=<span class="num">0.8</span>):
+    <span class="str">"""Classify with automatic routing based on confidence."""</span>
+    <span class="com"># Step 1: Get classification with confidence</span>
+    result = <span class="fn">classify_with_confidence</span>(text)
+
+    <span class="com"># Step 2: Route based on confidence</span>
+    <span class="kw">if</span> result[<span class="str">"confidence"</span>] >= confidence_threshold:
+        <span class="com"># High confidence: auto-route</span>
+        <span class="kw">return</span> {
+            <span class="str">"action"</span>: <span class="str">"auto_route"</span>,
+            <span class="str">"label"</span>: result[<span class="str">"label"</span>],
+            <span class="str">"confidence"</span>: result[<span class="str">"confidence"</span>],
+        }
+    <span class="kw">else</span>:
+        <span class="com"># Low confidence: escalate to human reviewer</span>
+        <span class="kw">return</span> {
+            <span class="str">"action"</span>: <span class="str">"human_review"</span>,
+            <span class="str">"suggested_label"</span>: result[<span class="str">"label"</span>],
+            <span class="str">"confidence"</span>: result[<span class="str">"confidence"</span>],
+            <span class="str">"reason"</span>: result.<span class="fn">get</span>(<span class="str">"reason"</span>, <span class="str">"Low confidence"</span>),
+            <span class="str">"priority"</span>: <span class="str">"high"</span> <span class="kw">if</span> result[<span class="str">"confidence"</span>] < <span class="num">0.5</span> <span class="kw">else</span> <span class="str">"normal"</span>,
+        }
+
+<span class="com"># Step 3: Log human decisions for model improvement</span>
+<span class="kw">def</span> <span class="fn">log_review_decision</span>(text, model_label, human_label):
+    <span class="str">"""Store human review outcomes for retraining."""</span>
+    record = {
+        <span class="str">"text"</span>: text,
+        <span class="str">"model_label"</span>: model_label,
+        <span class="str">"human_label"</span>: human_label,
+        <span class="str">"overturned"</span>: model_label != human_label,
+    }
+    <span class="com"># Append to training/evaluation dataset</span>
+    <span class="com"># These hard cases are the most valuable training data</span>
+    <span class="kw">return</span> record</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you size the human review team?</summary>
+      <div class="fq-a">Size depends on the <strong>escalation rate</strong> and <strong>SLA requirements</strong>. If 20% of 10,000 daily predictions escalate and each review takes 2 minutes, you need ~67 reviewer-hours per day. Monitor the escalation rate as the model improves &mdash; it should decrease over time as hard cases feed back into training. Start with more reviewers than you think you need and scale down.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should reviewers see the model's prediction?</summary>
+      <div class="fq-a">It depends on your goal. Showing the model's prediction can <strong>anchor</strong> the reviewer, causing them to agree with the model more often than they should. For unbiased evaluation, hide the prediction. For production efficiency, show it &mdash; reviewers are faster when they can confirm or reject rather than classify from scratch. Consider hiding it for evaluation sets but showing it for production review.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle reviewer disagreements?</summary>
+      <div class="fq-a">Use <strong>multi-reviewer consensus</strong> for high-stakes decisions (2-3 reviewers per case). Track <strong>inter-reviewer agreement</strong> rates. If reviewers frequently disagree on specific labels, that is a signal the taxonomy needs clearer boundaries (see <a href="#topic-4" class="xref">Topic 4: Taxonomy Design</a>). Adjudication processes should be documented and consistent.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<style>
+.c06t10-failure { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+.c06t10-failure:hover { border-color: #f472b6; }
+.c06t10-failure.active { border-color: #f472b6; background: rgba(244,114,182,0.03); }
+.c06t10-failure-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; background: rgba(244,114,182,0.15); color: #f472b6; }
+.c06t10-failure-title { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+.c06t10-failure-desc { font-size: 0.78rem; color: #94a3b8; margin-top: 2px; }
+.c06t10-detail { padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; margin-top: 8px; }
+.c06t10-detail-title { font-size: 0.78rem; text-transform: uppercase; color: #64748b; letter-spacing: 0.06em; margin-bottom: 6px; }
+.c06t10-detail-text { font-size: 0.82rem; color: #cbd5e1; line-height: 1.6; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Production Failure Modes</h2></div>
+
+  <div class="quick-take">Common production failures include label drift after taxonomy changes, prompt brittleness, hidden format errors, poor minority-class treatment, and false confidence on ambiguous inputs. Classification quality depends on prompts, data definitions, evaluation sets, routing policies, and review loops &mdash; not just model accuracy.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A classification system is like a supply chain: the end product (correct labels) depends on every link &mdash; data quality, prompt stability, taxonomy clarity, evaluation rigor, and review processes. A break in any link degrades the whole system.</div>
+
+  <div class="visual-container" id="c06t10-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Click a failure mode to see its symptoms and mitigation.</div>
+    <div id="c06t10-failures">
+      <div class="c06t10-failure active" data-failure="drift">
+        <div class="c06t10-failure-icon">1</div>
+        <div>
+          <div class="c06t10-failure-title">Label Drift</div>
+          <div class="c06t10-failure-desc">Taxonomy changes break the classifier silently.</div>
+        </div>
+      </div>
+      <div class="c06t10-failure" data-failure="brittleness">
+        <div class="c06t10-failure-icon">2</div>
+        <div>
+          <div class="c06t10-failure-title">Prompt Brittleness</div>
+          <div class="c06t10-failure-desc">Small prompt changes cause large accuracy swings.</div>
+        </div>
+      </div>
+      <div class="c06t10-failure" data-failure="format">
+        <div class="c06t10-failure-icon">3</div>
+        <div>
+          <div class="c06t10-failure-title">Format Errors</div>
+          <div class="c06t10-failure-desc">Model outputs labels in unexpected formats.</div>
+        </div>
+      </div>
+      <div class="c06t10-failure" data-failure="minority">
+        <div class="c06t10-failure-icon">4</div>
+        <div>
+          <div class="c06t10-failure-title">Minority Class Neglect</div>
+          <div class="c06t10-failure-desc">Rare but important classes are systematically missed.</div>
+        </div>
+      </div>
+      <div class="c06t10-failure" data-failure="upstream">
+        <div class="c06t10-failure-icon">5</div>
+        <div>
+          <div class="c06t10-failure-title">Upstream Data Shift</div>
+          <div class="c06t10-failure-desc">Changes in input preprocessing silently alter classifier behavior.</div>
+        </div>
+      </div>
+    </div>
+    <div class="c06t10-detail" id="c06t10-detail">
+      <div class="c06t10-detail-title">Mitigation</div>
+      <div class="c06t10-detail-text" id="c06t10-detail-text">Version your taxonomy. Log raw inputs alongside predictions. Re-evaluate the classifier whenever labels change. Set up alerts for prediction distribution shifts that indicate a taxonomy-model mismatch.</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The System-Level View</h3>
+    <p>The strongest interview answer treats classification quality as a <strong>system property</strong>, not a model property. Quality depends on the entire pipeline:</p>
+    <ol>
+      <li><strong>Data definitions</strong> &mdash; Ambiguous taxonomies produce ambiguous predictions (see <a href="#topic-4" class="xref">Topic 4: Taxonomy Design</a>).</li>
+      <li><strong>Prompt stability</strong> &mdash; If minor prompt tweaks change 10% of predictions, the system is fragile.</li>
+      <li><strong>Evaluation coverage</strong> &mdash; If your test set does not include edge cases and minority classes, you will not detect problems (see <a href="#topic-7" class="xref">Topic 7: Metrics That Matter</a>).</li>
+      <li><strong>Routing policies</strong> &mdash; The confidence threshold determines the auto/escalation split (see <a href="#topic-9" class="xref">Topic 9: Human in the Loop</a>).</li>
+      <li><strong>Monitoring</strong> &mdash; Tracking only aggregate accuracy will miss class-specific degradation.</li>
+    </ol>
+
+    <h3>Common Failure Catalog</h3>
+    <table>
+      <thead><tr><th>Failure</th><th>Symptom</th><th>Detection</th></tr></thead>
+      <tbody>
+        <tr><td>Label drift</td><td>Old labels appear in output after taxonomy update</td><td>Monitor label distribution over time</td></tr>
+        <tr><td>Prompt brittleness</td><td>Accuracy drops after minor prompt edit</td><td>A/B test prompt changes on evaluation set</td></tr>
+        <tr><td>Format errors</td><td>Downstream systems crash on unexpected output</td><td>Schema validation on every prediction</td></tr>
+        <tr><td>Minority neglect</td><td>Per-class recall near zero for rare classes</td><td>Per-class metrics, not just overall accuracy</td></tr>
+        <tr><td>Silent degradation</td><td>Accuracy drops without obvious cause</td><td>Automated regression testing on evaluation set</td></tr>
+        <tr><td>Upstream shift</td><td>Input preprocessing changes alter effective input</td><td>Monitor input feature distributions</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Monitoring Best Practices</h3>
+    <p>Production classification systems should monitor:</p>
+    <ul>
+      <li><strong>Prediction distribution</strong> &mdash; Alert if the fraction of any class shifts by more than a threshold.</li>
+      <li><strong>Confidence distribution</strong> &mdash; Alert if average confidence drops (may indicate out-of-distribution inputs).</li>
+      <li><strong>Escalation rate</strong> &mdash; Alert if the fraction of human-reviewed cases spikes.</li>
+      <li><strong>Per-class metrics</strong> &mdash; Track precision and recall per class, not just overall accuracy.</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Classification quality is a system property. Monitor prompts, data definitions, evaluation sets, routing policies, and review loops. If you only watch a single accuracy number, you will miss the real reasons the system is succeeding or failing.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Classification Monitoring Pipeline</summary>
+    <pre><code><span class="kw">from</span> collections <span class="kw">import</span> Counter
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime
+
+<span class="kw">class</span> <span class="fn">ClassificationMonitor</span>:
+    <span class="str">"""Monitor classification system health in production."""</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, expected_distribution, drift_threshold=<span class="num">0.1</span>):
+        self.expected = expected_distribution
+        self.threshold = drift_threshold
+        self.predictions = []
+
+    <span class="kw">def</span> <span class="fn">log_prediction</span>(self, label, confidence, text_hash):
+        <span class="str">"""Log each prediction for monitoring."""</span>
+        self.predictions.<span class="fn">append</span>({
+            <span class="str">"label"</span>: label,
+            <span class="str">"confidence"</span>: confidence,
+            <span class="str">"timestamp"</span>: datetime.<span class="fn">utcnow</span>(),
+            <span class="str">"text_hash"</span>: text_hash,
+        })
+
+    <span class="kw">def</span> <span class="fn">check_distribution_drift</span>(self):
+        <span class="str">"""Alert if label distribution has shifted significantly."""</span>
+        counts = Counter(p[<span class="str">"label"</span>] <span class="kw">for</span> p <span class="kw">in</span> self.predictions)
+        total = <span class="fn">sum</span>(counts.<span class="fn">values</span>())
+        alerts = []
+        <span class="kw">for</span> label, expected_frac <span class="kw">in</span> self.expected.items():
+            actual_frac = counts.<span class="fn">get</span>(label, <span class="num">0</span>) / total
+            drift = <span class="fn">abs</span>(actual_frac - expected_frac)
+            <span class="kw">if</span> drift > self.threshold:
+                alerts.<span class="fn">append</span>(<span class="str">f"DRIFT: {label} expected {expected_frac:.0%}, got {actual_frac:.0%}"</span>)
+        <span class="kw">return</span> alerts
+
+    <span class="kw">def</span> <span class="fn">check_confidence_drop</span>(self, min_avg=<span class="num">0.7</span>):
+        <span class="str">"""Alert if average confidence drops below threshold."""</span>
+        <span class="kw">if</span> <span class="kw">not</span> self.predictions: <span class="kw">return</span> []
+        avg_conf = <span class="fn">sum</span>(p[<span class="str">"confidence"</span>] <span class="kw">for</span> p <span class="kw">in</span> self.predictions) / <span class="fn">len</span>(self.predictions)
+        <span class="kw">if</span> avg_conf < min_avg:
+            <span class="kw">return</span> [<span class="str">f"LOW CONFIDENCE: avg={avg_conf:.2f} (threshold={min_avg})"</span>]
+        <span class="kw">return</span> []</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you test prompt changes safely?</summary>
+      <div class="fq-a">Use a <strong>shadow testing</strong> pattern: run the new prompt alongside the old one on live traffic, compare outputs, and only switch when the new prompt matches or exceeds performance on your evaluation set. Never change a production prompt without first evaluating it against 200+ labeled examples covering all classes and known edge cases.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What causes silent degradation?</summary>
+      <div class="fq-a">Common causes include <strong>model version updates</strong> by the API provider (behavior changes between model versions), <strong>input distribution shift</strong> (new customer segments produce different text), <strong>upstream preprocessing changes</strong> (a new text cleaning step alters what the classifier sees), and <strong>taxonomy drift</strong> (real-world categories evolve while labels stay static).</div>
+    </details>
+    <details class="fq-item">
+      <summary>How often should you re-evaluate a production classifier?</summary>
+      <div class="fq-a"><strong>Continuously</strong>, via automated regression tests on a held-out evaluation set. Run daily metrics checks on prediction distributions and confidence levels. Do a full manual evaluation with fresh labeled data <strong>monthly</strong> or after any significant change (prompt update, model version change, taxonomy modification). The cost of re-evaluation is tiny compared to the cost of undetected degradation.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var mitigations = {
+    drift: 'Version your taxonomy. Log raw inputs alongside predictions. Re-evaluate the classifier whenever labels change. Set up alerts for prediction distribution shifts that indicate a taxonomy-model mismatch.',
+    brittleness: 'A/B test prompt changes against a fixed evaluation set before deploying. Use structured output modes to reduce sensitivity to prompt wording. Keep a prompt changelog with measured impact.',
+    format: 'Validate every model output against a schema before processing. Use retry logic with reformatted prompts for failed validations. Structured output APIs (JSON mode, function calling) reduce format errors significantly.',
+    minority: 'Track per-class recall, not just overall accuracy. Add explicit minority class descriptions and examples to prompts. Set lower confidence thresholds for rare classes to escalate uncertain cases.',
+    upstream: 'Monitor input feature distributions (text length, language, format). Hash preprocessing pipeline versions alongside predictions. Alert on sudden changes in input characteristics that could affect classifier behavior.'
+  };
+  document.querySelectorAll('.c06t10-failure').forEach(function(card) {
+    card.addEventListener('click', function() {
+      document.querySelectorAll('.c06t10-failure').forEach(function(c) { c.classList.remove('active'); });
+      card.classList.add('active');
+      document.getElementById('c06t10-detail-text').textContent = mitigations[card.getAttribute('data-failure')];
+    });
+  });
+})();
+</script>
+
+  </main>
+</div>
+
+<script>
+/* --- Global: progress bar, TOC highlighting, fade-in, copy buttons --- */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

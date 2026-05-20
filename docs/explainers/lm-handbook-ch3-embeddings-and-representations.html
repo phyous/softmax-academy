@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 3: Embeddings &amp; Semantic Representations</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table { font-size: 0.75rem; } .deep-dive th, .deep-dive td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+
+  /* ====== TOPIC-SCOPED VISUAL STYLES ====== */
+
+  /* --- T01: Embedding concept --- */
+  .c03t01-pipeline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 12px 0; }
+  .c03t01-stage { padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; text-align: center; }
+  .c03t01-arrow { color: #475569; font-size: 1.2rem; }
+
+  /* --- T02: Semantic search --- */
+  .c03t02-query-box { display: flex; gap: 8px; margin-bottom: 12px; }
+  .c03t02-results { display: flex; flex-direction: column; gap: 6px; }
+  .c03t02-result { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+  .c03t02-score { font-size: 1rem; font-weight: 700; min-width: 52px; text-align: center; border-radius: 6px; padding: 2px 8px; }
+  .c03t02-text { font-size: 0.84rem; color: #cbd5e1; }
+  .c03t02-bar { height: 6px; border-radius: 3px; transition: width 0.4s ease; }
+
+  /* --- T03: Embedding levels --- */
+  .c03t03-levels { display: flex; flex-direction: column; gap: 10px; }
+  .c03t03-level { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+  .c03t03-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .c03t03-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .c03t03-chip { padding: 3px 10px; border-radius: 5px; font-size: 0.78rem; font-family: monospace; }
+
+  /* --- T04: Normalization --- */
+  .c03t04-vectors { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .c03t04-vec { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; min-width: 140px; text-align: center; }
+  .c03t04-vec-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .c03t04-vec-vals { font-family: monospace; font-size: 0.82rem; color: #e2e8f0; }
+  .c03t04-norm { font-size: 0.85rem; font-weight: 600; margin-top: 4px; }
+
+  /* --- T05: Cosine vs Dot --- */
+  .c03t05-canvas-wrap { position: relative; display: flex; justify-content: center; }
+  .c03t05-legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 0.78rem; }
+  .c03t05-legend-item { display: flex; align-items: center; gap: 5px; color: #94a3b8; }
+  .c03t05-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* --- T06: Hubness --- */
+  .c03t06-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; }
+  .c03t06-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: #0f172a; transition: transform 0.2s; cursor: default; }
+  .c03t06-cell:hover { transform: scale(1.2); z-index: 1; }
+  .c03t06-info { text-align: center; margin-top: 10px; font-size: 0.82rem; color: #94a3b8; }
+
+  /* --- T07: Dense vs Sparse --- */
+  .c03t07-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .c03t07-panel { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+  .c03t07-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .c03t07-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .c03t07-dim-label { font-size: 0.7rem; color: #64748b; width: 24px; text-align: right; }
+  .c03t07-bar { height: 14px; border-radius: 3px; transition: width 0.3s; }
+
+  /* --- T08: Bi-encoder vs Cross-encoder --- */
+  .c03t08-flow { display: flex; flex-direction: column; gap: 12px; }
+  .c03t08-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .c03t08-box { padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; }
+  .c03t08-arrow { color: #475569; font-size: 1rem; }
+
+  /* --- T09: Dimension trade-off --- */
+  .c03t09-slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .c03t09-slider-label { font-size: 0.82rem; color: #94a3b8; min-width: 40px; }
+  .c03t09-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .c03t09-metric { background: #0f172a; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #334155; }
+  .c03t09-metric-val { font-size: 1.3rem; font-weight: 700; }
+  .c03t09-metric-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+  /* --- T10: Evaluation --- */
+  .c03t10-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .c03t10-card { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+  .c03t10-card-title { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .c03t10-card-val { font-size: 1.5rem; font-weight: 700; }
+  .c03t10-card-desc { font-size: 0.78rem; color: #64748b; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 3 &middot; 10 Topics</div>
+  <h1>Embeddings &amp; Semantic Representations</h1>
+  <p>How LLMs convert meaning into geometry &mdash; and why the quality of that geometry determines retrieval, clustering, and recommendation quality.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Embeddings are the bridge between human language and machine math. They compress semantic relationships into dense vectors so that distance can stand in for meaning. This chapter starts with what an embedding is and why it enables semantic search, then moves through similarity metrics, representation trade-offs, and the system-design decisions that determine whether your embedding pipeline actually works in production.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Foundations</div>
+      <a href="#topic-1"><span class="toc-num">1</span> What Is an Embedding?</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Semantic Search</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Embedding Levels</a>
+      <a href="#topic-4"><span class="toc-num">4</span> L2 Normalization</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Cosine vs Dot Product</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">System Design</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Hubness &amp; Anisotropy</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Dense vs Sparse</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Bi-Encoder vs Cross-Encoder</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Dimension Trade-offs</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Evaluation</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Foundations</span></div>
+    <p class="group-intro">What embeddings are, how they enable similarity-based retrieval, and the metrics that make comparison possible.</p>
+
+<!-- ============================================================ -->
+<!-- TOPIC 1: What Is an Embedding? -->
+<!-- ============================================================ -->
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>What Is an Embedding?</h2></div>
+
+  <div class="quick-take">An embedding is a dense numerical vector that represents a token, sentence, or document in a way that preserves semantic relationships. Distance in embedding space encodes similarity in meaning.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> An embedding is a GPS coordinate for meaning &mdash; similar ideas get nearby coordinates, distant ideas land far apart.</div>
+
+  <div class="visual-container" id="c03t01-visual">
+    <div class="c03t01-pipeline">
+      <div class="c03t01-stage" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">Raw Text</div>
+      <div class="c03t01-arrow">&#x2192;</div>
+      <div class="c03t01-stage" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">Embedding Model</div>
+      <div class="c03t01-arrow">&#x2192;</div>
+      <div class="c03t01-stage" style="background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);">Vector [0.31, 0.22, ...]</div>
+      <div class="c03t01-arrow">&#x2192;</div>
+      <div class="c03t01-stage" style="background:rgba(244,114,182,0.15);color:#f472b6;border:1px solid rgba(244,114,182,0.3);">Similarity Search</div>
+    </div>
+    <div style="text-align:center;font-size:0.78rem;color:#64748b;margin-top:4px;">The embedding pipeline: text becomes geometry, and geometry enables retrieval.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>From Words to Vectors</h3>
+    <p>An embedding maps a discrete object &mdash; a word, a sentence, an image &mdash; into a continuous vector space where geometric relationships encode semantic ones. Instead of treating text as an ID lookup, the model projects it into a space where distance and direction carry meaning.</p>
+    <p>This is what makes embeddings central to modern AI engineering. They let machines compare meaning without relying only on exact keyword matches. A query about "physician salary growth" can retrieve content about "doctor compensation trends" because the vectors are close, even though no words overlap.</p>
+
+    <h3>How Embeddings Are Learned</h3>
+    <p>Embedding vectors are not hand-crafted. They are <strong>learned</strong> during model training by optimizing an objective that pushes related items closer together and unrelated items apart. The training objective determines what "similarity" means:</p>
+    <ul>
+      <li><strong>Contrastive learning:</strong> Pairs of related texts are pushed together; random negatives are pushed apart.</li>
+      <li><strong>Masked language modeling:</strong> Predicting missing tokens forces the model to encode contextual meaning.</li>
+      <li><strong>CLIP-style training:</strong> Images and their captions are aligned in a shared space, enabling cross-modal retrieval.</li>
+    </ul>
+
+    <h3>Why This Matters in Interviews</h3>
+    <p>A strong interview answer explains both levels: embeddings are <em>learned numerical representations</em>, and their value comes from turning semantic comparison into vector operations. Avoid treating all embedding models as interchangeable &mdash; mention task mismatch, domain drift, and the difference between retrieval quality and generation quality. See <a href="#topic-3" class="xref">Topic 3: Embedding Levels</a> for how scope affects which embedding to use.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Embeddings turn meaning into measurable geometry &mdash; they are not just "fancy vectors from an API" but learned representations optimized for specific tasks.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> math <span class="kw">import</span> sqrt
+
+<span class="com"># A minimal cosine similarity function</span>
+<span class="com"># Works on any two equal-length vectors</span>
+<span class="kw">def</span> <span class="fn">cosine</span>(a, b):
+    dot = <span class="fn">sum</span>(x * y <span class="kw">for</span> x, y <span class="kw">in</span> <span class="fn">zip</span>(a, b))
+    na = <span class="fn">sqrt</span>(<span class="fn">sum</span>(x * x <span class="kw">for</span> x <span class="kw">in</span> a))
+    nb = <span class="fn">sqrt</span>(<span class="fn">sum</span>(y * y <span class="kw">for</span> y <span class="kw">in</span> b))
+    <span class="kw">return</span> dot / (na * nb)
+
+<span class="com"># Simulate two document embeddings (3-dimensional for clarity)</span>
+query  = [<span class="num">0.30</span>, <span class="num">0.22</span>, <span class="num">0.91</span>]
+doc_a  = [<span class="num">0.28</span>, <span class="num">0.20</span>, <span class="num">0.89</span>]  <span class="com"># semantically similar</span>
+doc_b  = [<span class="num">0.10</span>, <span class="num">0.77</span>, <span class="num">0.14</span>]  <span class="com"># semantically different</span>
+
+<span class="fn">print</span>(<span class="str">"query vs doc_a:"</span>, <span class="fn">round</span>(<span class="fn">cosine</span>(query, doc_a), <span class="num">4</span>))
+<span class="fn">print</span>(<span class="str">"query vs doc_b:"</span>, <span class="fn">round</span>(<span class="fn">cosine</span>(query, doc_b), <span class="num">4</span>))</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How many dimensions do production embeddings typically have?</summary>
+      <div class="fq-a">Modern embedding models produce vectors with 256 to 3072 dimensions. OpenAI's text-embedding-3-large uses 3072, while smaller models like all-MiniLM use 384. Higher dimensions capture more nuance but cost more to store and search. See <a href="#topic-9" class="xref">Topic 9: Dimension Trade-offs</a> for the full trade-off analysis.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can embeddings capture negation and other subtle meanings?</summary>
+      <div class="fq-a">Partially. Simple embedding models struggle with negation ("the food was good" vs. "the food was not good" can produce similar vectors). More sophisticated models trained with hard negatives handle this better, but <strong>no embedding model is perfect at negation</strong>. This is one reason cross-encoders are used for reranking.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Are embeddings the same as a model's internal hidden states?</summary>
+      <div class="fq-a">No. Internal hidden states change at every layer and serve the model's own processing. <strong>Embedding vectors</strong> for retrieval are typically produced by a dedicated embedding model or by pooling the final hidden states of an encoder. They are designed for external comparison, not internal computation.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- TOPIC 2: Semantic Search -->
+<!-- ============================================================ -->
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Why Embeddings Enable Semantic Search</h2></div>
+
+  <div class="quick-take">Semantic search works because relevant items do not need to share the exact same words &mdash; if their embeddings land close together in vector space, they are retrieved as matches.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Keyword search is like looking up a word in a dictionary index. Semantic search is like asking a librarian who understands what you mean.</div>
+
+  <div class="visual-container" id="c03t02-visual">
+    <div class="c03t02-query-box">
+      <input type="text" id="c03t02-input" placeholder="Type a query..." value="physician salary growth" style="flex:1;">
+      <button class="vis-btn" id="c03t02-search-btn">Search</button>
+    </div>
+    <div class="c03t02-results" id="c03t02-results"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Beyond Keyword Matching</h3>
+    <p>Traditional search engines like BM25 rely on term frequency and exact keyword overlap. If a user searches for "physician salary growth" but the document says "doctor compensation trends," keyword search misses it entirely. Semantic search bridges this gap because both phrases produce similar embedding vectors.</p>
+    <p>This makes embeddings especially useful for <strong>question answering, support search, and long-tail user phrasing</strong> where users rarely phrase queries the same way the content was written.</p>
+
+    <h3>The Caveat: False Proximity</h3>
+    <p>Dense similarity can also retrieve conceptually adjacent but <strong>wrong</strong> content. A query about "bank interest rates" might retrieve documents about "river banks" if the embedding model is not domain-tuned. This is why production systems often add:</p>
+    <ul>
+      <li><strong>Metadata filters</strong> &mdash; restrict results by category, date, or source.</li>
+      <li><strong>Lexical matching</strong> &mdash; combine dense retrieval with BM25 for hybrid search. See <a href="#topic-7" class="xref">Topic 7: Dense vs Sparse</a>.</li>
+      <li><strong>Reranking</strong> &mdash; use a cross-encoder to re-score the shortlist. See <a href="#topic-8" class="xref">Topic 8: Bi-Encoder vs Cross-Encoder</a>.</li>
+    </ul>
+
+    <h3>Interview Signal</h3>
+    <p>The strongest answer treats embedding search as a <em>probabilistic relevance stage</em>, not a guaranteed truth mechanism. Mention that recall is high but precision requires downstream filtering.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Semantic search is powerful because it matches meaning, not words &mdash; but it is not automatically precise, which is why production pipelines add filters, reranking, and hybrid retrieval.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Simulate embeddings for a query and candidate documents</span>
+query_vec = np.<span class="fn">array</span>([<span class="num">0.8</span>, <span class="num">0.1</span>, <span class="num">0.6</span>])
+
+docs = {
+    <span class="str">"doctor compensation trends"</span>:   np.<span class="fn">array</span>([<span class="num">0.78</span>, <span class="num">0.12</span>, <span class="num">0.58</span>]),
+    <span class="str">"nurse hiring pipeline"</span>:        np.<span class="fn">array</span>([<span class="num">0.55</span>, <span class="num">0.30</span>, <span class="num">0.45</span>]),
+    <span class="str">"river bank erosion rates"</span>:     np.<span class="fn">array</span>([<span class="num">0.10</span>, <span class="num">0.85</span>, <span class="num">0.05</span>]),
+}
+
+<span class="com"># Rank by cosine similarity</span>
+<span class="kw">for</span> title, vec <span class="kw">in</span> docs.items():
+    sim = np.<span class="fn">dot</span>(query_vec, vec) / (
+        np.linalg.<span class="fn">norm</span>(query_vec) * np.linalg.<span class="fn">norm</span>(vec)
+    )
+    <span class="fn">print</span>(<span class="str">f"</span>{sim:.3f}<span class="str">  </span>{title}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle queries with very different phrasing from the corpus?</summary>
+      <div class="fq-a">Use embedding models explicitly trained for <strong>asymmetric retrieval</strong> (short query vs. long document). Models like E5 and BGE are trained with query-document pairs rather than symmetric sentence pairs, which significantly improves retrieval when phrasing differs.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is hybrid search and when should you use it?</summary>
+      <div class="fq-a">Hybrid search combines dense (embedding) retrieval with sparse (BM25/keyword) retrieval and merges the result lists. Use it when your corpus contains <strong>exact terms that must not be missed</strong> (product codes, legal citations, medical terms) alongside natural language content.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does the embedding model need to be fine-tuned for every domain?</summary>
+      <div class="fq-a">Not always, but domain-specific fine-tuning typically improves recall by 10-30% for specialized corpora. <strong>General-purpose models</strong> work well for broad content, but domains like legal, medical, or code search benefit substantially from fine-tuning on in-domain data.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var corpus = [
+    { text: "Doctor compensation trends in 2024", score: 0.94 },
+    { text: "Medical professional pay analysis", score: 0.89 },
+    { text: "Nurse staffing and hiring pipeline", score: 0.62 },
+    { text: "Hospital budget allocation report", score: 0.55 },
+    { text: "River bank erosion monitoring", score: 0.12 }
+  ];
+  function hexToRgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  function render() {
+    var container = document.getElementById('c03t02-results');
+    container.innerHTML = '';
+    corpus.forEach(function(item) {
+      var color = item.score > 0.8 ? '#4ade80' : item.score > 0.5 ? '#facc15' : '#f87171';
+      var row = document.createElement('div');
+      row.className = 'c03t02-result';
+      row.innerHTML = '<div class="c03t02-score" style="color:'+color+';background:'+hexToRgba(color,0.12)+';border:1px solid '+hexToRgba(color,0.3)+'">' + item.score.toFixed(2) + '</div>' +
+        '<div style="flex:1"><div class="c03t02-text">' + item.text + '</div>' +
+        '<div class="c03t02-bar" style="width:'+Math.round(item.score*100)+'%;background:'+hexToRgba(color,0.4)+';margin-top:4px;"></div></div>';
+      container.appendChild(row);
+    });
+  }
+  render();
+  document.getElementById('c03t02-search-btn').addEventListener('click', function() {
+    corpus.forEach(function(item) { item.score = Math.min(1, Math.max(0.05, item.score + (Math.random() - 0.5) * 0.1)); });
+    corpus.sort(function(a,b) { return b.score - a.score; });
+    render();
+  });
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 3: Embedding Levels -->
+<!-- ============================================================ -->
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Token, Sentence, and Document Embeddings</h2></div>
+
+  <div class="quick-take">Token embeddings represent individual tokens at the input layer. Sentence embeddings compress a whole sentence into one vector for comparison. Document embeddings do the same at larger scope. Match the representation level to the task.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Token embeddings are individual puzzle pieces. Sentence embeddings are the assembled picture. Document embeddings are the whole puzzle box.</div>
+
+  <div class="visual-container" id="c03t03-visual">
+    <div class="c03t03-levels">
+      <div class="c03t03-level">
+        <div class="c03t03-label" style="color:#38bdf8;">Token Embeddings</div>
+        <div class="c03t03-chips" id="c03t03-tokens"></div>
+      </div>
+      <div class="c03t03-level">
+        <div class="c03t03-label" style="color:#a78bfa;">Sentence Embedding</div>
+        <div class="c03t03-chips" id="c03t03-sentence"></div>
+      </div>
+      <div class="c03t03-level">
+        <div class="c03t03-label" style="color:#4ade80;">Document Embedding</div>
+        <div class="c03t03-chips" id="c03t03-doc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Three Levels of Representation</h3>
+    <table>
+      <thead><tr><th>Level</th><th>Scope</th><th>Typical Use</th><th>Training Signal</th></tr></thead>
+      <tbody>
+        <tr><td>Token</td><td>Single subword</td><td>Internal model processing</td><td>Language modeling objective</td></tr>
+        <tr><td>Sentence</td><td>One sentence or chunk</td><td>Semantic search, clustering</td><td>Contrastive pairs, NLI</td></tr>
+        <tr><td>Document</td><td>Full document or page</td><td>Document retrieval, classification</td><td>Pooling or chunk aggregation</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Why This Distinction Matters</h3>
+    <p>Token embeddings are part of the model's internal processing and are <strong>not</strong> usually used directly for search. They represent individual token identities, not semantic meaning at the sentence level. For search and clustering, you want sentence or chunk embeddings explicitly trained to preserve semantic similarity at that level.</p>
+    <p>Sentence-BERT (Reimers &amp; Gurevych, 2019) made sentence-level similarity search dramatically more efficient than pairwise cross-encoding by producing fixed-size vectors that can be precomputed and indexed.</p>
+
+    <h3>Choosing the Right Level</h3>
+    <ul>
+      <li><strong>Retrieval-augmented generation:</strong> Sentence or chunk embeddings (typically 256-512 tokens per chunk).</li>
+      <li><strong>Document classification:</strong> Document-level embeddings or pooled chunk embeddings.</li>
+      <li><strong>Named entity disambiguation:</strong> Token-level contextual embeddings from a fine-tuned encoder.</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Match the embedding level to the task. Token embeddings power internal model mechanics; sentence and document embeddings power retrieval and comparison.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Sentence embedding via mean pooling (simplified)</span>
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Simulated token embeddings for "The cat sat"</span>
+token_embs = np.<span class="fn">array</span>([
+    [<span class="num">0.1</span>, <span class="num">0.5</span>, <span class="num">0.3</span>],  <span class="com"># "The"</span>
+    [<span class="num">0.8</span>, <span class="num">0.2</span>, <span class="num">0.9</span>],  <span class="com"># "cat"</span>
+    [<span class="num">0.4</span>, <span class="num">0.6</span>, <span class="num">0.1</span>],  <span class="com"># "sat"</span>
+])
+
+<span class="com"># Mean pooling: average all token vectors into one</span>
+sentence_emb = token_embs.<span class="fn">mean</span>(axis=<span class="num">0</span>)
+<span class="fn">print</span>(<span class="str">"Sentence embedding:"</span>, sentence_emb)
+
+<span class="com"># Normalize to unit length for cosine similarity</span>
+sentence_emb = sentence_emb / np.linalg.<span class="fn">norm</span>(sentence_emb)
+<span class="fn">print</span>(<span class="str">"Normalized:"</span>, sentence_emb)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is mean pooling vs. CLS pooling?</summary>
+      <div class="fq-a"><strong>Mean pooling</strong> averages all token embeddings into one vector. <strong>CLS pooling</strong> uses the special [CLS] token's embedding as the sentence representation. Mean pooling generally outperforms CLS pooling for retrieval tasks because it captures information from all tokens, not just one.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you embed documents longer than the model's context window?</summary>
+      <div class="fq-a">Split the document into overlapping chunks (e.g., 512 tokens with 50-token overlap), embed each chunk separately, then either store all chunk vectors or aggregate them via averaging. <strong>Late chunking</strong> approaches process the full document first, then pool representations per chunk for better coherence.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can multimodal embeddings mix text and images in the same space?</summary>
+      <div class="fq-a">Yes. Models like <strong>CLIP</strong> (Radford et al., 2021) project both text and images into a shared embedding space, enabling cross-modal retrieval: search images with text queries or find similar images to a caption. The key is that the training objective aligns paired modalities.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  var words = ['The','cat','sat','on','the','mat'];
+  var colors = ['#38bdf8','#a78bfa','#4ade80','#fb923c','#38bdf8','#f472b6'];
+  var tc = document.getElementById('c03t03-tokens');
+  words.forEach(function(w, i) {
+    var chip = document.createElement('span');
+    chip.className = 'c03t03-chip';
+    chip.style.background = hexToRgba(colors[i], 0.15);
+    chip.style.color = colors[i];
+    chip.style.border = '1px solid ' + hexToRgba(colors[i], 0.3);
+    chip.textContent = w + ' [0.' + Math.floor(Math.random()*9+1) + ', ...]';
+    tc.appendChild(chip);
+  });
+  var sc = document.getElementById('c03t03-sentence');
+  var schip = document.createElement('span');
+  schip.className = 'c03t03-chip';
+  schip.style.background = hexToRgba('#a78bfa', 0.15);
+  schip.style.color = '#a78bfa';
+  schip.style.border = '1px solid ' + hexToRgba('#a78bfa', 0.3);
+  schip.textContent = '"The cat sat on the mat" -> [0.43, 0.38, 0.55, ...]';
+  sc.appendChild(schip);
+  var dc = document.getElementById('c03t03-doc');
+  var dchip = document.createElement('span');
+  dchip.className = 'c03t03-chip';
+  dchip.style.background = hexToRgba('#4ade80', 0.15);
+  dchip.style.color = '#4ade80';
+  dchip.style.border = '1px solid ' + hexToRgba('#4ade80', 0.3);
+  dchip.textContent = 'Full document (pooled chunks) -> [0.51, 0.29, 0.44, ...]';
+  dc.appendChild(dchip);
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 4: L2 Normalization -->
+<!-- ============================================================ -->
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Why Engineers L2-Normalize Embeddings</h2></div>
+
+  <div class="quick-take">Normalization scales vectors to unit length so similarity depends on direction rather than magnitude. This makes cosine similarity and dot product behave consistently and improves retrieval stability.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Normalization is like adjusting all speakers to the same volume &mdash; you compare what they say, not how loud they are.</div>
+
+  <div class="visual-container" id="c03t04-visual">
+    <div style="display:flex;gap:12px;margin-bottom:12px;">
+      <button class="vis-btn active" id="c03t04-raw-btn">Raw Vectors</button>
+      <button class="vis-btn" id="c03t04-norm-btn">Normalized</button>
+    </div>
+    <div class="c03t04-vectors" id="c03t04-display"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Normalization Does</h3>
+    <p>L2 normalization divides each vector by its Euclidean norm (length), producing a unit vector that lies on the surface of a hypersphere. After normalization, every vector has length 1.0, so <code>cosine_similarity(a, b) = dot_product(a, b)</code>.</p>
+    <p>Without normalization, one vector can dominate comparisons because of size rather than meaning. A document embedding with large activations would score higher in dot-product search even if a smaller-norm vector is semantically closer.</p>
+
+    <h3>When to Normalize</h3>
+    <ul>
+      <li><strong>Always normalize</strong> when the embedding model documentation recommends it (most do).</li>
+      <li><strong>Always normalize</strong> when using a vector index that computes dot product (FAISS, Pinecone inner product mode).</li>
+      <li><strong>Skip normalization</strong> only when magnitude carries meaningful signal (e.g., some models encode confidence in vector length).</li>
+    </ul>
+
+    <h3>Practical Impact</h3>
+    <p>Normalization simplifies index behavior and thresholding. With unit vectors, a cosine score of 0.9 always means the same level of similarity regardless of which documents are compared. Without normalization, thresholds become unreliable because scores depend on both direction and magnitude. See <a href="#topic-5" class="xref">Topic 5: Cosine vs Dot Product</a> for how normalization unifies these two metrics.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Normalization is not magic; it is a design choice that makes similarity scores comparable and thresholds reliable.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Two vectors with different magnitudes</span>
+a = np.<span class="fn">array</span>([<span class="num">3.0</span>, <span class="num">4.0</span>])
+b = np.<span class="fn">array</span>([<span class="num">0.6</span>, <span class="num">0.8</span>])
+
+<span class="com"># Before normalization: same direction, different norms</span>
+<span class="fn">print</span>(<span class="str">"Norm a:"</span>, np.linalg.<span class="fn">norm</span>(a))   <span class="com"># 5.0</span>
+<span class="fn">print</span>(<span class="str">"Norm b:"</span>, np.linalg.<span class="fn">norm</span>(b))   <span class="com"># 1.0</span>
+<span class="fn">print</span>(<span class="str">"Dot product:"</span>, np.<span class="fn">dot</span>(a, b))  <span class="com"># 5.0 (misleading!)</span>
+
+<span class="com"># After normalization: both unit length</span>
+a_n = a / np.linalg.<span class="fn">norm</span>(a)
+b_n = b / np.linalg.<span class="fn">norm</span>(b)
+<span class="fn">print</span>(<span class="str">"Dot (normalized):"</span>, np.<span class="fn">dot</span>(a_n, b_n))  <span class="com"># 1.0 (identical direction)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does normalization lose information?</summary>
+      <div class="fq-a">Yes, it discards magnitude information. If vector length encodes meaningful signal (e.g., document importance or model confidence), normalization removes it. For most <strong>retrieval tasks</strong>, direction is what matters, so the trade-off is worthwhile.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should I normalize before or after storing in the vector database?</summary>
+      <div class="fq-a">Normalize <strong>before</strong> inserting into the index, and normalize queries at search time too. Most vector databases offer a cosine similarity mode that normalizes internally, but pre-normalizing and using inner product mode is slightly faster and gives you explicit control.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What happens if I mix normalized and unnormalized vectors?</summary>
+      <div class="fq-a">Comparisons become unreliable. An unnormalized vector with high magnitude will dominate dot-product rankings regardless of semantic relevance. <strong>Always ensure consistency</strong>: either all vectors are normalized or none are, and use the matching similarity metric.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var rawVecs = [
+    { label: 'Doc A', vals: [3.0, 4.0], color: '#38bdf8' },
+    { label: 'Doc B', vals: [0.6, 0.8], color: '#a78bfa' },
+    { label: 'Doc C', vals: [1.5, 0.5], color: '#4ade80' }
+  ];
+  function hexToRgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  function norm(v){ var n=Math.sqrt(v[0]*v[0]+v[1]*v[1]); return n; }
+  function renderVecs(normalized) {
+    var el = document.getElementById('c03t04-display');
+    el.innerHTML = '';
+    rawVecs.forEach(function(v) {
+      var vals = normalized ? [v.vals[0]/norm(v.vals), v.vals[1]/norm(v.vals)] : v.vals;
+      var n = norm(vals);
+      var div = document.createElement('div');
+      div.className = 'c03t04-vec';
+      div.innerHTML = '<div class="c03t04-vec-label">' + v.label + '</div>' +
+        '<div class="c03t04-vec-vals" style="color:'+v.color+'">[' + vals[0].toFixed(2) + ', ' + vals[1].toFixed(2) + ']</div>' +
+        '<div class="c03t04-norm" style="color:'+hexToRgba(v.color,0.7)+'">||v|| = ' + n.toFixed(3) + '</div>';
+      el.appendChild(div);
+    });
+  }
+  renderVecs(false);
+  document.getElementById('c03t04-raw-btn').addEventListener('click', function() {
+    this.classList.add('active'); document.getElementById('c03t04-norm-btn').classList.remove('active');
+    renderVecs(false);
+  });
+  document.getElementById('c03t04-norm-btn').addEventListener('click', function() {
+    this.classList.add('active'); document.getElementById('c03t04-raw-btn').classList.remove('active');
+    renderVecs(true);
+  });
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 5: Cosine vs Dot Product -->
+<!-- ============================================================ -->
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Cosine Similarity vs Dot Product</h2></div>
+
+  <div class="quick-take">Cosine similarity measures the angle between vectors (direction only). Dot product mixes angle and magnitude. Use cosine when norms vary; after L2 normalization, they are equivalent.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Cosine asks "are they pointing the same way?" Dot product asks "are they pointing the same way AND how strongly?"</div>
+
+  <div class="visual-container" id="c03t05-visual">
+    <div class="c03t05-canvas-wrap">
+      <canvas id="c03t05-canvas" width="400" height="280"></canvas>
+    </div>
+    <div class="c03t05-legend">
+      <div class="c03t05-legend-item"><div class="c03t05-dot" style="background:#38bdf8;"></div> Query</div>
+      <div class="c03t05-legend-item"><div class="c03t05-dot" style="background:#4ade80;"></div> Doc A (similar direction)</div>
+      <div class="c03t05-legend-item"><div class="c03t05-dot" style="background:#f472b6;"></div> Doc B (different direction)</div>
+    </div>
+    <div style="text-align:center;margin-top:8px;font-size:0.78rem;color:#64748b;" id="c03t05-scores"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When Cosine Is Safer</h3>
+    <p>Use cosine similarity when:</p>
+    <ul>
+      <li>Embedding norms vary across examples (different document lengths, mixed domains).</li>
+      <li>The model documentation recommends cosine-based retrieval.</li>
+      <li>You want ranking behavior that is less sensitive to scale differences from training or preprocessing.</li>
+    </ul>
+
+    <h3>When They Are Equivalent</h3>
+    <p>If embeddings are <a href="#topic-4" class="xref">Topic 4: L2-normalized</a>, cosine similarity and dot product produce identical rankings because every vector has unit length. In production, the real rule is <strong>consistency</strong>: use the metric your embedding model, vector index, and offline evaluation pipeline are designed around.</p>
+
+    <h3>The Mismatch Trap</h3>
+    <p>A metric mismatch can quietly change retrieval quality even though the embeddings themselves never changed. If you train with cosine similarity but search with dot product (or vice versa), ranking order can shift. This is a common source of "nothing changed but recall dropped" bugs in production systems.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>After normalization, cosine and dot product are equivalent. The real rule is consistency across training, indexing, and evaluation.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+a = np.<span class="fn">array</span>([<span class="num">0.8</span>, <span class="num">0.6</span>])
+b = np.<span class="fn">array</span>([<span class="num">0.3</span>, <span class="num">0.9</span>])
+
+<span class="com"># Cosine similarity: angle-only comparison</span>
+cosine = np.<span class="fn">dot</span>(a, b) / (np.linalg.<span class="fn">norm</span>(a) * np.linalg.<span class="fn">norm</span>(b))
+<span class="fn">print</span>(<span class="str">"Cosine:"</span>, <span class="fn">round</span>(cosine, <span class="num">4</span>))
+
+<span class="com"># Dot product: mixes angle AND magnitude</span>
+dot = np.<span class="fn">dot</span>(a, b)
+<span class="fn">print</span>(<span class="str">"Dot product:"</span>, <span class="fn">round</span>(dot, <span class="num">4</span>))
+
+<span class="com"># After normalization, they match</span>
+a_n = a / np.linalg.<span class="fn">norm</span>(a)
+b_n = b / np.linalg.<span class="fn">norm</span>(b)
+<span class="fn">print</span>(<span class="str">"Normalized dot:"</span>, <span class="fn">round</span>(np.<span class="fn">dot</span>(a_n, b_n), <span class="num">4</span>))
+<span class="fn">print</span>(<span class="str">"Same as cosine:"</span>, <span class="fn">round</span>(cosine, <span class="num">4</span>) == <span class="fn">round</span>(np.<span class="fn">dot</span>(a_n, b_n), <span class="num">4</span>))</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What about Euclidean distance?</summary>
+      <div class="fq-a">Euclidean distance measures the straight-line distance between vector endpoints. For normalized vectors, Euclidean distance is monotonically related to cosine similarity, so they produce identical rankings. <strong>Cosine is preferred</strong> in practice because its 0-to-1 range is more intuitive for thresholding.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Which metric is fastest for retrieval at scale?</summary>
+      <div class="fq-a">Inner product (dot product) with pre-normalized vectors is the fastest option because it avoids the norm computation at query time. Most production vector databases (<strong>FAISS, Milvus, Pinecone</strong>) optimize heavily for inner product search with HNSW or IVF indexes.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var canvas = document.getElementById('c03t05-canvas');
+  var ctx = canvas.getContext('2d');
+  var cx = 60, cy = 220;
+  function drawArrow(x1,y1,x2,y2,color,w) {
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    ctx.strokeStyle = color; ctx.lineWidth = w || 2; ctx.stroke();
+    var angle = Math.atan2(y2-y1, x2-x1);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2-8*Math.cos(angle-0.4), y2-8*Math.sin(angle-0.4));
+    ctx.lineTo(x2-8*Math.cos(angle+0.4), y2-8*Math.sin(angle+0.4));
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  }
+  function draw() {
+    ctx.clearRect(0,0,400,280);
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx,20); ctx.lineTo(cx,cy); ctx.lineTo(380,cy); ctx.stroke();
+    ctx.fillStyle = '#475569'; ctx.font = '11px sans-serif';
+    ctx.fillText('dimension 1', 340, cy+16);
+    ctx.save(); ctx.translate(cx-16, 30); ctx.rotate(-Math.PI/2);
+    ctx.fillText('dimension 2', 0, 0); ctx.restore();
+    drawArrow(cx, cy, cx+250*0.8, cy-250*0.6, '#38bdf8', 2.5);
+    drawArrow(cx, cy, cx+120*0.6, cy-120*0.8, '#4ade80', 2.5);
+    drawArrow(cx, cy, cx+200*0.3, cy-200*0.9, '#f472b6', 2.5);
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#38bdf8'; ctx.fillText('Query', cx+250*0.8+5, cy-250*0.6);
+    ctx.fillStyle = '#4ade80'; ctx.fillText('Doc A', cx+120*0.6+5, cy-120*0.8-5);
+    ctx.fillStyle = '#f472b6'; ctx.fillText('Doc B', cx+200*0.3+5, cy-200*0.9);
+    // angle arc
+    ctx.beginPath();
+    ctx.arc(cx, cy, 40, -Math.atan2(0.6,0.8), -Math.atan2(0.8,0.6), true);
+    ctx.strokeStyle = 'rgba(74,222,128,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif';
+    ctx.fillText('small angle', cx+30, cy-35);
+  }
+  draw();
+  var scoresEl = document.getElementById('c03t05-scores');
+  scoresEl.textContent = 'Cosine(Q, A) = 0.98 | Cosine(Q, B) = 0.54 | After norm: dot = cosine';
+})();
+</script>
+
+    <div class="group-divider"><span>System Design</span></div>
+    <p class="group-intro">How embedding choices affect real systems &mdash; space health, retrieval architecture, dimensionality trade-offs, and evaluation strategy.</p>
+
+<!-- ============================================================ -->
+<!-- TOPIC 6: Hubness & Anisotropy -->
+<!-- ============================================================ -->
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Hubness and Anisotropy</h2></div>
+
+  <div class="quick-take">Hubness means some vectors appear as nearest neighbors for too many queries. Anisotropy means the space is unevenly distributed. Both degrade retrieval quality by biasing results toward generic items.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Hubness is like one popular restaurant showing up on every "nearby food" search regardless of cuisine. Anisotropy is like all restaurants being on the same street.</div>
+
+  <div class="visual-container" id="c03t06-visual">
+    <div style="text-align:center;font-size:0.78rem;color:#64748b;margin-bottom:8px;">Each cell is a vector. Brighter = more times it appears as a nearest neighbor (hub). Click to regenerate.</div>
+    <div class="c03t06-grid" id="c03t06-grid"></div>
+    <div class="c03t06-info" id="c03t06-info"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Goes Wrong</h3>
+    <p><strong>Hubness</strong> occurs when certain vectors become "universal neighbors" &mdash; they appear in the top-k results for a disproportionate number of queries. This happens more often in high-dimensional spaces and is a known mathematical phenomenon, not a bug in the index.</p>
+    <p><strong>Anisotropy</strong> means embeddings cluster into a narrow cone rather than spreading across the hypersphere. When most vectors point in roughly the same direction, cosine similarity scores become very high and very similar, making it hard to distinguish truly relevant results from noise.</p>
+
+    <h3>Diagnosing These Issues</h3>
+    <ul>
+      <li><strong>Hub detection:</strong> Count how often each indexed vector appears in top-k results across a sample of queries. A heavy-tailed distribution signals hubness.</li>
+      <li><strong>Isotropy score:</strong> Measure the uniformity of embedding directions. Principal component analysis on a sample of embeddings reveals whether variance is concentrated in few dimensions.</li>
+    </ul>
+
+    <h3>Mitigation Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Helps</th></tr></thead>
+      <tbody>
+        <tr><td>Better fine-tuning</td><td>Hard negatives and diverse training data spread embeddings more evenly</td></tr>
+        <tr><td>Whitening / PCA</td><td>Decorrelates dimensions and reduces anisotropy</td></tr>
+        <tr><td>Reranking</td><td>A cross-encoder re-scores results and demotes hub items</td></tr>
+        <tr><td>Normalization</td><td>Reduces magnitude-based hubness but does not fix directional clustering</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Not all embedding spaces are equally healthy. If you see over-retrieval of generic documents, investigate hubness and anisotropy before blaming the vector database.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Generate 200 random embeddings in 64 dimensions</span>
+np.random.<span class="fn">seed</span>(<span class="num">42</span>)
+embeddings = np.random.<span class="fn">randn</span>(<span class="num">200</span>, <span class="num">64</span>)
+
+<span class="com"># Normalize to unit length</span>
+norms = np.linalg.<span class="fn">norm</span>(embeddings, axis=<span class="num">1</span>, keepdims=<span class="kw">True</span>)
+embeddings = embeddings / norms
+
+<span class="com"># Compute pairwise cosine similarity (= dot product after norm)</span>
+sims = embeddings @ embeddings.T
+
+<span class="com"># Count how often each vector appears in top-5 for others</span>
+hub_counts = np.<span class="fn">zeros</span>(<span class="num">200</span>)
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">200</span>):
+    top5 = np.<span class="fn">argsort</span>(sims[i])[-<span class="num">6</span>:-<span class="num">1</span>]  <span class="com"># exclude self</span>
+    hub_counts[top5] += <span class="num">1</span>
+
+<span class="fn">print</span>(<span class="str">"Max hub count:"</span>, <span class="fn">int</span>(hub_counts.<span class="fn">max</span>()))
+<span class="fn">print</span>(<span class="str">"Mean hub count:"</span>, hub_counts.<span class="fn">mean</span>())</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does hubness get worse in higher dimensions?</summary>
+      <div class="fq-a">Yes. Hubness is a well-documented <strong>curse of dimensionality</strong> phenomenon. As dimensionality increases, the distribution of nearest-neighbor distances becomes more concentrated, making some points statistically more likely to be neighbors for many queries. Dimensionality reduction can help, but at the cost of representational capacity.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you fix anisotropy after training?</summary>
+      <div class="fq-a">Partially. <strong>Post-hoc whitening</strong> (applying a learned linear transform) can redistribute embeddings more uniformly. However, the best fix is improving the training process itself with better negative sampling and contrastive objectives that encourage isotropy from the start.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  function generate() {
+    var grid = document.getElementById('c03t06-grid');
+    grid.innerHTML = '';
+    var counts = [];
+    for (var i = 0; i < 64; i++) {
+      var isHub = Math.random() < 0.08;
+      var count = isHub ? Math.floor(Math.random() * 15) + 10 : Math.floor(Math.random() * 6);
+      counts.push(count);
+      var cell = document.createElement('div');
+      cell.className = 'c03t06-cell';
+      var intensity = Math.min(count / 20, 1);
+      var color = count > 8 ? '#f472b6' : count > 4 ? '#facc15' : '#38bdf8';
+      cell.style.background = hexToRgba(color, 0.15 + intensity * 0.6);
+      cell.style.color = intensity > 0.3 ? '#0f172a' : color;
+      cell.textContent = count;
+      cell.title = 'Vector ' + i + ': appears as neighbor ' + count + ' times';
+      grid.appendChild(cell);
+    }
+    var maxC = Math.max.apply(null, counts);
+    var avgC = (counts.reduce(function(a,b){return a+b;},0) / counts.length).toFixed(1);
+    document.getElementById('c03t06-info').textContent = 'Max hub count: ' + maxC + ' | Avg: ' + avgC + ' | Vectors with count > 8 are potential hubs';
+  }
+  generate();
+  document.getElementById('c03t06-grid').addEventListener('click', generate);
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 7: Dense vs Sparse -->
+<!-- ============================================================ -->
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Dense vs Sparse Representations</h2></div>
+
+  <div class="quick-take">Dense embeddings are continuous vectors where most dimensions carry nonzero values, capturing semantic similarity. Sparse representations are high-dimensional with few active dimensions, preserving exact term evidence. Production systems often combine both.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Dense search finds things that mean the same thing. Sparse search finds things that say the same thing. Hybrid search does both.</div>
+
+  <div class="visual-container" id="c03t07-visual">
+    <div class="c03t07-compare">
+      <div class="c03t07-panel">
+        <div class="c03t07-title" style="color:#38bdf8;">Dense (768-dim)</div>
+        <div id="c03t07-dense"></div>
+      </div>
+      <div class="c03t07-panel">
+        <div class="c03t07-title" style="color:#a78bfa;">Sparse (30000-dim)</div>
+        <div id="c03t07-sparse"></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:0.78rem;color:#64748b;">Dense: all dimensions active. Sparse: only a few terms have nonzero weights.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Recall-Precision Trade-off</h3>
+    <p>Dense methods capture <strong>semantic similarity</strong> better &mdash; "car" and "automobile" produce similar vectors even though they share no characters. Sparse methods like BM25 preserve <strong>exact term evidence</strong> better &mdash; they will not miss a document containing the exact product code or legal citation you searched for.</p>
+
+    <h3>Hybrid Retrieval</h3>
+    <p>Because each approach has complementary strengths, <strong>hybrid retrieval</strong> has become the default in many enterprise systems. The typical pattern:</p>
+    <ol>
+      <li><strong>Dense search:</strong> Retrieve top-k candidates by embedding similarity.</li>
+      <li><strong>Sparse search:</strong> Retrieve top-k candidates by BM25 keyword matching.</li>
+      <li><strong>Merge:</strong> Combine result lists using reciprocal rank fusion (RRF) or weighted scoring.</li>
+      <li><strong>Rerank:</strong> Use a <a href="#topic-8" class="xref">Topic 8: cross-encoder</a> to re-score the merged shortlist.</li>
+    </ol>
+
+    <h3>When to Use Each</h3>
+    <table>
+      <thead><tr><th>Scenario</th><th>Best Approach</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Natural language Q&amp;A</td><td>Dense or hybrid</td><td>Users paraphrase; semantic matching needed</td></tr>
+        <tr><td>Product code lookup</td><td>Sparse or hybrid</td><td>Exact match is critical</td></tr>
+        <tr><td>Legal document search</td><td>Hybrid</td><td>Both terminology precision and conceptual similarity matter</td></tr>
+        <tr><td>Internal knowledge base</td><td>Hybrid with metadata</td><td>Documents vary in length, style, and domain</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Dense retrieval captures meaning; sparse retrieval captures exact terms. Hybrid retrieval is the production default because neither alone is sufficient.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Reciprocal Rank Fusion: merge dense and sparse results</span>
+<span class="kw">def</span> <span class="fn">rrf_merge</span>(dense_ranks, sparse_ranks, k=<span class="num">60</span>):
+    <span class="str">"""Merge two ranked lists using RRF scoring."""</span>
+    scores = {}
+    <span class="kw">for</span> rank, doc_id <span class="kw">in</span> <span class="fn">enumerate</span>(dense_ranks):
+        scores[doc_id] = scores.<span class="fn">get</span>(doc_id, <span class="num">0</span>) + <span class="num">1.0</span> / (k + rank + <span class="num">1</span>)
+    <span class="kw">for</span> rank, doc_id <span class="kw">in</span> <span class="fn">enumerate</span>(sparse_ranks):
+        scores[doc_id] = scores.<span class="fn">get</span>(doc_id, <span class="num">0</span>) + <span class="num">1.0</span> / (k + rank + <span class="num">1</span>)
+    <span class="com"># Sort by combined score, descending</span>
+    <span class="kw">return</span> <span class="fn">sorted</span>(scores.items(), key=<span class="kw">lambda</span> x: x[<span class="num">1</span>], reverse=<span class="kw">True</span>)
+
+dense  = [<span class="str">"doc_3"</span>, <span class="str">"doc_1"</span>, <span class="str">"doc_7"</span>, <span class="str">"doc_5"</span>]
+sparse = [<span class="str">"doc_1"</span>, <span class="str">"doc_9"</span>, <span class="str">"doc_3"</span>, <span class="str">"doc_2"</span>]
+<span class="fn">print</span>(<span class="fn">rrf_merge</span>(dense, sparse))</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is learned sparse retrieval (e.g., SPLADE)?</summary>
+      <div class="fq-a"><strong>SPLADE</strong> and similar models learn sparse representations where the model decides which vocabulary terms to activate and with what weight. This combines the efficiency of sparse indexing with learned semantic expansion, often outperforming pure BM25 while maintaining interpretability.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How much does hybrid retrieval improve over dense-only?</summary>
+      <div class="fq-a">Benchmarks typically show <strong>5-15% improvement in recall@10</strong> from adding sparse retrieval to dense. The gain is largest when the corpus contains specialized terminology, codes, or proper nouns that dense models may not encode precisely.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex,a){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  var denseEl = document.getElementById('c03t07-dense');
+  var sparseEl = document.getElementById('c03t07-sparse');
+  for (var i = 0; i < 12; i++) {
+    var val = (Math.random() * 0.8 + 0.1).toFixed(2);
+    var row = document.createElement('div');
+    row.className = 'c03t07-bar-row';
+    row.innerHTML = '<div class="c03t07-dim-label">d' + i + '</div><div style="flex:1;height:14px;background:#0f172a;border-radius:3px;overflow:hidden;"><div class="c03t07-bar" style="width:'+Math.round(val*100)+'%;background:'+hexToRgba('#38bdf8',0.5)+';height:100%;border-radius:3px;"></div></div>';
+    denseEl.appendChild(row);
+  }
+  var sparseTerms = ['doctor',0.82,'salary',0.71,'growth',0.65,'compensation',0,'trends',0,'medical',0,'bank',0,'river',0,'the',0,'is',0,'for',0,'and',0];
+  for (var j = 0; j < sparseTerms.length; j += 2) {
+    var sval = sparseTerms[j+1];
+    var srow = document.createElement('div');
+    srow.className = 'c03t07-bar-row';
+    srow.innerHTML = '<div class="c03t07-dim-label" style="width:60px;font-size:0.7rem;">' + sparseTerms[j] + '</div><div style="flex:1;height:14px;background:#0f172a;border-radius:3px;overflow:hidden;"><div class="c03t07-bar" style="width:'+Math.round(sval*100)+'%;background:'+hexToRgba('#a78bfa', sval > 0 ? 0.5 : 0.05)+';height:100%;border-radius:3px;"></div></div>';
+    sparseEl.appendChild(srow);
+  }
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 8: Bi-Encoder vs Cross-Encoder -->
+<!-- ============================================================ -->
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Bi-Encoder vs Cross-Encoder</h2></div>
+
+  <div class="quick-take">A bi-encoder embeds query and document independently for fast, scalable retrieval. A cross-encoder processes them together for richer but slower comparison. The standard pattern: bi-encoder for recall, cross-encoder for reranking.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The bi-encoder is a fast librarian who pulls a shortlist from the catalog. The cross-encoder is a careful reviewer who reads each shortlisted item alongside your question.</div>
+
+  <div class="visual-container" id="c03t08-visual">
+    <div class="c03t08-flow">
+      <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Bi-Encoder (Stage 1: Recall)</div>
+      <div class="c03t08-row">
+        <div class="c03t08-box" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">Query</div>
+        <div class="c03t08-arrow">&#x2192;</div>
+        <div class="c03t08-box" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.2);">Encoder</div>
+        <div class="c03t08-arrow">&#x2192;</div>
+        <div class="c03t08-box" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);">vec_q</div>
+        <div style="color:#475569;font-size:0.85rem;">&#x2194;</div>
+        <div class="c03t08-box" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);">vec_d</div>
+        <div class="c03t08-arrow">&#x2190;</div>
+        <div class="c03t08-box" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.2);">Encoder</div>
+        <div class="c03t08-arrow">&#x2190;</div>
+        <div class="c03t08-box" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">Doc</div>
+      </div>
+      <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-top:12px;">Cross-Encoder (Stage 2: Rerank)</div>
+      <div class="c03t08-row">
+        <div class="c03t08-box" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">Query</div>
+        <div style="color:#475569;">+</div>
+        <div class="c03t08-box" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">Doc</div>
+        <div class="c03t08-arrow">&#x2192;</div>
+        <div class="c03t08-box" style="background:rgba(244,114,182,0.15);color:#f472b6;border:1px solid rgba(244,114,182,0.3);">Joint Encoder</div>
+        <div class="c03t08-arrow">&#x2192;</div>
+        <div class="c03t08-box" style="background:rgba(250,204,21,0.15);color:#facc15;border:1px solid rgba(250,204,21,0.3);">Score: 0.93</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Speed vs Quality Trade-off</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Bi-Encoder</th><th>Cross-Encoder</th></tr></thead>
+      <tbody>
+        <tr><td>Encoding</td><td>Independent (query + doc separate)</td><td>Joint (query + doc together)</td></tr>
+        <tr><td>Speed</td><td>Fast &mdash; vectors precomputed</td><td>Slow &mdash; must process each pair</td></tr>
+        <tr><td>Scalability</td><td>Millions of documents</td><td>Tens to hundreds of candidates</td></tr>
+        <tr><td>Quality</td><td>Good recall</td><td>Better precision</td></tr>
+        <tr><td>Use case</td><td>First-stage retrieval</td><td>Second-stage reranking</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Two-Stage Pipeline</h3>
+    <p>The standard production pattern combines both:</p>
+    <ol>
+      <li><strong>Stage 1 (Recall):</strong> A bi-encoder retrieves the top 100-1000 candidates from the full corpus using precomputed vectors and ANN search.</li>
+      <li><strong>Stage 2 (Precision):</strong> A cross-encoder re-scores the top 20-50 candidates by processing each query-document pair jointly, then returns the final top-k.</li>
+    </ol>
+    <p>This gives you the speed of vector search with the quality of cross-attention, at manageable cost.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Use a bi-encoder for fast recall over millions of documents, then a cross-encoder to rerank the shortlist for precision. The two-stage pattern is the production standard.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Two-stage retrieval: bi-encoder recall + cross-encoder rerank</span>
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer, CrossEncoder
+
+<span class="com"># Stage 1: Bi-encoder for fast recall</span>
+bi_encoder = <span class="fn">SentenceTransformer</span>(<span class="str">"all-MiniLM-L6-v2"</span>)
+query_emb = bi_encoder.<span class="fn">encode</span>(<span class="str">"physician salary trends"</span>)
+
+<span class="com"># Assume corpus_embs is a precomputed matrix</span>
+<span class="com"># top_k_indices = faiss_index.search(query_emb, k=100)</span>
+
+<span class="com"># Stage 2: Cross-encoder for precise reranking</span>
+cross_encoder = <span class="fn">CrossEncoder</span>(<span class="str">"cross-encoder/ms-marco-MiniLM-L-6-v2"</span>)
+pairs = [(<span class="str">"physician salary trends"</span>, doc) <span class="kw">for</span> doc <span class="kw">in</span> shortlist]
+scores = cross_encoder.<span class="fn">predict</span>(pairs)
+
+<span class="com"># Reorder by cross-encoder scores for final results</span>
+reranked = <span class="fn">sorted</span>(<span class="fn">zip</span>(scores, shortlist), reverse=<span class="kw">True</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can a cross-encoder replace a bi-encoder entirely?</summary>
+      <div class="fq-a">Not at scale. A cross-encoder must process every query-document pair, which means scoring 1 million documents requires 1 million forward passes per query. <strong>Bi-encoders</strong> precompute document vectors once, reducing search to a fast nearest-neighbor lookup. The cross-encoder is reserved for a small shortlist.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the latency impact of adding a cross-encoder reranking stage?</summary>
+      <div class="fq-a">Reranking 20-50 documents with a small cross-encoder typically adds <strong>50-200ms</strong> of latency. For most search applications this is acceptable because the quality improvement justifies the cost. Larger cross-encoders or more candidates increase latency linearly.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you distill a cross-encoder into a bi-encoder?</summary>
+      <div class="fq-a">Yes. <strong>Knowledge distillation</strong> trains a bi-encoder to mimic the cross-encoder's scores, producing a faster model with much of the cross-encoder's quality. This is how many high-quality bi-encoders are actually trained in practice.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- TOPIC 9: Dimension Trade-offs -->
+<!-- ============================================================ -->
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>How Embedding Dimension Affects System Design</h2></div>
+
+  <div class="quick-take">Higher dimensions capture richer distinctions but increase storage, memory, and latency. Lower dimensions are cheaper and faster but may lose retrieval fidelity. The right dimension is a system decision, not just a model choice.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Embedding dimension is like camera resolution. Higher resolution captures more detail, but the files are bigger, slower to transfer, and need more storage.</div>
+
+  <div class="visual-container" id="c03t09-visual">
+    <div class="c03t09-slider-row">
+      <div class="c03t09-slider-label" id="c03t09-dim-label">768</div>
+      <input type="range" id="c03t09-slider" min="128" max="3072" step="128" value="768" style="flex:1;">
+    </div>
+    <div class="c03t09-metrics" id="c03t09-metrics">
+      <div class="c03t09-metric"><div class="c03t09-metric-val" id="c03t09-storage" style="color:#38bdf8;">3.0</div><div class="c03t09-metric-label">KB per vector</div></div>
+      <div class="c03t09-metric"><div class="c03t09-metric-val" id="c03t09-recall" style="color:#4ade80;">91%</div><div class="c03t09-metric-label">Recall@10</div></div>
+      <div class="c03t09-metric"><div class="c03t09-metric-val" id="c03t09-latency" style="color:#f472b6;">4.2ms</div><div class="c03t09-metric-label">Search Latency</div></div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Full Trade-off</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>Storage/Vector</th><th>Typical Recall</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>128-256</td><td>0.5-1 KB</td><td>80-85%</td><td>Mobile, edge, very large corpora</td></tr>
+        <tr><td>384-768</td><td>1.5-3 KB</td><td>88-93%</td><td>General production search</td></tr>
+        <tr><td>1024-1536</td><td>4-6 KB</td><td>93-96%</td><td>High-fidelity retrieval, complex domains</td></tr>
+        <tr><td>2048-3072</td><td>8-12 KB</td><td>95-97%</td><td>Research, maximum quality</td></tr>
+      </tbody>
+    </table>
+
+    <h3>System-Level Impact</h3>
+    <ul>
+      <li><strong>Index footprint:</strong> 1M vectors at 768 dims (float32) = ~3 GB. At 3072 dims = ~12 GB. This determines whether the index fits in RAM.</li>
+      <li><strong>Latency:</strong> Higher dimensions mean more computation per similarity comparison, affecting both brute-force and ANN search.</li>
+      <li><strong>Cache efficiency:</strong> Smaller vectors fit better in CPU/GPU caches, improving throughput under high query load.</li>
+      <li><strong>Migration cost:</strong> Changing dimensions requires re-embedding the entire corpus, which can be expensive for large collections.</li>
+    </ul>
+
+    <h3>Matryoshka Embeddings</h3>
+    <p>Recent models like OpenAI's text-embedding-3 support <strong>Matryoshka representation learning</strong>, where you can truncate the embedding to fewer dimensions (e.g., use only the first 256 of 3072 dims) with graceful quality degradation. This lets you tune the accuracy-cost trade-off without retraining.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>A strong engineer does not ask only "what is most accurate?" but also "what scales under real traffic?" Dimension choice is a system design decision.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Compare storage cost at different dimensions</span>
+dims = [<span class="num">256</span>, <span class="num">384</span>, <span class="num">768</span>, <span class="num">1536</span>, <span class="num">3072</span>]
+n_docs = <span class="num">1_000_000</span>  <span class="com"># 1 million documents</span>
+
+<span class="kw">for</span> d <span class="kw">in</span> dims:
+    <span class="com"># float32 = 4 bytes per dimension</span>
+    bytes_per_vec = d * <span class="num">4</span>
+    total_gb = (bytes_per_vec * n_docs) / (<span class="num">1024</span>**<span class="num">3</span>)
+    <span class="fn">print</span>(<span class="str">f"dim=</span>{d:<span class="num">5</span>}<span class="str">  per_vec=</span>{bytes_per_vec/<span class="num">1024</span>:.1f}<span class="str">KB  total=</span>{total_gb:.1f}<span class="str">GB"</span>)
+
+<span class="com"># Matryoshka truncation: use first N dims</span>
+full_emb = np.random.<span class="fn">randn</span>(<span class="num">3072</span>)
+truncated = full_emb[:<span class="num">256</span>]  <span class="com"># 12x smaller, still useful</span>
+truncated = truncated / np.linalg.<span class="fn">norm</span>(truncated)  <span class="com"># re-normalize</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can quantization reduce storage without reducing dimensions?</summary>
+      <div class="fq-a">Yes. <strong>Scalar quantization</strong> (float32 to int8) cuts storage by 4x with minimal quality loss. <strong>Product quantization</strong> (PQ) can compress further to 32-64 bytes per vector. Most production vector databases support quantized indexes for cost-efficient serving.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is there a point of diminishing returns for dimensions?</summary>
+      <div class="fq-a">Yes. Beyond 1024-1536 dimensions, <strong>recall improvements are typically marginal</strong> (less than 1-2%) while costs increase linearly. The optimal point depends on corpus complexity &mdash; simple FAQ search may plateau at 384 dims, while multilingual legal search benefits from 1536+.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var slider = document.getElementById('c03t09-slider');
+  function update() {
+    var dim = parseInt(slider.value);
+    document.getElementById('c03t09-dim-label').textContent = dim;
+    var kb = (dim * 4 / 1024).toFixed(1);
+    var recall = Math.min(97, 75 + 22 * (1 - Math.exp(-dim / 600))).toFixed(0);
+    var latency = (1.5 + dim * 0.004).toFixed(1);
+    document.getElementById('c03t09-storage').textContent = kb;
+    document.getElementById('c03t09-recall').textContent = recall + '%';
+    document.getElementById('c03t09-latency').textContent = latency + 'ms';
+  }
+  slider.addEventListener('input', update);
+  update();
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- TOPIC 10: Evaluation -->
+<!-- ============================================================ -->
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Evaluating Embedding Models for Production</h2></div>
+
+  <div class="quick-take">Evaluate embeddings on the task they will actually support. Offline vector similarity alone is not enough. The final question is always whether the embeddings improve business-relevant retrieval or decision quality.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Evaluating an embedding model is like test-driving a car on the road you will actually use &mdash; not just checking the spec sheet.</div>
+
+  <div class="visual-container" id="c03t10-visual">
+    <div class="c03t10-metrics">
+      <div class="c03t10-card">
+        <div class="c03t10-card-title">Recall@10</div>
+        <div class="c03t10-card-val" style="color:#38bdf8;">0.87</div>
+        <div class="c03t10-card-desc">How often the correct document appears in top 10</div>
+      </div>
+      <div class="c03t10-card">
+        <div class="c03t10-card-title">MRR</div>
+        <div class="c03t10-card-val" style="color:#a78bfa;">0.72</div>
+        <div class="c03t10-card-desc">Mean Reciprocal Rank: how high the first correct result ranks</div>
+      </div>
+      <div class="c03t10-card">
+        <div class="c03t10-card-title">nDCG@10</div>
+        <div class="c03t10-card-val" style="color:#4ade80;">0.81</div>
+        <div class="c03t10-card-desc">Normalized Discounted Cumulative Gain: graded relevance</div>
+      </div>
+      <div class="c03t10-card">
+        <div class="c03t10-card-title">Answer Quality</div>
+        <div class="c03t10-card-val" style="color:#f472b6;">0.78</div>
+        <div class="c03t10-card-desc">Downstream RAG accuracy using retrieved passages</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Key Metrics by Task</h3>
+    <table>
+      <thead><tr><th>Task</th><th>Primary Metrics</th><th>What to Watch</th></tr></thead>
+      <tbody>
+        <tr><td>Retrieval / RAG</td><td>Recall@k, MRR, nDCG</td><td>Are the right documents surfaced?</td></tr>
+        <tr><td>Clustering</td><td>Purity, Silhouette score</td><td>Are clusters interpretable and stable?</td></tr>
+        <tr><td>Recommendation</td><td>Precision@k, diversity</td><td>Are neighbors meaningfully relevant?</td></tr>
+        <tr><td>Classification</td><td>Accuracy, F1 with linear probe</td><td>Does the embedding separate classes?</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Beyond Benchmarks</h3>
+    <p>Sentence-level benchmarks (MTEB, STS) are useful for initial model selection, but the final question is always whether the embeddings improve <strong>business-relevant retrieval or decision quality</strong> in your specific pipeline. Two models with similar MTEB scores can perform very differently on your domain data.</p>
+
+    <h3>Evaluation Checklist</h3>
+    <ol>
+      <li><strong>Build a domain-specific test set:</strong> Use real queries and relevance judgments from your application.</li>
+      <li><strong>Measure retrieval metrics:</strong> Recall@k and nDCG on your data, not just public benchmarks.</li>
+      <li><strong>Test end-to-end:</strong> For RAG, measure downstream answer quality, not just retrieval quality.</li>
+      <li><strong>Check edge cases:</strong> Test with out-of-domain queries, adversarial inputs, and multilingual content.</li>
+      <li><strong>Monitor in production:</strong> Track retrieval quality over time as your corpus and query distribution evolve.</li>
+    </ol>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Offline vector similarity alone is not enough. Test embeddings inside the full pipeline they will power, on your domain data, with business-relevant metrics.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">recall_at_k</span>(retrieved_ids, relevant_ids, k):
+    <span class="str">"""Fraction of relevant docs found in top-k results."""</span>
+    top_k = <span class="fn">set</span>(retrieved_ids[:k])
+    relevant = <span class="fn">set</span>(relevant_ids)
+    <span class="kw">return</span> <span class="fn">len</span>(top_k & relevant) / <span class="fn">len</span>(relevant)
+
+<span class="kw">def</span> <span class="fn">mrr</span>(retrieved_ids, relevant_ids):
+    <span class="str">"""Mean Reciprocal Rank: 1/rank of first relevant result."""</span>
+    <span class="kw">for</span> i, doc_id <span class="kw">in</span> <span class="fn">enumerate</span>(retrieved_ids):
+        <span class="kw">if</span> doc_id <span class="kw">in</span> relevant_ids:
+            <span class="kw">return</span> <span class="num">1.0</span> / (i + <span class="num">1</span>)
+    <span class="kw">return</span> <span class="num">0.0</span>
+
+<span class="com"># Example: evaluate a retrieval result</span>
+retrieved = [<span class="str">"d3"</span>, <span class="str">"d7"</span>, <span class="str">"d1"</span>, <span class="str">"d9"</span>, <span class="str">"d2"</span>]
+relevant  = [<span class="str">"d1"</span>, <span class="str">"d2"</span>]
+
+<span class="fn">print</span>(<span class="str">"Recall@3:"</span>, <span class="fn">recall_at_k</span>(retrieved, relevant, <span class="num">3</span>))
+<span class="fn">print</span>(<span class="str">"Recall@5:"</span>, <span class="fn">recall_at_k</span>(retrieved, relevant, <span class="num">5</span>))
+<span class="fn">print</span>(<span class="str">"MRR:"</span>,      <span class="fn">mrr</span>(retrieved, relevant))</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle the cold start problem for evaluation?</summary>
+      <div class="fq-a">Start with a small set of <strong>hand-labeled query-relevance pairs</strong> (50-100 queries with judged results). Use LLM-as-judge for initial scalable evaluation, then refine with human review. Even a small evaluation set is far better than relying only on public benchmarks.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is MTEB and should you trust it?</summary>
+      <div class="fq-a"><strong>MTEB</strong> (Massive Text Embedding Benchmark) evaluates models across retrieval, clustering, classification, and STS tasks. It is useful for shortlisting candidates, but models that rank similarly on MTEB can differ significantly on your specific domain. Always validate with your own data.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How often should you re-evaluate your embedding model?</summary>
+      <div class="fq-a">Re-evaluate whenever your <strong>corpus distribution changes significantly</strong> (new content types, languages, domains) or when query patterns shift. A quarterly review with your domain test set is a good baseline. Monitor retrieval quality metrics continuously in production.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+/* === Global scripts === */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

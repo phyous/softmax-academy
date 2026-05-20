@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 8: Retrieval Foundations for Large Language Model Systems</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 8 &middot; 10 Topics</div>
+  <h1>Retrieval Foundations for LLM Systems</h1>
+  <p>How to find the right evidence before the model generates &mdash; because a good LLM answer begins as a good retrieval problem.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Retrieval is the core bridge between static model knowledge and fresh, domain-specific information. This chapter covers the mechanics of finding the right evidence: lexical retrieval, dense retrieval, hybrid search, chunking, ranking, filtering, and evaluation. Retrieval quality is where grounded LLM quality is usually won or lost, because the generator can only reason over the evidence we successfully surface and rank.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Retrieval Fundamentals</div>
+      <a href="#topic-1"><span class="toc-num">1</span> What Is RAG?</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Lexical vs Dense Retrieval</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Hybrid Retrieval</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Chunking Strategies</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Metadata Filters</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Infrastructure &amp; Evaluation</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Vector Databases</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Approximate Nearest Neighbor</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Reranking</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Query Rewriting</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Retrieval Metrics</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Retrieval Fundamentals</span></div>
+    <p class="group-intro">What retrieval-augmented generation is, how different retrieval methods work, and the design decisions that shape what evidence reaches the model.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c08t01-pipeline { display: flex; gap: 4px; align-items: stretch; margin-bottom: 16px; flex-wrap: wrap; }
+.c08t01-stage { flex: 1; min-width: 100px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px 10px; text-align: center; transition: all 0.3s; }
+.c08t01-stage-icon { font-size: 1.3rem; margin-bottom: 6px; }
+.c08t01-stage-name { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; }
+.c08t01-stage-desc { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+.c08t01-arrow { display: flex; align-items: center; color: #475569; font-size: 1.1rem; }
+.c08t01-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c08t01-panel { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.c08t01-panel-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 8px; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>What Is RAG?</h2></div>
+
+  <div class="quick-take">RAG (Retrieval-Augmented Generation) is a pattern where the system first retrieves relevant external information, then feeds it to the language model as context for generation. The goal is to improve factual grounding without retraining the model.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> RAG is an open-book exam for the model &mdash; instead of relying on memorized knowledge, it looks up the relevant pages before answering.</div>
+
+  <div class="visual-container" id="c08t01-visual">
+    <div class="c08t01-pipeline" id="c08t01-pipeline"></div>
+    <div class="c08t01-compare">
+      <div class="c08t01-panel">
+        <div class="c08t01-panel-title" style="color:#f87171;">Without RAG</div>
+        <div style="font-size:0.84rem;color:#cbd5e1;">
+          <p style="margin-bottom:6px;"><strong style="color:#94a3b8;">Q:</strong> What is our refund policy?</p>
+          <p style="color:#f87171;"><strong style="color:#f87171;">A:</strong> "I believe the refund policy is 30 days..." <span style="font-size:0.78rem;color:#64748b;">(hallucinated &mdash; actual policy is 14 days)</span></p>
+        </div>
+      </div>
+      <div class="c08t01-panel">
+        <div class="c08t01-panel-title" style="color:#4ade80;">With RAG</div>
+        <div style="font-size:0.84rem;color:#cbd5e1;">
+          <p style="margin-bottom:6px;"><strong style="color:#94a3b8;">Q:</strong> What is our refund policy?</p>
+          <p style="margin-bottom:4px;font-size:0.78rem;color:#38bdf8;"><em>Retrieved: "Refunds must be requested within 14 business days..."</em></p>
+          <p style="color:#4ade80;"><strong style="color:#4ade80;">A:</strong> "According to our policy, refunds must be requested within 14 business days."</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why RAG Exists</h3>
+    <p>Not all knowledge should live inside model weights. External retrieval gives the system access to <strong>fresher and more auditable evidence</strong>. RAG improves controllability as much as it improves accuracy (Lewis et al., 2020):</p>
+    <ul>
+      <li><strong>Freshness:</strong> Update the knowledge base without retraining the model</li>
+      <li><strong>Auditability:</strong> Every answer can cite its source document</li>
+      <li><strong>Domain specificity:</strong> Inject proprietary or regulated content the model was never trained on</li>
+      <li><strong>Cost:</strong> Cheaper than fine-tuning for knowledge-heavy use cases</li>
+    </ul>
+
+    <h3>The RAG Pipeline</h3>
+    <p>A standard RAG pipeline has five stages: the user query arrives, it may be rewritten for better retrieval (see <a href="#topic-9" class="xref">Topic 9: Query Rewriting</a>), relevant passages are retrieved from the knowledge base, the passages are reranked (see <a href="#topic-8" class="xref">Topic 8: Reranking</a>), and finally the top passages are assembled into a prompt for the generator.</p>
+
+    <h3>RAG Is a System, Not a Feature</h3>
+    <p>In interviews, emphasize that RAG is a <strong>system design pattern</strong>, not a single API call. Quality depends on every component: chunking (<a href="#topic-4" class="xref">Topic 4</a>), retrieval method (<a href="#topic-2" class="xref">Topic 2</a>/<a href="#topic-3" class="xref">Topic 3</a>), metadata filtering (<a href="#topic-5" class="xref">Topic 5</a>), reranking (<a href="#topic-8" class="xref">Topic 8</a>), and evaluation (<a href="#topic-10" class="xref">Topic 10</a>). The same model can look excellent or terrible depending on how the knowledge base is chunked and ranked.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>RAG separates knowledge from reasoning. The model reasons; the retriever provides the facts. Quality depends on every link in the chain.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Minimal RAG pipeline skeleton</span>
+<span class="kw">import</span> openai
+
+<span class="kw">def</span> <span class="fn">simple_rag</span>(query, retriever, client, top_k=<span class="num">5</span>):
+    <span class="str">"""Retrieve, then generate a grounded answer."""</span>
+
+    <span class="com"># Step 1: Retrieve relevant passages</span>
+    passages = retriever.<span class="fn">search</span>(query, top_k=top_k)
+
+    <span class="com"># Step 2: Assemble context for the generator</span>
+    context = <span class="str">"\n\n"</span>.<span class="fn">join</span>(
+        <span class="str">f"[Source {i+1}]: {p.text}"</span>
+        <span class="kw">for</span> i, p <span class="kw">in</span> <span class="fn">enumerate</span>(passages)
+    )
+
+    <span class="com"># Step 3: Generate with retrieved context</span>
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[
+            {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"""Answer based ONLY on the
+provided context. If the context does not contain
+the answer, say so. Cite [Source N] for each claim."""</span>},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">f"Context:\n{context}\n\nQuestion: {query}"</span>},
+        ],
+    )
+    <span class="kw">return</span> response.choices[<span class="num">0</span>].message.content</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>When should you use RAG vs fine-tuning?</summary>
+      <div class="fq-a">Use RAG when the knowledge changes frequently, when auditability matters, or when the knowledge base is large. Use <strong>fine-tuning</strong> when you need to change the model's behavior, style, or reasoning patterns. Many production systems use both: fine-tuning for tone and format, RAG for factual content.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What are the main failure modes of RAG?</summary>
+      <div class="fq-a">The three main failures are: (1) <strong>retrieval miss</strong> &mdash; the relevant document exists but is not retrieved, (2) <strong>ranking failure</strong> &mdash; the relevant passage is retrieved but buried below noise, and (3) <strong>generation failure</strong> &mdash; the model ignores or contradicts the retrieved evidence. Each has different diagnostic and fix strategies.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does RAG eliminate hallucination?</summary>
+      <div class="fq-a">No. RAG <strong>reduces</strong> hallucination by providing evidence, but the model can still ignore the context, misinterpret it, or confabulate details. Strong RAG systems add guardrails: citation requirements, confidence thresholds, and answer-grounding checks that verify each claim against the retrieved passages.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var stages = [
+    { icon: '?', name: 'Query', desc: 'User asks a question', color: '#38bdf8' },
+    { icon: '&#x270E;', name: 'Rewrite', desc: 'Expand/clarify query', color: '#a78bfa' },
+    { icon: '&#x1F50D;', name: 'Retrieve', desc: 'Search the index', color: '#34d399' },
+    { icon: '&#x2195;', name: 'Rerank', desc: 'Order by relevance', color: '#fb923c' },
+    { icon: '&#x2728;', name: 'Generate', desc: 'LLM produces answer', color: '#f472b6' }
+  ];
+  var pipeline = document.getElementById('c08t01-pipeline');
+  stages.forEach(function(s, i) {
+    if (i > 0) {
+      var arrow = document.createElement('div');
+      arrow.className = 'c08t01-arrow';
+      arrow.innerHTML = '&#x2192;';
+      pipeline.appendChild(arrow);
+    }
+    var el = document.createElement('div');
+    el.className = 'c08t01-stage';
+    el.style.borderColor = hexToRgba(s.color, 0.3);
+    el.innerHTML = '<div class="c08t01-stage-icon">' + s.icon + '</div><div class="c08t01-stage-name" style="color:' + s.color + ';">' + s.name + '</div><div class="c08t01-stage-desc">' + s.desc + '</div>';
+    pipeline.appendChild(el);
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c08t02-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.c08t02-side { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.c08t02-side-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 10px; }
+.c08t02-query { background: #1e293b; border-radius: 6px; padding: 8px 12px; font-size: 0.84rem; color: #e2e8f0; margin-bottom: 10px; border-left: 3px solid #38bdf8; }
+.c08t02-result { padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; }
+.c08t02-match { color: #4ade80; font-size: 0.75rem; font-weight: 600; }
+.c08t02-miss { color: #f87171; font-size: 0.75rem; font-weight: 600; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Lexical vs Dense Retrieval</h2></div>
+
+  <div class="quick-take">Lexical retrieval matches explicit terms (strong for exact keywords, product codes, error messages). Dense retrieval uses embeddings to find semantically related content even when query and document use different words. Each has blind spots the other covers.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Lexical retrieval is a librarian who finds books by title keywords. Dense retrieval is a librarian who understands what you mean and finds books on the same topic, even if titled differently.</div>
+
+  <div class="visual-container" id="c08t02-visual">
+    <div class="c08t02-query">Query: "How do I fix error E-4021 when deploying?"</div>
+    <div class="c08t02-compare">
+      <div class="c08t02-side">
+        <div class="c08t02-side-title" style="color:#fb923c;">Lexical (BM25)</div>
+        <div id="c08t02-lexical"></div>
+      </div>
+      <div class="c08t02-side">
+        <div class="c08t02-side-title" style="color:#a78bfa;">Dense (Embeddings)</div>
+        <div id="c08t02-dense"></div>
+      </div>
+    </div>
+    <div class="vis-btns">
+      <button class="vis-btn active" data-query="error">Error Code Query</button>
+      <button class="vis-btn" data-query="concept">Conceptual Query</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Lexical Retrieval (BM25, TF-IDF)</h3>
+    <p>Lexical methods match documents based on <strong>term overlap</strong>. BM25 is the standard: it rewards documents containing query terms, adjusted for term frequency and document length. Lexical retrieval excels at exact matches &mdash; product names, error codes, legal clause numbers, acronyms.</p>
+
+    <h3>Dense Retrieval (Bi-encoder)</h3>
+    <p>Dense retrieval encodes both query and document into embedding vectors, then retrieves by <strong>vector similarity</strong> (typically cosine or dot product). It captures semantic meaning, so "how to fix deployment failures" matches "resolving CI/CD pipeline errors" even without shared keywords.</p>
+
+    <h3>Trade-offs</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>Lexical</th><th>Dense</th></tr></thead>
+      <tbody>
+        <tr><td>Exact matches</td><td>Excellent</td><td>Often misses rare identifiers</td></tr>
+        <tr><td>Semantic recall</td><td>Poor (requires word overlap)</td><td>Strong (captures meaning)</td></tr>
+        <tr><td>Speed</td><td>Very fast (inverted index)</td><td>Fast with ANN index</td></tr>
+        <tr><td>Index size</td><td>Moderate</td><td>Larger (stores vectors)</td></tr>
+        <tr><td>Zero-shot domains</td><td>Works immediately</td><td>Needs good embedding model</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Enterprise Reality</h3>
+    <p>In enterprise systems, you often need both because users ask conceptually while documents are written operationally. This is why <a href="#topic-3" class="xref">Topic 3: Hybrid Retrieval</a> has become the production standard.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Lexical protects exact matches; dense improves semantic recall. Production systems almost always need both.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> rank_bm25 <span class="kw">import</span> BM25Okapi
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+docs = [
+    <span class="str">"Error E-4021: deployment pipeline timeout after 300s"</span>,
+    <span class="str">"Resolving CI/CD failures in production environments"</span>,
+    <span class="str">"How to configure deployment retry settings"</span>,
+]
+
+<span class="com"># --- Lexical retrieval with BM25 ---</span>
+tokenized = [d.<span class="fn">lower</span>().<span class="fn">split</span>() <span class="kw">for</span> d <span class="kw">in</span> docs]
+bm25 = BM25Okapi(tokenized)
+query = <span class="str">"fix error E-4021 deploying"</span>
+lex_scores = bm25.<span class="fn">get_scores</span>(query.<span class="fn">lower</span>().<span class="fn">split</span>())
+<span class="fn">print</span>(<span class="str">"BM25 scores:"</span>, lex_scores)  <span class="com"># high for doc with "E-4021"</span>
+
+<span class="com"># --- Dense retrieval with embeddings ---</span>
+model = SentenceTransformer(<span class="str">"all-MiniLM-L6-v2"</span>)
+doc_embs = model.<span class="fn">encode</span>(docs)
+q_emb = model.<span class="fn">encode</span>([query])
+dense_scores = np.<span class="fn">dot</span>(doc_embs, q_emb.T).<span class="fn">flatten</span>()
+<span class="fn">print</span>(<span class="str">"Dense scores:"</span>, dense_scores)  <span class="com"># high for semantically similar</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Is BM25 still relevant in the age of embeddings?</summary>
+      <div class="fq-a">Absolutely. BM25 is a strong <strong>first-stage retriever</strong> that requires no GPU, no embedding model, and no vector index. It excels at exact-match queries that embeddings often fumble (product IDs, error codes, legal references). In hybrid systems, BM25 frequently catches documents that dense retrieval misses.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is a bi-encoder vs a cross-encoder?</summary>
+      <div class="fq-a">A <strong>bi-encoder</strong> encodes query and document independently, enabling precomputation and fast retrieval. A <strong>cross-encoder</strong> takes the query-document pair as joint input, producing higher-quality relevance scores but at much higher cost. Bi-encoders are for first-stage retrieval; cross-encoders are for reranking (see <a href="#topic-8" class="xref">Topic 8: Reranking</a>).</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle multilingual retrieval?</summary>
+      <div class="fq-a">Use a <strong>multilingual embedding model</strong> (e.g., multilingual-e5-large) that maps texts from different languages into the same vector space. For lexical retrieval, you need language-specific tokenization and stemming. Hybrid systems often pair language-aware BM25 with multilingual dense retrieval.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var queries = {
+    error: {
+      lexical: [
+        { text: 'Error E-4021: deployment pipeline timeout after 300s', status: 'match', note: 'Exact term match on "E-4021"' },
+        { text: 'Deployment retry configuration guide', status: 'match', note: 'Matches "deployment"' },
+        { text: 'CI/CD pipeline failures in production', status: 'miss', note: 'No keyword overlap' }
+      ],
+      dense: [
+        { text: 'CI/CD pipeline failures in production', status: 'match', note: 'Semantically similar' },
+        { text: 'Deployment retry configuration guide', status: 'match', note: 'Related concept' },
+        { text: 'Error E-4021: deployment pipeline timeout', status: 'miss', note: 'May rank lower without exact code match' }
+      ]
+    },
+    concept: {
+      lexical: [
+        { text: 'Application scaling documentation', status: 'miss', note: 'No keyword overlap with "slow API"' },
+        { text: 'API rate limiting configuration', status: 'match', note: 'Partial match on "API"' },
+        { text: 'Performance optimization best practices', status: 'miss', note: 'Different vocabulary' }
+      ],
+      dense: [
+        { text: 'Performance optimization best practices', status: 'match', note: 'Captures "slow" = performance issue' },
+        { text: 'Application scaling documentation', status: 'match', note: 'Semantically related to slowness' },
+        { text: 'API rate limiting configuration', status: 'match', note: 'Relevant to API performance' }
+      ]
+    }
+  };
+
+  function render(key) {
+    var q = queries[key];
+    ['lexical', 'dense'].forEach(function(side) {
+      var el = document.getElementById('c08t02-' + side);
+      el.innerHTML = '';
+      q[side].forEach(function(r) {
+        var div = document.createElement('div');
+        div.className = 'c08t02-result';
+        var statusColor = r.status === 'match' ? '#4ade80' : '#f87171';
+        div.style.background = hexToRgba(statusColor, 0.06);
+        div.style.border = '1px solid ' + hexToRgba(statusColor, 0.15);
+        div.innerHTML = '<span class="c08t02-' + r.status + '">' + (r.status === 'match' ? '&#x2713;' : '&#x2717;') + '</span>' +
+          '<div><div style="color:#e2e8f0;font-size:0.82rem;">' + r.text + '</div><div style="color:#64748b;font-size:0.72rem;">' + r.note + '</div></div>';
+        el.appendChild(div);
+      });
+    });
+    var queryText = key === 'error' ? 'How do I fix error E-4021 when deploying?' : 'Why is our API so slow during peak hours?';
+    document.querySelector('.c08t02-query').textContent = 'Query: "' + queryText + '"';
+  }
+
+  document.querySelectorAll('#c08t02-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c08t02-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-query'));
+    });
+  });
+  render('error');
+})();
+</script>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Hybrid Retrieval</h2></div>
+
+  <div class="quick-take">Hybrid retrieval combines lexical and dense signals so the system benefits from exact terminology and semantic similarity at the same time. Dense retrieval alone may miss rare identifiers; lexical retrieval alone may miss paraphrases. Together they improve first-stage recall.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Hybrid retrieval is like searching with both Google and a library catalog &mdash; one finds what you meant, the other finds what you said.</div>
+
+  <div class="visual-container" id="c08t03-visual">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:center;">
+      <div style="background:#0f172a;border:1px solid rgba(251,146,60,0.3);border-radius:8px;padding:14px;text-align:center;">
+        <div style="color:#fb923c;font-weight:700;font-size:0.85rem;margin-bottom:4px;">BM25 Results</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Exact term matches</div>
+      </div>
+      <div style="color:#475569;font-size:1.5rem;">+</div>
+      <div style="background:#0f172a;border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:14px;text-align:center;">
+        <div style="color:#a78bfa;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Dense Results</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Semantic matches</div>
+      </div>
+      <div style="color:#475569;font-size:1.5rem;">&#x2192;</div>
+      <div style="background:#0f172a;border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:14px;text-align:center;">
+        <div style="color:#34d399;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Fused Ranking</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Best of both</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Hybrid Wins</h3>
+    <p>Real enterprise queries contain a mix of exact identifiers and conceptual language. "How do I resolve E-4021 timeout during blue-green deployment?" has an error code (lexical) and a conceptual description (dense). Hybrid search reduces the blind spots of each method.</p>
+
+    <h3>Fusion Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Works</th><th>Pros/Cons</th></tr></thead>
+      <tbody>
+        <tr><td>Reciprocal Rank Fusion (RRF)</td><td>Merges result lists by reciprocal rank position</td><td>Simple, no tuning needed; ignores score magnitude</td></tr>
+        <tr><td>Score normalization + weighting</td><td>Normalize BM25 and dense scores to [0,1], then combine with weights</td><td>Tunable; requires calibration</td></tr>
+        <tr><td>Learned fusion</td><td>Train a small model to combine signals</td><td>Best quality; needs training data</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Practical Guidance</h3>
+    <p>Start with RRF &mdash; it requires no score calibration and works surprisingly well. Tune the BM25/dense weight ratio only after you have evaluation data (see <a href="#topic-10" class="xref">Topic 10: Retrieval Metrics</a>). Most teams find a 40/60 or 50/50 BM25/dense split works well as a default.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Hybrid retrieval is the production default for RAG. Start with Reciprocal Rank Fusion and tune from there.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">reciprocal_rank_fusion</span>(result_lists, k=<span class="num">60</span>):
+    <span class="str">"""Merge multiple ranked lists using RRF.
+
+    Args:
+        result_lists: list of lists of (doc_id, score) tuples
+        k: smoothing constant (default 60)
+    Returns:
+        sorted list of (doc_id, rrf_score) tuples
+    """</span>
+    scores = {}
+    <span class="kw">for</span> results <span class="kw">in</span> result_lists:
+        <span class="kw">for</span> rank, (doc_id, _) <span class="kw">in</span> <span class="fn">enumerate</span>(results):
+            <span class="kw">if</span> doc_id <span class="kw">not in</span> scores:
+                scores[doc_id] = <span class="num">0.0</span>
+            <span class="com"># RRF formula: 1 / (k + rank)</span>
+            scores[doc_id] += <span class="num">1.0</span> / (k + rank + <span class="num">1</span>)
+
+    <span class="kw">return</span> <span class="fn">sorted</span>(scores.<span class="fn">items</span>(), key=<span class="kw">lambda</span> x: x[<span class="num">1</span>], reverse=<span class="kw">True</span>)
+
+<span class="com"># Usage: fuse BM25 and dense retrieval results</span>
+bm25_results = [(<span class="str">"doc_1"</span>, <span class="num">8.2</span>), (<span class="str">"doc_3"</span>, <span class="num">6.1</span>), (<span class="str">"doc_5"</span>, <span class="num">4.0</span>)]
+dense_results = [(<span class="str">"doc_3"</span>, <span class="num">0.92</span>), (<span class="str">"doc_2"</span>, <span class="num">0.88</span>), (<span class="str">"doc_1"</span>, <span class="num">0.85</span>)]
+
+fused = <span class="fn">reciprocal_rank_fusion</span>([bm25_results, dense_results])
+<span class="fn">print</span>(<span class="str">"Fused ranking:"</span>, fused[:<span class="num">5</span>])</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you choose the weight between lexical and dense?</summary>
+      <div class="fq-a">Start with <strong>equal weights</strong> or RRF (which is rank-based, not weight-based). Then tune using a labeled evaluation set where you know which documents are relevant for each query. If your domain has many exact identifiers, increase the lexical weight. If queries are mostly conceptual, favor dense.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does hybrid retrieval double the infrastructure cost?</summary>
+      <div class="fq-a">Not quite. You need both an <strong>inverted index</strong> (for BM25) and a <strong>vector index</strong> (for dense), but the retrieval step is still fast because both searches run in parallel. The main cost increase is storage (maintaining both indexes) and the fusion step, which is negligible. Many vector databases (Weaviate, Qdrant, Vespa) support hybrid search natively.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use more than two retrieval signals?</summary>
+      <div class="fq-a">Yes. Production systems sometimes add signals like <strong>recency boost</strong>, <strong>click-through rate</strong>, <strong>document authority</strong>, or <strong>user preference embeddings</strong>. RRF naturally supports any number of ranked lists. The challenge is not combining signals but evaluating whether each additional signal actually improves end-to-end quality.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<style>
+.c08t04-chunk-demo { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.c08t04-chunk { padding: 10px 14px; border-radius: 8px; font-size: 0.82rem; font-family: 'SF Mono', 'Consolas', monospace; line-height: 1.5; position: relative; }
+.c08t04-chunk-label { position: absolute; top: 4px; right: 8px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+.c08t04-overlap { border-left: 3px dashed #facc15; padding-left: 8px; }
+</style>
+
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Chunking Strategies</h2></div>
+
+  <div class="quick-take">Chunking decides the unit of retrieval. If chunks are too large, retrieval becomes noisy. If chunks are too small, the answer loses surrounding context. Good chunking aligns with the structure of the source material and is both a recall and precision decision.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Chunking is like cutting a pizza &mdash; too few slices and each is unwieldy, too many and the toppings fall apart. The right cut follows the natural boundaries.</div>
+
+  <div class="visual-container" id="c08t04-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-chunk="large">Too Large</button>
+      <button class="vis-btn" data-chunk="small">Too Small</button>
+      <button class="vis-btn" data-chunk="good">Well-Sized</button>
+      <button class="vis-btn" data-chunk="overlap">With Overlap</button>
+    </div>
+    <div class="c08t04-chunk-demo" id="c08t04-demo"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Chunking Dominates Quality</h3>
+    <p>Chunking shapes what the retriever can find and what the generator can understand. A poorly chunked knowledge base will defeat even the best embedding model and reranker. In interviews, say that chunking is the <strong>single highest-leverage design decision</strong> in most RAG systems.</p>
+
+    <h3>Chunking Approaches</h3>
+    <table>
+      <thead><tr><th>Method</th><th>How It Works</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>Fixed token window</td><td>Split every N tokens with M overlap</td><td>Unstructured text, logs</td></tr>
+        <tr><td>Sentence boundary</td><td>Split at sentence or paragraph breaks</td><td>Articles, documentation</td></tr>
+        <tr><td>Structural (headings)</td><td>Split at document headings/sections</td><td>Technical docs, wikis</td></tr>
+        <tr><td>Semantic</td><td>Split when embedding similarity drops</td><td>Conversations, transcripts</td></tr>
+        <tr><td>Parent-child</td><td>Index small chunks, retrieve parent sections</td><td>Long documents needing context</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Overlap Matters</h3>
+    <p>Overlap between chunks ensures that information at chunk boundaries is not lost. A typical setting is 10-15% overlap (e.g., 60-token overlap on 400-token chunks). Without overlap, a sentence split across two chunks may not be retrievable by either.</p>
+
+    <h3>Practical Guidelines</h3>
+    <ul>
+      <li><strong>200-500 tokens</strong> per chunk is a common starting range for general documents</li>
+      <li><strong>Respect document structure:</strong> do not split in the middle of tables, code blocks, or list items</li>
+      <li><strong>Include metadata:</strong> attach the document title, section heading, and source URL to each chunk</li>
+      <li><strong>Test empirically:</strong> the best chunk size depends on your queries and documents &mdash; there is no universal answer</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Chunking is the most underestimated decision in RAG. Get it wrong and nothing downstream can compensate.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">chunk_text</span>(tokens, chunk_size=<span class="num">400</span>, overlap=<span class="num">60</span>):
+    <span class="str">"""Split a token list into overlapping chunks.
+
+    Overlap ensures information at chunk boundaries
+    is captured by at least one chunk, improving recall.
+    """</span>
+    chunks = []
+    start = <span class="num">0</span>
+    <span class="kw">while</span> start &lt; <span class="fn">len</span>(tokens):
+        end = <span class="fn">min</span>(start + chunk_size, <span class="fn">len</span>(tokens))
+        chunks.<span class="fn">append</span>(tokens[start:end])
+        <span class="kw">if</span> end == <span class="fn">len</span>(tokens):
+            <span class="kw">break</span>
+        <span class="com"># Step forward by (chunk_size - overlap)</span>
+        start = end - overlap
+    <span class="kw">return</span> chunks
+
+<span class="com"># Example: chunk a document of 1200 tokens</span>
+tokens = <span class="fn">list</span>(<span class="fn">range</span>(<span class="num">1200</span>))  <span class="com"># simulated token IDs</span>
+chunks = <span class="fn">chunk_text</span>(tokens, chunk_size=<span class="num">400</span>, overlap=<span class="num">60</span>)
+<span class="fn">print</span>(<span class="str">f"Created {len(chunks)} chunks"</span>)
+<span class="kw">for</span> i, c <span class="kw">in</span> <span class="fn">enumerate</span>(chunks):
+    <span class="fn">print</span>(<span class="str">f"  Chunk {i}: tokens {c[0]}-{c[-1]} ({len(c)} tokens)"</span>)
+<span class="com"># Output: chunks with 60-token overlap at boundaries</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is parent-child chunking?</summary>
+      <div class="fq-a">Index <strong>small chunks</strong> (e.g., 200 tokens) for precise retrieval, but when a small chunk is retrieved, return its <strong>parent chunk</strong> (e.g., the full 800-token section) to the generator. This gives you precise retrieval with rich context. LlamaIndex and LangChain both support this pattern.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you chunk tables and code blocks?</summary>
+      <div class="fq-a">Never split a table or code block across chunks &mdash; it destroys the information. Treat each table/code block as an <strong>atomic unit</strong>. If it exceeds your chunk size, either increase the limit for that chunk or summarize the table into text and index the summary alongside the full table.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should chunk size match the embedding model's max input?</summary>
+      <div class="fq-a">No. Most embedding models accept up to 512 tokens, but that does not mean your chunks should be 512 tokens. Shorter chunks (200-400 tokens) often produce <strong>better retrieval precision</strong> because the embedding more accurately represents a single focused topic rather than a mixture of topics.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var demos = {
+    large: [
+      { text: 'Introduction to our refund policy... [paragraph about returns]... Shipping costs are non-refundable... [paragraph about shipping]... Contact support at support@example.com for warranty claims... [paragraph about warranties]...', label: 'Chunk 1 (1200 tokens)', color: '#f87171', note: 'Too much mixed content &mdash; retrieval returns everything, most is noise' }
+    ],
+    small: [
+      { text: 'Refunds must be', label: 'Chunk 1', color: '#f87171', note: '' },
+      { text: 'requested within', label: 'Chunk 2', color: '#fb923c', note: '' },
+      { text: '14 business days', label: 'Chunk 3', color: '#facc15', note: '' },
+      { text: 'of purchase.', label: 'Chunk 4', color: '#f87171', note: 'Each chunk is too small to convey meaning on its own' }
+    ],
+    good: [
+      { text: 'Refunds must be requested within 14 business days of purchase. To initiate a refund, contact support with your order number. Refunds are processed within 5-7 business days.', label: 'Chunk 1 (85 tokens)', color: '#4ade80', note: '' },
+      { text: 'Shipping costs are non-refundable. International orders may take an additional 3-5 days for refund processing. Express shipping fees cannot be refunded after dispatch.', label: 'Chunk 2 (72 tokens)', color: '#34d399', note: 'Each chunk covers one coherent topic' }
+    ],
+    overlap: [
+      { text: 'Refunds must be requested within 14 business days of purchase. To initiate a refund, contact support with your order number. <span style="color:#facc15;font-weight:600;">Refunds are processed within 5-7 business days.</span>', label: 'Chunk 1', color: '#38bdf8', note: '' },
+      { text: '<span style="color:#facc15;font-weight:600;">Refunds are processed within 5-7 business days.</span> Shipping costs are non-refundable. International orders may take additional time.', label: 'Chunk 2 (overlapping)', color: '#a78bfa', note: 'Yellow text appears in both chunks &mdash; overlap ensures boundary info is captured' }
+    ]
+  };
+
+  function render(key) {
+    var el = document.getElementById('c08t04-demo');
+    el.innerHTML = '';
+    demos[key].forEach(function(chunk) {
+      var div = document.createElement('div');
+      div.className = 'c08t04-chunk';
+      div.style.background = hexToRgba(chunk.color, 0.08);
+      div.style.border = '1px solid ' + hexToRgba(chunk.color, 0.25);
+      div.innerHTML = '<span class="c08t04-chunk-label" style="color:' + chunk.color + ';">' + chunk.label + '</span>' + chunk.text;
+      if (chunk.note) {
+        div.innerHTML += '<div style="margin-top:6px;font-size:0.75rem;color:#64748b;font-family:inherit;">' + chunk.note + '</div>';
+      }
+      el.appendChild(div);
+    });
+  }
+
+  document.querySelectorAll('#c08t04-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c08t04-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-chunk'));
+    });
+  });
+  render('large');
+})();
+</script>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Metadata Filters</h2></div>
+
+  <div class="quick-take">Metadata filters narrow the search space using structured attributes &mdash; product, region, date, language, permission scope, or document type. This helps retrieve from the right neighborhood before the system even ranks semantic relevance. Metadata filtering is often the highest-return improvement in production search.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Metadata filters are like choosing the right library section before searching the shelves &mdash; you would not look for cooking recipes in the engineering aisle.</div>
+
+  <div class="visual-container" id="c08t05-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="font-size:0.78rem;text-transform:uppercase;color:#f87171;font-weight:600;margin-bottom:10px;">Without Filters</div>
+        <div style="font-size:0.82rem;color:#cbd5e1;">
+          <p style="margin-bottom:4px;">Query: "What is the return policy?"</p>
+          <p style="margin-bottom:4px;color:#f87171;">Result 1: Return policy for Product X (Region: EU) <span style="font-size:0.72rem;color:#64748b;">WRONG region</span></p>
+          <p style="margin-bottom:4px;color:#f87171;">Result 2: Return policy v2021 (outdated) <span style="font-size:0.72rem;color:#64748b;">WRONG version</span></p>
+          <p style="color:#4ade80;">Result 3: Return policy for Product Y (Region: US, current) <span style="font-size:0.72rem;color:#64748b;">CORRECT but ranked 3rd</span></p>
+        </div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="font-size:0.78rem;text-transform:uppercase;color:#4ade80;font-weight:600;margin-bottom:10px;">With Filters</div>
+        <div style="font-size:0.82rem;color:#cbd5e1;">
+          <p style="margin-bottom:4px;">Query: "What is the return policy?"</p>
+          <p style="margin-bottom:4px;color:#38bdf8;">Filters: region=US, product=Y, status=current</p>
+          <p style="color:#4ade80;">Result 1: Return policy for Product Y (Region: US, current) <span style="font-size:0.72rem;color:#64748b;">CORRECT and ranked 1st</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Filters Beat Better Embeddings</h3>
+    <p>Retrieval quality is not only about better embeddings. Structured constraints can do a large amount of work <strong>cheaply and reliably</strong>. A filter that restricts search to the correct tenant, date range, or product eliminates entire categories of irrelevant results before semantic scoring even begins.</p>
+
+    <h3>Common Filter Dimensions</h3>
+    <table>
+      <thead><tr><th>Filter</th><th>What It Constrains</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Tenant / Organization</td><td>Multi-tenant isolation</td><td>Only search Company A's docs</td></tr>
+        <tr><td>Date range</td><td>Temporal scope</td><td>Only docs updated in last 90 days</td></tr>
+        <tr><td>Product / Category</td><td>Domain scope</td><td>Only docs about "Enterprise Plan"</td></tr>
+        <tr><td>Language</td><td>Linguistic scope</td><td>Only English-language documents</td></tr>
+        <tr><td>Permission / ACL</td><td>Access control</td><td>Only docs the user can see</td></tr>
+        <tr><td>Document type</td><td>Format filtering</td><td>Only FAQ pages, not blog posts</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Implementation</h3>
+    <p>Most vector databases support pre-filtering (apply filter before vector search) and post-filtering (apply filter after vector search). <strong>Pre-filtering is generally preferred</strong> because it reduces the search space and ensures you get the requested number of results. Post-filtering can return fewer results than requested if many are filtered out.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Metadata filters are cheap, reliable, and often deliver more quality improvement than upgrading the embedding model. Always design your index with filter dimensions in mind.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Metadata-filtered search with a vector database (Qdrant example)</span>
+<span class="kw">from</span> qdrant_client <span class="kw">import</span> QdrantClient
+<span class="kw">from</span> qdrant_client.models <span class="kw">import</span> Filter, FieldCondition, MatchValue, Range
+
+client = QdrantClient(<span class="str">"localhost"</span>, port=<span class="num">6333</span>)
+
+<span class="com"># Search with metadata filters: right tenant, recent docs only</span>
+results = client.<span class="fn">search</span>(
+    collection_name=<span class="str">"knowledge_base"</span>,
+    query_vector=query_embedding,
+    query_filter=Filter(
+        must=[
+            <span class="com"># Only this tenant's documents</span>
+            FieldCondition(
+                key=<span class="str">"tenant_id"</span>,
+                match=MatchValue(value=<span class="str">"acme-corp"</span>)
+            ),
+            <span class="com"># Only documents updated in last 90 days</span>
+            FieldCondition(
+                key=<span class="str">"updated_at"</span>,
+                range=Range(gte=<span class="str">"2025-02-01"</span>)
+            ),
+            <span class="com"># Only English-language content</span>
+            FieldCondition(
+                key=<span class="str">"language"</span>,
+                match=MatchValue(value=<span class="str">"en"</span>)
+            ),
+        ]
+    ),
+    limit=<span class="num">10</span>,
+)
+<span class="com"># Filters run BEFORE vector search, so all 10 results</span>
+<span class="com"># are guaranteed to match the constraints</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Should you pre-filter or post-filter?</summary>
+      <div class="fq-a"><strong>Pre-filter</strong> when the filter cardinality is high (many possible values) or when you need exactly k results. <strong>Post-filter</strong> when filters are very selective and would leave too few candidates for meaningful vector search. Most production systems default to pre-filtering.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle permission-based filtering in RAG?</summary>
+      <div class="fq-a">Store <strong>access control lists (ACLs)</strong> as metadata on each chunk. At query time, filter by the user's permissions before vector search. This ensures the model never sees documents the user should not access. Be careful with caching &mdash; cached results must respect per-user permissions.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can metadata filters replace better embeddings?</summary>
+      <div class="fq-a">They complement each other. Filters eliminate <strong>structurally wrong</strong> results (wrong tenant, wrong date). Embeddings handle <strong>semantically wrong</strong> results (irrelevant topic). You need both. However, fixing missing or incorrect metadata often yields faster quality improvements than upgrading the embedding model.</div>
+    </details>
+  </div>
+</section>
+
+
+    <div class="group-divider"><span>Infrastructure &amp; Evaluation</span></div>
+    <p class="group-intro">The infrastructure that makes retrieval fast and scalable, plus the techniques that improve ranking quality and the metrics that measure it.</p>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Vector Databases</h2></div>
+
+  <div class="quick-take">A vector database stores embeddings and supports efficient nearest-neighbor search at scale. It makes retrieval feasible and fast, but relevance still depends on the embedding model, chunking strategy, and ranking logic layered above it. The vector store is infrastructure, not intelligence.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A vector database is a warehouse with a smart forklift &mdash; it stores and fetches boxes efficiently, but it does not decide which box contains what you need.</div>
+
+  <div class="visual-container" id="c08t06-visual">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center;">
+        <div style="color:#38bdf8;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Store</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Embeddings + metadata indexed for fast access</div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center;">
+        <div style="color:#a78bfa;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Search</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">ANN search with metadata filters in milliseconds</div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center;">
+        <div style="color:#34d399;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Operate</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Replication, durability, monitoring, scaling</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Vector Databases Provide</h3>
+    <ul>
+      <li><strong>Efficient similarity search:</strong> Find the most similar vectors to a query vector at scale using ANN indexes (see <a href="#topic-7" class="xref">Topic 7: Approximate Nearest Neighbor</a>)</li>
+      <li><strong>Metadata filtering:</strong> Combine vector search with structured filters (see <a href="#topic-5" class="xref">Topic 5: Metadata Filters</a>)</li>
+      <li><strong>CRUD operations:</strong> Add, update, delete vectors without rebuilding the entire index</li>
+      <li><strong>Operational features:</strong> Replication, backups, access control, monitoring</li>
+    </ul>
+
+    <h3>Popular Options</h3>
+    <table>
+      <thead><tr><th>Database</th><th>Type</th><th>Key Strength</th></tr></thead>
+      <tbody>
+        <tr><td>Pinecone</td><td>Managed SaaS</td><td>Zero-ops, automatic scaling</td></tr>
+        <tr><td>Weaviate</td><td>Open source</td><td>Built-in hybrid search, multi-modal</td></tr>
+        <tr><td>Qdrant</td><td>Open source</td><td>Filtering performance, Rust-based speed</td></tr>
+        <tr><td>Milvus</td><td>Open source</td><td>Scale to billions of vectors</td></tr>
+        <tr><td>pgvector</td><td>PostgreSQL extension</td><td>Use existing Postgres infrastructure</td></tr>
+        <tr><td>Chroma</td><td>Open source</td><td>Developer-friendly, great for prototyping</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Important Interview Point</h3>
+    <p>The vector store is <strong>infrastructure, not intelligence</strong>. It makes retrieval feasible and fast, but relevance still depends on the embedding model, chunking strategy, and ranking logic layered above it. Saying "we used Pinecone" does not explain why your RAG system produces good answers any more than saying "we used PostgreSQL" explains why your web app has good UX.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Vector databases are essential infrastructure, but they are not the source of retrieval quality. Relevance comes from embeddings, chunking, and ranking.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Example: indexing and searching with Chroma (lightweight)</span>
+<span class="kw">import</span> chromadb
+
+<span class="com"># Create a local collection</span>
+client = chromadb.<span class="fn">Client</span>()
+collection = client.<span class="fn">create_collection</span>(
+    name=<span class="str">"knowledge_base"</span>,
+    metadata={<span class="str">"hnsw:space"</span>: <span class="str">"cosine"</span>}  <span class="com"># cosine similarity</span>
+)
+
+<span class="com"># Add documents with embeddings and metadata</span>
+collection.<span class="fn">add</span>(
+    documents=[
+        <span class="str">"Refunds must be requested within 14 days."</span>,
+        <span class="str">"Shipping is free for orders over $50."</span>,
+        <span class="str">"Contact support at support@example.com."</span>,
+    ],
+    metadatas=[
+        {<span class="str">"category"</span>: <span class="str">"refunds"</span>, <span class="str">"region"</span>: <span class="str">"US"</span>},
+        {<span class="str">"category"</span>: <span class="str">"shipping"</span>, <span class="str">"region"</span>: <span class="str">"US"</span>},
+        {<span class="str">"category"</span>: <span class="str">"support"</span>, <span class="str">"region"</span>: <span class="str">"global"</span>},
+    ],
+    ids=[<span class="str">"doc1"</span>, <span class="str">"doc2"</span>, <span class="str">"doc3"</span>],
+)
+
+<span class="com"># Search with optional metadata filter</span>
+results = collection.<span class="fn">query</span>(
+    query_texts=[<span class="str">"How do I get a refund?"</span>],
+    n_results=<span class="num">2</span>,
+    where={<span class="str">"region"</span>: <span class="str">"US"</span>},  <span class="com"># metadata filter</span>
+)
+<span class="fn">print</span>(results[<span class="str">"documents"</span>])</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>When should you use pgvector instead of a dedicated vector database?</summary>
+      <div class="fq-a">Use <strong>pgvector</strong> when you have fewer than ~1M vectors, already use PostgreSQL, and want to avoid adding a new service to your infrastructure. For larger scale, higher QPS, or advanced features (multi-vector queries, GPU-accelerated search), a dedicated vector database is usually worth the operational overhead.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle embedding model upgrades?</summary>
+      <div class="fq-a">When you upgrade the embedding model, you must <strong>re-embed and re-index the entire corpus</strong>. Vectors from different models live in different spaces and cannot be mixed. Plan for this by building a re-indexing pipeline that can run in parallel with the live index, then swap atomically.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What about just using FAISS without a database?</summary>
+      <div class="fq-a"><strong>FAISS</strong> is a vector search library, not a database. It provides fast similarity search but lacks persistence, CRUD operations, metadata filtering, and operational features. FAISS is excellent for prototyping and for embedding into applications, but production systems usually need the durability and management features of a proper database.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c08t07-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.c08t07-panel { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.c08t07-metric { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 0.84rem; }
+.c08t07-metric:last-child { border-bottom: none; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Approximate Nearest Neighbor</h2></div>
+
+  <div class="quick-take">Exact nearest-neighbor search is too slow for large indexes. Approximate methods (HNSW, IVF, ScaNN) trade a small amount of recall for dramatically better speed and scalability. The question is not whether approximation is philosophically pure, but whether it preserves enough relevance at production speed.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> ANN is like checking the top few shelves in the right section of the library instead of scanning every book in the building. You might miss a rare find, but you will answer 1000x faster.</div>
+
+  <div class="visual-container" id="c08t07-visual">
+    <div class="c08t07-compare">
+      <div class="c08t07-panel">
+        <div style="color:#f87171;font-weight:700;font-size:0.82rem;margin-bottom:8px;">Exact Search (Brute Force)</div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Recall</span><span style="color:#4ade80;">100%</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Latency (1M vectors)</span><span style="color:#f87171;">~500ms</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Latency (100M vectors)</span><span style="color:#f87171;">~50,000ms</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Scalability</span><span style="color:#f87171;">Linear O(n)</span></div>
+      </div>
+      <div class="c08t07-panel">
+        <div style="color:#4ade80;font-weight:700;font-size:0.82rem;margin-bottom:8px;">ANN Search (HNSW)</div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Recall</span><span style="color:#facc15;">95-99%</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Latency (1M vectors)</span><span style="color:#4ade80;">~2ms</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Latency (100M vectors)</span><span style="color:#4ade80;">~10ms</span></div>
+        <div class="c08t07-metric"><span style="color:#94a3b8;">Scalability</span><span style="color:#4ade80;">O(log n)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why ANN Exists</h3>
+    <p>Exact nearest-neighbor search compares the query against <strong>every vector in the index</strong>. For a million vectors, that is a million dot products per query. For a hundred million vectors, it becomes impractical for real-time serving. ANN indexes structure the search space so that most vectors can be skipped.</p>
+
+    <h3>Popular ANN Algorithms</h3>
+    <table>
+      <thead><tr><th>Algorithm</th><th>Approach</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>HNSW</td><td>Hierarchical navigable small world graph</td><td>High recall, higher memory</td></tr>
+        <tr><td>IVF</td><td>Inverted file with cluster-based partitioning</td><td>Lower memory, tunable recall/speed</td></tr>
+        <tr><td>ScaNN</td><td>Quantization + anisotropic scoring</td><td>Very fast, Google-optimized</td></tr>
+        <tr><td>Product Quantization</td><td>Compress vectors, search in compressed space</td><td>Smallest memory, some accuracy loss</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Tuning the Trade-off</h3>
+    <p>Every ANN index has knobs that control the recall-vs-speed trade-off. For HNSW, the key parameters are <code>ef_construction</code> (build quality) and <code>ef_search</code> (query quality). Higher values improve recall but increase latency. The practical approach is to measure recall@k on a held-out set and tune until you hit your target (typically 95-99% recall).</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>ANN makes vector search practical at scale. A small recall trade-off (1-5%) buys orders-of-magnitude speed improvement.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> faiss
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Generate 100K random vectors (simulating embeddings)</span>
+d = <span class="num">384</span>                       <span class="com"># embedding dimension</span>
+n = <span class="num">100_000</span>                   <span class="com"># number of documents</span>
+vectors = np.<span class="fn">random.randn</span>(n, d).<span class="fn">astype</span>(<span class="str">'float32'</span>)
+
+<span class="com"># --- Exact search (brute force) ---</span>
+exact_index = faiss.<span class="fn">IndexFlatIP</span>(d)  <span class="com"># inner product</span>
+exact_index.<span class="fn">add</span>(vectors)
+
+<span class="com"># --- ANN search (HNSW) ---</span>
+hnsw_index = faiss.<span class="fn">IndexHNSWFlat</span>(d, <span class="num">32</span>)  <span class="com"># 32 neighbors per node</span>
+hnsw_index.hnsw.efConstruction = <span class="num">200</span>      <span class="com"># build quality</span>
+hnsw_index.hnsw.efSearch = <span class="num">64</span>             <span class="com"># query quality (tune this)</span>
+hnsw_index.<span class="fn">add</span>(vectors)
+
+<span class="com"># Compare: query with 5 random vectors</span>
+queries = np.<span class="fn">random.randn</span>(<span class="num">5</span>, d).<span class="fn">astype</span>(<span class="str">'float32'</span>)
+<span class="kw">import</span> time
+
+t0 = time.<span class="fn">time</span>()
+D_exact, I_exact = exact_index.<span class="fn">search</span>(queries, <span class="num">10</span>)
+<span class="fn">print</span>(<span class="str">f"Exact:  {(time.time()-t0)*1000:.1f}ms"</span>)
+
+t0 = time.<span class="fn">time</span>()
+D_ann, I_ann = hnsw_index.<span class="fn">search</span>(queries, <span class="num">10</span>)
+<span class="fn">print</span>(<span class="str">f"HNSW:   {(time.time()-t0)*1000:.1f}ms"</span>)
+
+<span class="com"># Measure recall: how many ANN results match exact results?</span>
+recall = np.<span class="fn">mean</span>([
+    <span class="fn">len</span>(<span class="fn">set</span>(I_exact[i]) & <span class="fn">set</span>(I_ann[i])) / <span class="num">10.0</span>
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>)
+])
+<span class="fn">print</span>(<span class="str">f"Recall@10: {recall:.1%}"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you choose between HNSW and IVF?</summary>
+      <div class="fq-a">Use <strong>HNSW</strong> when you need high recall and can afford the memory (stores full vectors plus the graph). Use <strong>IVF</strong> (often with product quantization) when memory is constrained or the index is very large (100M+ vectors). HNSW is the default choice for most production RAG systems under 50M vectors.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does ANN recall loss actually affect RAG quality?</summary>
+      <div class="fq-a">In most cases, <strong>no</strong>. A 97% recall@10 means you miss 0.3 of the true top-10 results on average. Since RAG systems typically retrieve 5-20 chunks and the reranker (see <a href="#topic-8" class="xref">Topic 8: Reranking</a>) further filters them, a small recall loss in the first stage rarely affects the final answer quality.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What about GPU-accelerated vector search?</summary>
+      <div class="fq-a">Libraries like <strong>FAISS-GPU</strong> and <strong>cuVS</strong> (NVIDIA) can search billion-scale indexes at microsecond latency. GPU search is valuable for very high QPS (thousands of queries per second) or very large indexes. For most RAG applications, CPU-based HNSW is fast enough and simpler to operate.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<style>
+.c08t08-funnel { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.c08t08-stage { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; }
+.c08t08-stage-label { font-size: 0.82rem; font-weight: 600; min-width: 120px; }
+.c08t08-stage-items { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.c08t08-chip { padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Reranking</h2></div>
+
+  <div class="quick-take">Reranking applies a more expensive relevance model to a shortlist returned by the first retriever. The initial retriever maximizes speed and recall; the reranker improves ordering so the best evidence reaches the generator. The pattern is bi-encoder retrieval followed by cross-encoder reranking.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Retrieval is casting a wide net; reranking is picking the best fish from the catch. The net must be wide (high recall), but the chef only needs the best ones (high precision).</div>
+
+  <div class="visual-container" id="c08t08-visual">
+    <div class="c08t08-funnel" id="c08t08-funnel"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Two-Stage Architecture</h3>
+    <p>The standard pattern is:</p>
+    <ol>
+      <li><strong>Stage 1 (Retriever):</strong> Bi-encoder retrieves top-100 candidates quickly using precomputed embeddings</li>
+      <li><strong>Stage 2 (Reranker):</strong> Cross-encoder scores each candidate against the query with full attention, then returns the top-5 or top-10</li>
+    </ol>
+    <p>This gives you the <strong>scalability of vector search</strong> and the <strong>precision of richer query-document interaction</strong>. The cross-encoder sees the query and document together, enabling deeper relevance assessment than independent embeddings can provide.</p>
+
+    <h3>Why Reranking Works</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Bi-Encoder (Retriever)</th><th>Cross-Encoder (Reranker)</th></tr></thead>
+      <tbody>
+        <tr><td>Input</td><td>Query and doc encoded separately</td><td>Query + doc as one input pair</td></tr>
+        <tr><td>Interaction</td><td>Dot product of independent vectors</td><td>Full attention between query and doc tokens</td></tr>
+        <tr><td>Speed</td><td>~1ms per query (precomputed)</td><td>~50ms per query-doc pair</td></tr>
+        <tr><td>Quality</td><td>Good recall, approximate relevance</td><td>Higher precision, fine-grained relevance</td></tr>
+        <tr><td>Scalability</td><td>Millions of documents</td><td>10-100 candidates per query</td></tr>
+      </tbody>
+    </table>
+
+    <h3>In Practice</h3>
+    <p>In interviews, explain reranking as a <strong>second-stage quality filter</strong>. It is one of the highest-impact improvements you can add to a RAG system, often improving answer quality by 10-20% without changing the index or embedding model. Popular rerankers include Cohere Rerank, BGE-reranker, and cross-encoder models from Hugging Face.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Reranking is cheap insurance for RAG quality. It improves precision without reindexing, making it one of the highest-return improvements.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> sentence_transformers <span class="kw">import</span> CrossEncoder
+
+<span class="com"># Load a cross-encoder reranker</span>
+reranker = CrossEncoder(<span class="str">"cross-encoder/ms-marco-MiniLM-L-6-v2"</span>)
+
+query = <span class="str">"What is the refund policy for international orders?"</span>
+
+<span class="com"># Candidates from first-stage retrieval (bi-encoder)</span>
+candidates = [
+    <span class="str">"Shipping costs are non-refundable for all orders."</span>,
+    <span class="str">"International refunds take 10-15 business days."</span>,
+    <span class="str">"Our refund policy allows returns within 14 days."</span>,
+    <span class="str">"Contact support for order tracking information."</span>,
+    <span class="str">"International orders may incur customs duties."</span>,
+]
+
+<span class="com"># Score each candidate against the query</span>
+pairs = [[query, doc] <span class="kw">for</span> doc <span class="kw">in</span> candidates]
+scores = reranker.<span class="fn">predict</span>(pairs)
+
+<span class="com"># Rerank by cross-encoder score</span>
+ranked = <span class="fn">sorted</span>(
+    <span class="fn">zip</span>(candidates, scores),
+    key=<span class="kw">lambda</span> x: x[<span class="num">1</span>],
+    reverse=<span class="kw">True</span>
+)
+<span class="kw">for</span> doc, score <span class="kw">in</span> ranked:
+    <span class="fn">print</span>(<span class="str">f"  {score:>6.3f}  {doc}"</span>)
+<span class="com"># "International refunds take 10-15 business days" ranks #1</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How many candidates should you rerank?</summary>
+      <div class="fq-a">Typical range is <strong>20-100 candidates</strong>. Too few and you risk missing relevant documents. Too many and reranking latency becomes noticeable (cross-encoders process ~20 pairs per second). A common setup: retrieve top-50 with bi-encoder, rerank to get top-5 for the generator.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use an LLM as a reranker?</summary>
+      <div class="fq-a">Yes. <strong>LLM-based reranking</strong> (e.g., prompting GPT-4 to rank passages) can outperform cross-encoders on complex queries. However, it is 10-100x more expensive and slower. Use it when quality justifies the cost, or for offline evaluation to create training data for a lighter reranker.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does reranking help when the first-stage retrieval is already good?</summary>
+      <div class="fq-a">Almost always, yes. Even a strong bi-encoder retriever can rank a tangentially relevant document above a highly relevant one. Reranking consistently improves <strong>nDCG and MRR</strong> (see <a href="#topic-10" class="xref">Topic 10: Retrieval Metrics</a>), which directly translates to better evidence reaching the generator.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var stages = [
+    {
+      label: 'Index', color: '#475569',
+      items: Array.from({length: 12}, function(_, i) { return { text: 'Doc ' + (i+1), relevant: false }; })
+    },
+    {
+      label: 'Stage 1: Retrieve', color: '#38bdf8',
+      items: [
+        { text: 'Doc 3', relevant: true },
+        { text: 'Doc 7', relevant: false },
+        { text: 'Doc 1', relevant: true },
+        { text: 'Doc 11', relevant: false },
+        { text: 'Doc 5', relevant: true }
+      ]
+    },
+    {
+      label: 'Stage 2: Rerank', color: '#a78bfa',
+      items: [
+        { text: 'Doc 3', relevant: true },
+        { text: 'Doc 5', relevant: true },
+        { text: 'Doc 1', relevant: true }
+      ]
+    },
+    {
+      label: 'To Generator', color: '#4ade80',
+      items: [
+        { text: 'Doc 3', relevant: true },
+        { text: 'Doc 5', relevant: true }
+      ]
+    }
+  ];
+
+  var funnel = document.getElementById('c08t08-funnel');
+  stages.forEach(function(s) {
+    var row = document.createElement('div');
+    row.className = 'c08t08-stage';
+    row.style.background = hexToRgba(s.color, 0.08);
+    row.style.border = '1px solid ' + hexToRgba(s.color, 0.2);
+
+    var label = document.createElement('div');
+    label.className = 'c08t08-stage-label';
+    label.style.color = s.color;
+    label.textContent = s.label;
+    row.appendChild(label);
+
+    var items = document.createElement('div');
+    items.className = 'c08t08-stage-items';
+    s.items.forEach(function(item) {
+      var chip = document.createElement('span');
+      chip.className = 'c08t08-chip';
+      var chipColor = item.relevant ? '#4ade80' : '#64748b';
+      chip.style.background = hexToRgba(chipColor, 0.15);
+      chip.style.color = chipColor;
+      chip.style.border = '1px solid ' + hexToRgba(chipColor, 0.25);
+      chip.textContent = item.text;
+      items.appendChild(chip);
+    });
+    row.appendChild(items);
+    funnel.appendChild(row);
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Query Rewriting</h2></div>
+
+  <div class="quick-take">Query rewriting converts the user's raw question into a form better aligned with the indexed content. The system may expand acronyms, normalize jargon, add keywords, disambiguate entities, or split one complex query into multiple focused retrieval intents. It is often one of the cheapest ways to improve recall.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Query rewriting is a translator between user language and index language &mdash; users say "the app is wonky" but the docs say "application performance degradation."</div>
+
+  <div class="visual-container" id="c08t09-visual">
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="background:#0f172a;border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:12px;">
+        <div style="font-size:0.78rem;text-transform:uppercase;color:#f87171;font-weight:600;margin-bottom:6px;">Original Query</div>
+        <div style="font-size:0.88rem;color:#e2e8f0;">"how do I fix the SSO thing when it breaks on mobile?"</div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:1.2rem;">&#x2193; LLM Rewriter &#x2193;</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="background:#0f172a;border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:12px;">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:#38bdf8;font-weight:600;margin-bottom:4px;">Expanded</div>
+          <div style="font-size:0.82rem;color:#cbd5e1;">"Troubleshoot Single Sign-On (SSO) authentication failures on mobile devices"</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:12px;">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:#a78bfa;font-weight:600;margin-bottom:4px;">Keywords</div>
+          <div style="font-size:0.82rem;color:#cbd5e1;">"SSO mobile error SAML OAuth redirect loop iOS Android"</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:12px;">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:#34d399;font-weight:600;margin-bottom:4px;">Decomposed</div>
+          <div style="font-size:0.82rem;color:#cbd5e1;">Q1: "SSO configuration for mobile apps"<br>Q2: "Common SSO error codes and fixes"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Users Write Bad Queries</h3>
+    <p>Users do not naturally speak in index-friendly language. They use colloquialisms ("the SSO thing"), abbreviations, vague references ("it broke"), and compound questions that combine multiple intents. The retriever must bridge this gap.</p>
+
+    <h3>Rewriting Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>What It Does</th><th>When to Use</th></tr></thead>
+      <tbody>
+        <tr><td>Acronym expansion</td><td>SSO &#x2192; Single Sign-On</td><td>Technical domains with heavy jargon</td></tr>
+        <tr><td>Keyword injection</td><td>Add related terms for BM25</td><td>Hybrid retrieval systems</td></tr>
+        <tr><td>Query decomposition</td><td>Split complex query into sub-queries</td><td>Multi-part questions</td></tr>
+        <tr><td>Hypothetical answer</td><td>Generate what a good answer looks like, use it as query (HyDE)</td><td>Abstract or conceptual queries</td></tr>
+        <tr><td>Conversation context</td><td>Inject context from conversation history</td><td>Multi-turn chat RAG</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Cost vs Impact</h3>
+    <p>Query rewriting is often one of the <strong>cheapest ways to improve recall</strong> without re-embedding the corpus. A single LLM call to rewrite the query costs a few cents and can dramatically improve first-stage retrieval. In interviews, mention query rewriting as a high-leverage, low-cost intervention.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Query rewriting bridges the gap between user language and index language. It is cheap, fast, and often the highest-ROI retrieval improvement.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> openai
+
+<span class="kw">def</span> <span class="fn">rewrite_query</span>(user_query, client, chat_history=<span class="kw">None</span>):
+    <span class="str">"""Rewrite a user query for better retrieval."""</span>
+    context = <span class="str">""</span>
+    <span class="kw">if</span> chat_history:
+        context = <span class="str">"\n"</span>.<span class="fn">join</span>(
+            <span class="str">f"{m['role']}: {m['content']}"</span>
+            <span class="kw">for</span> m <span class="kw">in</span> chat_history[-<span class="num">3</span>:]
+        )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o-mini"</span>,  <span class="com"># cheap and fast for rewrites</span>
+        messages=[{
+            <span class="str">"role"</span>: <span class="str">"system"</span>,
+            <span class="str">"content"</span>: <span class="str">"""Rewrite the user's question to improve
+document retrieval. Expand acronyms, add relevant
+keywords, and resolve ambiguous references using
+conversation context if provided. Output ONLY the
+rewritten query, nothing else."""</span>
+        }, {
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: <span class="str">f"Context:\n{context}\n\nOriginal: {user_query}"</span>
+        }],
+        temperature=<span class="num">0.0</span>,
+        max_tokens=<span class="num">100</span>,
+    )
+    <span class="kw">return</span> response.choices[<span class="num">0</span>].message.content.<span class="fn">strip</span>()
+
+<span class="com"># Example: "fix the SSO thing on mobile"</span>
+<span class="com"># -> "Troubleshoot Single Sign-On authentication failures on mobile"</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is HyDE (Hypothetical Document Embeddings)?</summary>
+      <div class="fq-a"><strong>HyDE</strong> asks an LLM to generate a hypothetical answer to the query, then uses that answer as the retrieval query. The intuition is that the hypothetical answer is closer in embedding space to real relevant documents than the original question is. It works well for abstract queries but adds latency and cost.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does query rewriting add too much latency?</summary>
+      <div class="fq-a">A fast LLM (GPT-4o-mini, Claude Haiku) can rewrite a query in <strong>100-300ms</strong>. For most RAG applications, this is acceptable since the overall pipeline (retrieval + reranking + generation) takes 1-3 seconds. For ultra-low-latency needs, pre-compute rewrites or use a fine-tuned small model.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle multi-turn conversations in RAG?</summary>
+      <div class="fq-a">The most important technique is <strong>query contextualization</strong>: rewrite the current query to include relevant context from the conversation history. "What about the mobile version?" becomes "What are the SSO configuration options for the mobile version of the app?" This is essentially query rewriting with conversation history as input.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<style>
+.c08t10-scorecard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+.c08t10-metric-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s; }
+.c08t10-metric-card:hover { border-color: #38bdf8; }
+.c08t10-metric-card.active { border-color: #38bdf8; background: rgba(56,189,248,0.06); }
+.c08t10-metric-name { font-size: 0.88rem; font-weight: 700; margin-bottom: 4px; }
+.c08t10-metric-desc { font-size: 0.78rem; color: #64748b; }
+.c08t10-detail { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; font-size: 0.84rem; color: #cbd5e1; min-height: 80px; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Retrieval Metrics</h2></div>
+
+  <div class="quick-take">Recall@k measures whether relevant evidence appears in the shortlist. MRR and nDCG measure whether relevant items appear near the top. The strongest interview answer is that retrieval metrics should not be isolated from generation outcomes &mdash; a retriever that looks strong offline may still fail the user task.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Retrieval metrics are like a medical checkup for your RAG system. Recall checks if the right evidence was found. Ranking metrics check if it was prioritized correctly.</div>
+
+  <div class="visual-container" id="c08t10-visual">
+    <div class="c08t10-scorecard" id="c08t10-scorecard"></div>
+    <div class="c08t10-detail" id="c08t10-detail">Click a metric to see details.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Retrieval Scorecard</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>What It Checks</th><th>Why It Matters</th></tr></thead>
+      <tbody>
+        <tr><td>Recall@k</td><td>Relevant evidence appears in the candidate set</td><td>Low recall means the generator never sees the right facts</td></tr>
+        <tr><td>Precision@k</td><td>Returned context is mostly useful</td><td>High noise wastes context window and increases hallucination risk</td></tr>
+        <tr><td>MRR</td><td>Position of the first relevant result</td><td>Higher MRR means less noise before the answer</td></tr>
+        <tr><td>nDCG</td><td>Ranking quality among retrieved chunks</td><td>Strong reranking improves nDCG without reindexing</td></tr>
+        <tr><td>Freshness</td><td>Recent documents are retrievable</td><td>Prevents stale answers in policy and operational domains</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Where Retrieval Quality Is Won or Lost</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Main Question</th><th>Typical Failure</th></tr></thead>
+      <tbody>
+        <tr><td>Chunking</td><td>What unit should be retrieved?</td><td>Chunks too broad or too thin</td></tr>
+        <tr><td>Embeddings / Lexical</td><td>Can the system find likely evidence?</td><td>Semantic misses or exact-match misses</td></tr>
+        <tr><td>Metadata filters</td><td>Is the search in the right slice?</td><td>Wrong tenant, wrong date, wrong scope</td></tr>
+        <tr><td>Reranking</td><td>Are the best passages near the top?</td><td>Useful evidence buried too low</td></tr>
+        <tr><td>Prompt assembly</td><td>Does the model see enough clean support?</td><td>Context noise overwhelms the answer</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Connecting Retrieval to Generation</h3>
+    <p>Retrieval metrics should not be isolated from generation outcomes. A retriever that looks strong offline but feeds noisy evidence to the generator may still fail the user task. The best evaluation pipeline measures both retrieval quality (recall, nDCG) and end-to-end answer quality (factual accuracy, citation correctness, user satisfaction).</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Measure retrieval and generation together. A retriever with perfect recall but poor ranking still produces poor answers.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">recall_at_k</span>(retrieved_ids, relevant_ids, k):
+    <span class="str">"""Fraction of relevant docs found in top-k retrieved."""</span>
+    top_k = <span class="fn">set</span>(retrieved_ids[:k])
+    relevant = <span class="fn">set</span>(relevant_ids)
+    <span class="kw">return</span> <span class="fn">len</span>(top_k & relevant) / <span class="fn">max</span>(<span class="fn">len</span>(relevant), <span class="num">1</span>)
+
+<span class="kw">def</span> <span class="fn">mrr</span>(retrieved_ids, relevant_ids):
+    <span class="str">"""Mean Reciprocal Rank: 1/position of first relevant result."""</span>
+    relevant = <span class="fn">set</span>(relevant_ids)
+    <span class="kw">for</span> i, doc_id <span class="kw">in</span> <span class="fn">enumerate</span>(retrieved_ids):
+        <span class="kw">if</span> doc_id <span class="kw">in</span> relevant:
+            <span class="kw">return</span> <span class="num">1.0</span> / (i + <span class="num">1</span>)
+    <span class="kw">return</span> <span class="num">0.0</span>
+
+<span class="kw">def</span> <span class="fn">ndcg_at_k</span>(retrieved_ids, relevant_ids, k):
+    <span class="str">"""Normalized Discounted Cumulative Gain at k."""</span>
+    relevant = <span class="fn">set</span>(relevant_ids)
+    dcg = <span class="fn">sum</span>(
+        (<span class="num">1.0</span> <span class="kw">if</span> retrieved_ids[i] <span class="kw">in</span> relevant <span class="kw">else</span> <span class="num">0.0</span>) / np.<span class="fn">log2</span>(i + <span class="num">2</span>)
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">min</span>(k, <span class="fn">len</span>(retrieved_ids)))
+    )
+    ideal = <span class="fn">sum</span>(
+        <span class="num">1.0</span> / np.<span class="fn">log2</span>(i + <span class="num">2</span>)
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">min</span>(k, <span class="fn">len</span>(relevant_ids)))
+    )
+    <span class="kw">return</span> dcg / <span class="fn">max</span>(ideal, <span class="num">1e-10</span>)
+
+<span class="com"># Example evaluation</span>
+retrieved = [<span class="str">"d3"</span>, <span class="str">"d7"</span>, <span class="str">"d1"</span>, <span class="str">"d5"</span>, <span class="str">"d2"</span>]
+relevant = [<span class="str">"d1"</span>, <span class="str">"d3"</span>]
+
+<span class="fn">print</span>(<span class="str">f"Recall@5: {recall_at_k(retrieved, relevant, 5):.2f}"</span>)
+<span class="fn">print</span>(<span class="str">f"MRR:      {mrr(retrieved, relevant):.2f}"</span>)
+<span class="fn">print</span>(<span class="str">f"nDCG@5:   {ndcg_at_k(retrieved, relevant, 5):.2f}"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you build an evaluation dataset for retrieval?</summary>
+      <div class="fq-a">Start with <strong>real user queries</strong> from logs. Have annotators mark which documents are relevant for each query. Start small (50-100 queries with 5-10 relevance judgments each) and grow over time. LLMs can help generate candidate relevance labels, but human verification is essential for the final dataset.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is a good Recall@10 target for RAG?</summary>
+      <div class="fq-a">For most RAG applications, <strong>Recall@10 above 0.85</strong> is a reasonable target. Below 0.7, you will see frequent "I don't have enough information" responses or hallucinations. Above 0.95, you are likely in good shape and should focus on ranking quality (nDCG, MRR) rather than recall.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you detect retrieval regressions in production?</summary>
+      <div class="fq-a">Build a <strong>regression test suite</strong> of critical queries with known relevant documents. Run this suite automatically after every index update, embedding model change, or chunking modification. Alert when metrics drop below baseline. Also monitor user signals: increased "thumbs down" or "not helpful" feedback often indicates retrieval degradation.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var metrics = [
+    { name: 'Recall@k', color: '#38bdf8', desc: 'Did we find the relevant docs?', detail: '<strong style="color:#38bdf8;">Recall@k</strong> measures the fraction of all relevant documents that appear in the top-k retrieved results. If there are 3 relevant documents and you retrieve 2 of them in the top 10, your Recall@10 = 0.67. Low recall means the generator never sees critical evidence.' },
+    { name: 'Precision@k', color: '#a78bfa', desc: 'Is the returned context clean?', detail: '<strong style="color:#a78bfa;">Precision@k</strong> measures the fraction of top-k results that are actually relevant. High precision means less noise in the context window, reducing hallucination risk and context waste. A Precision@5 of 0.6 means 3 of 5 retrieved chunks are useful.' },
+    { name: 'MRR', color: '#34d399', desc: 'Where is the first good result?', detail: '<strong style="color:#34d399;">Mean Reciprocal Rank</strong> is the average of 1/rank for the first relevant result across queries. MRR = 1.0 means the first result is always relevant. MRR = 0.5 means the first relevant result is typically at position 2. Higher MRR means less noise before the answer.' },
+    { name: 'nDCG@k', color: '#fb923c', desc: 'Is the overall ranking good?', detail: '<strong style="color:#fb923c;">Normalized Discounted Cumulative Gain</strong> measures overall ranking quality, giving more credit to relevant results appearing higher. Unlike MRR, nDCG considers ALL relevant results, not just the first. It is the gold standard for evaluating reranking improvements.' }
+  ];
+
+  var scorecard = document.getElementById('c08t10-scorecard');
+  metrics.forEach(function(m, idx) {
+    var card = document.createElement('div');
+    card.className = 'c08t10-metric-card' + (idx === 0 ? ' active' : '');
+    card.innerHTML = '<div class="c08t10-metric-name" style="color:' + m.color + ';">' + m.name + '</div><div class="c08t10-metric-desc">' + m.desc + '</div>';
+    card.addEventListener('click', function() {
+      document.querySelectorAll('.c08t10-metric-card').forEach(function(c) { c.classList.remove('active'); });
+      card.classList.add('active');
+      document.getElementById('c08t10-detail').innerHTML = m.detail;
+    });
+    scorecard.appendChild(card);
+  });
+  document.getElementById('c08t10-detail').innerHTML = metrics[0].detail;
+})();
+</script>
+
+  </main>
+</div>
+
+<script>
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

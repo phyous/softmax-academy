@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 14: Optimization &amp; Math Foundations for Language Models</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 14 &middot; 10 Topics</div>
+  <h1>Optimization &amp; Math Foundations for Language Models</h1>
+  <p>The mathematical tools that make transformers trainable &mdash; softmax, cross-entropy, gradients, and the structures that keep deep networks stable.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Interviewers use mathematical questions to test whether you truly understand why transformers work, not just how to use them. This chapter covers the handful of mathematical tools that repeatedly surface in LLM work: softmax, dot products, cross-entropy, gradients, Jacobians, eigenvalues, KL divergence, and activation functions. The goal is operational intuition, not textbook derivation.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Attention Math</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Softmax in Attention</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Dot Product in Attention</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Loss &amp; Divergence</div>
+      <a href="#topic-3"><span class="toc-num">3</span> Cross-Entropy Loss</a>
+      <a href="#topic-4"><span class="toc-num">4</span> KL Divergence</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Gradient Mechanics</div>
+      <a href="#topic-5"><span class="toc-num">5</span> Embedding Gradients</a>
+      <a href="#topic-6"><span class="toc-num">6</span> The Jacobian Matrix</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Chain Rule &amp; Backprop</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Stability &amp; Structure</div>
+      <a href="#topic-8"><span class="toc-num">8</span> ReLU Derivative</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Residuals &amp; Normalization</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Eigenvalues &amp; Dim. Reduction</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Attention Math</span></div>
+    <p class="group-intro">The mathematical functions that turn raw vectors into the weighted attention mechanism at the heart of every transformer.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c14t01-softmax-input { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.c14t01-logit-input { width: 60px; text-align: center; font-family: 'SF Mono', monospace; }
+.c14t01-bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 140px; padding: 0 12px; justify-content: center; }
+.c14t01-bar-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.c14t01-bar { width: 40px; border-radius: 4px 4px 0 0; transition: height 0.3s ease; min-height: 2px; }
+.c14t01-bar-label { font-size: 0.72rem; color: #94a3b8; }
+.c14t01-bar-val { font-size: 0.75rem; font-weight: 600; }
+.c14t01-temp-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.c14t01-temp-label { font-size: 0.8rem; color: #94a3b8; min-width: 100px; }
+.c14t01-temp-val { font-size: 0.85rem; font-weight: 700; color: #38bdf8; min-width: 40px; text-align: right; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>Softmax in Attention</h2></div>
+
+  <div class="quick-take">Softmax converts raw similarity scores into a normalized probability distribution over tokens. It makes attention differentiable and ensures weights sum to one, allowing the model to blend value vectors proportionally instead of making a hard one-token choice.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Softmax is the voting system of attention &mdash; it turns raw "how relevant is this?" scores into percentage-based weights that must add up to 100%.</div>
+
+  <div class="visual-container" id="c14t01-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;">Enter raw logits (attention scores) and adjust temperature:</div>
+    <div class="c14t01-softmax-input" id="c14t01-inputs">
+      <input type="number" class="c14t01-logit-input" value="2.0" step="0.5">
+      <input type="number" class="c14t01-logit-input" value="5.0" step="0.5">
+      <input type="number" class="c14t01-logit-input" value="1.0" step="0.5">
+      <input type="number" class="c14t01-logit-input" value="0.5" step="0.5">
+      <input type="number" class="c14t01-logit-input" value="3.0" step="0.5">
+    </div>
+    <div class="c14t01-bar-chart" id="c14t01-bars"></div>
+    <div class="c14t01-temp-row">
+      <span class="c14t01-temp-label">Temperature:</span>
+      <input type="range" id="c14t01-temp" min="0.1" max="5.0" step="0.1" value="1.0" style="flex:1">
+      <span class="c14t01-temp-val" id="c14t01-temp-val">1.0</span>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Formula</h3>
+    <p>For a vector of raw scores <code>z</code>, softmax computes: <code>softmax(z_i) = exp(z_i) / sum(exp(z_j))</code> for all j. The exponential ensures all outputs are positive. The division by the sum ensures they add to 1. Temperature <code>T</code> scales the logits before the exponential: <code>softmax(z_i / T)</code>. Lower T sharpens the distribution (more confident); higher T flattens it (more uniform).</p>
+
+    <h3>Why Softmax in Attention Specifically</h3>
+    <p>In self-attention, the model computes <code>Q * K^T</code> to get similarity scores between every pair of tokens. Without softmax, these scores are unbounded real numbers. Softmax transforms them into a proper distribution, enabling the model to compute a weighted average of value vectors. This weighted average is what makes attention a "soft lookup" rather than a hard selection.</p>
+
+    <h3>Numerical Stability</h3>
+    <p>In practice, implementations subtract the maximum logit before exponentiating: <code>exp(z_i - max(z))</code>. This prevents overflow from large exponentials while producing identical results (the subtraction cancels in the numerator and denominator). This is why you see <code>z - z.max()</code> in every production softmax implementation.</p>
+    <p>See <a href="#topic-2" class="xref">Topic 2: Dot Product in Attention</a> for why the raw scores need scaling before softmax.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Softmax normalizes attention scores into a probability distribution &mdash; making attention differentiable, interpretable, and stable enough to train at scale.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Softmax from Scratch</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">softmax</span>(logits, temperature=<span class="num">1.0</span>):
+    <span class="str">"""
+    Numerically stable softmax with temperature scaling.
+    Lower temperature = sharper (more confident) distribution.
+    Higher temperature = flatter (more uniform) distribution.
+    """</span>
+    <span class="com"># Scale by temperature</span>
+    scaled = np.<span class="fn">array</span>(logits) / temperature
+
+    <span class="com"># Subtract max for numerical stability (prevents overflow)</span>
+    shifted = scaled - np.<span class="fn">max</span>(scaled)
+
+    <span class="com"># Exponentiate and normalize</span>
+    exp_vals = np.<span class="fn">exp</span>(shifted)
+    <span class="kw">return</span> exp_vals / exp_vals.<span class="fn">sum</span>()
+
+<span class="com"># Example: attention scores for 5 tokens</span>
+scores = [<span class="num">2.0</span>, <span class="num">5.0</span>, <span class="num">1.0</span>, <span class="num">0.5</span>, <span class="num">3.0</span>]
+
+<span class="fn">print</span>(<span class="str">"T=1.0 (normal):"</span>, <span class="fn">softmax</span>(scores, <span class="num">1.0</span>))
+<span class="fn">print</span>(<span class="str">"T=0.5 (sharp): "</span>, <span class="fn">softmax</span>(scores, <span class="num">0.5</span>))
+<span class="fn">print</span>(<span class="str">"T=2.0 (flat):  "</span>, <span class="fn">softmax</span>(scores, <span class="num">2.0</span>))</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Why not use a simpler normalization like dividing by the sum?</summary>
+      <div class="fq-a">Simple normalization (z_i / sum(z)) fails because raw scores can be negative, which would produce negative "probabilities." The <strong>exponential</strong> in softmax maps all values to positive numbers first. It also has a useful gradient structure: the Jacobian of softmax is well-defined and easy to backpropagate through, which is critical for training.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the relationship between softmax temperature and model creativity?</summary>
+      <div class="fq-a">At <strong>inference time</strong>, temperature controls how "peaked" the next-token distribution is. T &lt; 1 concentrates probability on the top tokens (more deterministic, less creative). T &gt; 1 spreads probability more evenly (more random, more creative). T = 0 converges to argmax (greedy decoding). This is the same mathematical mechanism as in attention, just applied at the output layer.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is Flash Attention and how does it relate to softmax?</summary>
+      <div class="fq-a"><strong>Flash Attention</strong> computes the exact same softmax-based attention but reorganizes the computation to be more memory-efficient. It processes attention in tiles, computing partial softmax results and combining them using the log-sum-exp trick. The mathematical output is identical, but memory usage drops from O(n^2) to O(n), enabling much longer context windows.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var COLORS = ['#38bdf8','#a78bfa','#34d399','#fb923c','#f472b6'];
+  var LABELS = ['Token A','Token B','Token C','Token D','Token E'];
+
+  function softmax(logits, temp) {
+    var scaled = logits.map(function(v) { return v / temp; });
+    var maxVal = Math.max.apply(null, scaled);
+    var exps = scaled.map(function(v) { return Math.exp(v - maxVal); });
+    var sum = exps.reduce(function(a,b) { return a+b; }, 0);
+    return exps.map(function(v) { return v / sum; });
+  }
+
+  function render() {
+    var inputs = document.querySelectorAll('#c14t01-inputs .c14t01-logit-input');
+    var logits = [];
+    inputs.forEach(function(inp) { logits.push(parseFloat(inp.value) || 0); });
+    var temp = parseFloat(document.getElementById('c14t01-temp').value);
+    document.getElementById('c14t01-temp-val').textContent = temp.toFixed(1);
+    var probs = softmax(logits, temp);
+
+    var container = document.getElementById('c14t01-bars');
+    container.innerHTML = '';
+    probs.forEach(function(p, i) {
+      var group = document.createElement('div');
+      group.className = 'c14t01-bar-group';
+      var c = COLORS[i % COLORS.length];
+      group.innerHTML =
+        '<div class="c14t01-bar-val" style="color:'+c+'">'+(p*100).toFixed(1)+'%</div>' +
+        '<div class="c14t01-bar" style="height:'+Math.max(2, p*130)+'px;background:'+hexToRgba(c,0.4)+';border:1px solid '+hexToRgba(c,0.6)+';"></div>' +
+        '<div class="c14t01-bar-label">'+LABELS[i]+'</div>';
+      container.appendChild(group);
+    });
+  }
+
+  document.querySelectorAll('#c14t01-inputs .c14t01-logit-input').forEach(function(inp) {
+    inp.addEventListener('input', render);
+  });
+  document.getElementById('c14t01-temp').addEventListener('input', render);
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c14t02-vectors { display: flex; gap: 20px; align-items: center; justify-content: center; padding: 16px; flex-wrap: wrap; }
+.c14t02-vec { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.c14t02-vec-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.c14t02-cell { width: 50px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'SF Mono', monospace; font-size: 0.75rem; font-weight: 600; }
+.c14t02-result { text-align: center; padding: 10px; margin-top: 10px; border-radius: 8px; }
+.c14t02-result-val { font-size: 1.4rem; font-weight: 700; }
+.c14t02-result-label { font-size: 0.75rem; color: #94a3b8; }
+.c14t02-op { font-size: 1.4rem; font-weight: 700; color: #64748b; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>The Dot Product in Self-Attention</h2></div>
+
+  <div class="quick-take">The dot product provides a fast measure of alignment between two vectors. In attention, the query-key dot product says "how relevant does this other token look to the current token?" Larger values imply stronger alignment and therefore larger attention weights after softmax.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The dot product is a compatibility test. Two vectors pointing in the same direction score high; orthogonal vectors score zero. It is the simplest way to ask "do these two things match?"</div>
+
+  <div class="visual-container" id="c14t02-visual">
+    <div class="c14t02-vectors">
+      <div class="c14t02-vec">
+        <div class="c14t02-vec-label" style="color:#38bdf8;">Query (q)</div>
+        <div class="c14t02-cell" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">0.8</div>
+        <div class="c14t02-cell" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">0.3</div>
+        <div class="c14t02-cell" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">0.6</div>
+        <div class="c14t02-cell" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">0.1</div>
+      </div>
+      <div class="c14t02-op">&#xB7;</div>
+      <div class="c14t02-vec">
+        <div class="c14t02-vec-label" style="color:#a78bfa;">Key (k)</div>
+        <div class="c14t02-cell" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">0.7</div>
+        <div class="c14t02-cell" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">0.5</div>
+        <div class="c14t02-cell" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">0.4</div>
+        <div class="c14t02-cell" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">0.2</div>
+      </div>
+      <div class="c14t02-op">=</div>
+      <div style="text-align:center;">
+        <div class="c14t02-result-val" style="color:#34d399;">0.97</div>
+        <div class="c14t02-result-label">raw score</div>
+      </div>
+    </div>
+    <div class="c14t02-result" style="background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);">
+      <div style="font-size:0.8rem;color:#facc15;">Scaled score = raw / sqrt(d_k) = 0.97 / sqrt(4) = <strong>0.485</strong></div>
+      <div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">Scaling prevents large dot products from pushing softmax into saturation (see <a href="#topic-1" class="xref" style="color:#38bdf8;">Topic 1</a>)</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Scaling Matters</h3>
+    <p>Raw dot products grow proportionally to the vector dimension <code>d_k</code>. In a typical transformer with <code>d_k = 128</code>, random query-key pairs produce dot products whose variance scales as <code>d_k</code>. Without scaling, these large values push softmax into near-one-hot territory, causing <strong>vanishing gradients</strong> through the softmax Jacobian. Dividing by <code>sqrt(d_k)</code> keeps the input to softmax in a numerically stable range (Vaswani et al., 2017).</p>
+
+    <h3>The Full Attention Equation</h3>
+    <p>Bringing it together: <code>Attention(Q, K, V) = softmax(Q * K^T / sqrt(d_k)) * V</code>. The dot product measures compatibility. The scaling prevents gradient problems. <a href="#topic-1" class="xref">Softmax</a> normalizes to a distribution. The result multiplies the value vectors, producing a context-dependent representation for each token.</p>
+
+    <h3>Multi-Head Attention</h3>
+    <p>Instead of a single large dot-product attention, transformers split Q, K, V into multiple <strong>heads</strong>, each attending with a smaller <code>d_k</code>. Each head can learn different notions of relevance (syntactic, semantic, positional). The outputs are concatenated and projected back. This improves both expressiveness and training stability.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The dot product is the cheapest meaningful similarity measure in high-dimensional space. Scaling by sqrt(d_k) is essential &mdash; without it, large dimensions push softmax into gradient-killing saturation.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Scaled Dot-Product Attention</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">scaled_dot_product_attention</span>(Q, K, V):
+    <span class="str">"""
+    Core attention mechanism used in every transformer.
+    Q, K, V: arrays of shape (seq_len, d_k)
+    Returns: weighted sum of V based on Q-K compatibility.
+    """</span>
+    d_k = Q.shape[-<span class="num">1</span>]
+
+    <span class="com"># Step 1: Compute raw compatibility scores</span>
+    scores = Q @ K.T                  <span class="com"># shape: (seq_len, seq_len)</span>
+
+    <span class="com"># Step 2: Scale to prevent softmax saturation</span>
+    scores = scores / np.<span class="fn">sqrt</span>(d_k)    <span class="com"># critical for training stability</span>
+
+    <span class="com"># Step 3: Normalize to get attention weights</span>
+    exp_scores = np.<span class="fn">exp</span>(scores - scores.<span class="fn">max</span>(axis=-<span class="num">1</span>, keepdims=<span class="kw">True</span>))
+    weights = exp_scores / exp_scores.<span class="fn">sum</span>(axis=-<span class="num">1</span>, keepdims=<span class="kw">True</span>)
+
+    <span class="com"># Step 4: Weighted combination of values</span>
+    <span class="kw">return</span> weights @ V                 <span class="com"># shape: (seq_len, d_k)</span>
+
+<span class="com"># Example with 4 tokens, dimension 8</span>
+np.random.<span class="fn">seed</span>(<span class="num">42</span>)
+Q = np.random.<span class="fn">randn</span>(<span class="num">4</span>, <span class="num">8</span>)
+K = np.random.<span class="fn">randn</span>(<span class="num">4</span>, <span class="num">8</span>)
+V = np.random.<span class="fn">randn</span>(<span class="num">4</span>, <span class="num">8</span>)
+output = <span class="fn">scaled_dot_product_attention</span>(Q, K, V)
+<span class="fn">print</span>(<span class="str">"Output shape:"</span>, output.shape)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Why not use cosine similarity instead of dot product?</summary>
+      <div class="fq-a">Cosine similarity normalizes by vector magnitude, which removes the model's ability to use vector length as a signal. The <strong>dot product preserves magnitude information</strong>, allowing the model to learn that some tokens should have stronger or weaker attention regardless of direction. The scaling by sqrt(d_k) achieves stability without discarding magnitude.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does multi-head attention improve over single-head?</summary>
+      <div class="fq-a">Each head operates in a smaller subspace and can learn a <strong>different type of relationship</strong>. Empirically, different heads specialize: some track syntax (subject-verb agreement), others track semantics (coreference), others track position. A single large head conflates all these signals. The computational cost is the same since the total dimension stays constant.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Loss &amp; Divergence</span></div>
+    <p class="group-intro">How the training loop measures prediction quality and distributional distance &mdash; the signals that drive all parameter updates.</p>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<style>
+.c14t03-dist-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; }
+.c14t03-dist { flex: 1; min-width: 180px; background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+.c14t03-dist-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.c14t03-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.c14t03-bar-name { width: 40px; font-size: 0.75rem; color: #94a3b8; text-align: right; }
+.c14t03-bar-track { flex: 1; height: 18px; background: #1e293b; border-radius: 4px; overflow: hidden; }
+.c14t03-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; display: flex; align-items: center; padding-left: 6px; font-size: 0.7rem; font-weight: 600; }
+.c14t03-loss-display { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.c14t03-loss-val { font-size: 1.6rem; font-weight: 700; }
+.c14t03-loss-label { font-size: 0.75rem; color: #94a3b8; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Cross-Entropy Loss</h2></div>
+
+  <div class="quick-take">Cross-entropy measures how well the model's predicted probability distribution matches the true target. In next-token prediction, it penalizes the model when it assigns too little probability to the correct token &mdash; the stronger the penalty, the more the model needs to learn.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Cross-entropy is a surprise meter. If the model is confident about the right answer, surprise (loss) is low. If it assigns the right answer low probability, surprise is high. Training minimizes surprise.</div>
+
+  <div class="visual-container" id="c14t03-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;">Adjust the model's predicted probability for the correct token:</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <span style="font-size:0.8rem;color:#94a3b8;min-width:100px;">P(correct):</span>
+      <input type="range" id="c14t03-prob" min="0.01" max="0.99" step="0.01" value="0.7" style="flex:1">
+      <span id="c14t03-prob-val" style="font-size:0.85rem;font-weight:700;color:#38bdf8;min-width:40px;text-align:right;">0.70</span>
+    </div>
+    <div class="c14t03-dist-row" id="c14t03-dists"></div>
+    <div class="c14t03-loss-display">
+      <div class="c14t03-loss-val" id="c14t03-loss" style="color:#f472b6;">0.36</div>
+      <div class="c14t03-loss-label">Cross-Entropy Loss = -log(P(correct))</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Formula</h3>
+    <p>For next-token prediction with one correct token: <code>loss = -log(p_correct)</code>. When the model assigns p=0.9 to the correct token, loss is 0.105. At p=0.1, loss is 2.302. At p=0.01, loss is 4.605. The logarithmic scale means the penalty grows dramatically for low-confidence correct predictions, providing strong gradient signal where the model needs to learn most.</p>
+
+    <h3>Why Cross-Entropy Wins</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Why It Matters for LLMs</th></tr></thead>
+      <tbody>
+        <tr><td>Pairs naturally with softmax</td><td>The softmax-cross-entropy combination has clean, efficient gradients</td></tr>
+        <tr><td>Probabilistic interpretation</td><td>Directly measures prediction quality as information-theoretic surprise</td></tr>
+        <tr><td>Strong gradient signal</td><td>Bad predictions produce large gradients &mdash; the model learns fastest where it is most wrong</td></tr>
+        <tr><td>Connection to perplexity</td><td>Perplexity = exp(avg cross-entropy), the standard LLM evaluation metric</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Perplexity Connection</h3>
+    <p>Perplexity is the exponential of average cross-entropy loss: <code>PPL = exp(avg_CE)</code>. A perplexity of 10 means the model is, on average, as uncertain as if it were choosing uniformly among 10 options. Lower perplexity means better prediction. This is the most common metric for comparing language model quality.</p>
+    <p>See <a href="#topic-4" class="xref">Topic 4: KL Divergence</a> for how cross-entropy relates to distributional distance measures used in distillation and alignment.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Cross-entropy is the universal LLM loss because it gives the right gradient signal: penalize proportionally to how surprised the model is by the correct answer.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Cross-Entropy and Perplexity</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">cross_entropy_loss</span>(predicted_probs, true_index):
+    <span class="str">"""
+    Compute cross-entropy loss for a single prediction.
+    predicted_probs: softmax output (sums to 1)
+    true_index: index of the correct token
+    """</span>
+    eps = <span class="num">1e-12</span>  <span class="com"># prevent log(0)</span>
+    <span class="kw">return</span> -np.<span class="fn">log</span>(predicted_probs[true_index] + eps)
+
+<span class="com"># Example: model predicts distribution over 3 tokens</span>
+pred = np.<span class="fn">array</span>([<span class="num">0.1</span>, <span class="num">0.8</span>, <span class="num">0.1</span>])  <span class="com"># model's softmax output</span>
+true_token = <span class="num">1</span>                      <span class="com"># correct token is index 1</span>
+
+loss = <span class="fn">cross_entropy_loss</span>(pred, true_token)
+perplexity = np.<span class="fn">exp</span>(loss)
+
+<span class="fn">print</span>(<span class="str">f"Loss:       </span>{loss:.4f}<span class="str">"</span>)       <span class="com"># 0.2231</span>
+<span class="fn">print</span>(<span class="str">f"Perplexity: </span>{perplexity:.4f}<span class="str">"</span>) <span class="com"># 1.2500</span>
+
+<span class="com"># Compare: what if model was wrong?</span>
+pred_bad = np.<span class="fn">array</span>([<span class="num">0.7</span>, <span class="num">0.1</span>, <span class="num">0.2</span>])
+loss_bad = <span class="fn">cross_entropy_loss</span>(pred_bad, true_token)
+<span class="fn">print</span>(<span class="str">f"Bad loss:   </span>{loss_bad:.4f}<span class="str">"</span>)   <span class="com"># 2.3026 -- much higher!</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Why not use mean squared error instead of cross-entropy?</summary>
+      <div class="fq-a">MSE measures distance between predicted and true probability values. Cross-entropy measures information-theoretic surprise. For probability distributions, cross-entropy produces <strong>stronger gradients</strong> when the model is confidently wrong (e.g., predicting 0.01 for the correct token). MSE's gradients would be small in the same situation, leading to slower learning.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is "good" perplexity for a language model?</summary>
+      <div class="fq-a">It depends on the data. On standard English text (Penn Treebank), state-of-the-art models achieve perplexity around <strong>15&ndash;25</strong>. On broader web text (The Pile), perplexity ranges from <strong>5&ndash;15</strong> for large models. Lower is better, but comparing perplexity across different datasets is meaningless &mdash; it only makes sense as a relative metric within the same evaluation set.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does label smoothing affect cross-entropy?</summary>
+      <div class="fq-a"><strong>Label smoothing</strong> replaces the hard target (100% on correct token) with a soft target (e.g., 90% on correct, 10% spread across others). This prevents the model from becoming overconfident and improves generalization. Mathematically, it mixes cross-entropy with a uniform-distribution penalty, acting as a regularizer.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  function render() {
+    var p = parseFloat(document.getElementById('c14t03-prob').value);
+    document.getElementById('c14t03-prob-val').textContent = p.toFixed(2);
+
+    var rest = (1 - p) / 2;
+    var tokens = [
+      { name: 'cat', prob: p, color: '#4ade80', label: 'correct' },
+      { name: 'dog', prob: rest, color: '#f472b6', label: '' },
+      { name: 'the', prob: rest, color: '#fb923c', label: '' },
+    ];
+
+    var container = document.getElementById('c14t03-dists');
+    container.innerHTML = '';
+
+    var trueDiv = document.createElement('div');
+    trueDiv.className = 'c14t03-dist';
+    trueDiv.innerHTML = '<div class="c14t03-dist-title" style="color:#4ade80;">True Distribution</div>';
+    [{ name: 'cat', prob: 1.0 }, { name: 'dog', prob: 0.0 }, { name: 'the', prob: 0.0 }].forEach(function(t) {
+      trueDiv.innerHTML +=
+        '<div class="c14t03-bar-row"><div class="c14t03-bar-name">'+t.name+'</div><div class="c14t03-bar-track"><div class="c14t03-bar-fill" style="width:'+(t.prob*100)+'%;background:'+hexToRgba('#4ade80',0.4)+';">'+(t.prob > 0.05 ? (t.prob*100).toFixed(0)+'%' : '')+'</div></div></div>';
+    });
+    container.appendChild(trueDiv);
+
+    var predDiv = document.createElement('div');
+    predDiv.className = 'c14t03-dist';
+    predDiv.innerHTML = '<div class="c14t03-dist-title" style="color:#38bdf8;">Predicted Distribution</div>';
+    tokens.forEach(function(t) {
+      predDiv.innerHTML +=
+        '<div class="c14t03-bar-row"><div class="c14t03-bar-name">'+t.name+'</div><div class="c14t03-bar-track"><div class="c14t03-bar-fill" style="width:'+(t.prob*100)+'%;background:'+hexToRgba(t.color,0.4)+';color:'+t.color+';">'+(t.prob > 0.05 ? (t.prob*100).toFixed(0)+'%' : '')+'</div></div></div>';
+    });
+    container.appendChild(predDiv);
+
+    var loss = -Math.log(Math.max(p, 1e-12));
+    document.getElementById('c14t03-loss').textContent = loss.toFixed(3);
+    if (loss < 0.5) document.getElementById('c14t03-loss').style.color = '#4ade80';
+    else if (loss < 1.5) document.getElementById('c14t03-loss').style.color = '#facc15';
+    else document.getElementById('c14t03-loss').style.color = '#f87171';
+  }
+  document.getElementById('c14t03-prob').addEventListener('input', render);
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>KL Divergence</h2></div>
+
+  <div class="quick-take">KL divergence measures how one probability distribution differs from another. In LLM work it appears when distilling a student from a teacher, constraining policy updates in RLHF, or comparing a model's output to a reference distribution. It is not symmetric &mdash; the direction matters.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> KL divergence is a one-way penalty: "how much extra surprise do you get from using distribution Q when the truth is P?" It is a leash, not a distance &mdash; the pull is stronger in one direction.</div>
+
+  <div class="visual-container" id="c14t04-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;">
+        <div style="font-size:0.78rem;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Used In</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; Knowledge distillation (teacher vs student)</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; RLHF KL penalty (policy vs reference)</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; VAE latent regularization</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;">&#x2022; Distribution matching in general</div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;">
+        <div style="font-size:0.78rem;font-weight:700;color:#fb923c;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Key Properties</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; Not symmetric: KL(P||Q) &#x2260; KL(Q||P)</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; Always >= 0 (Gibbs inequality)</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2022; = 0 only when P = Q exactly</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;">&#x2022; Related to cross-entropy: CE(P,Q) = H(P) + KL(P||Q)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Formula</h3>
+    <p><code>KL(P || Q) = sum(P(x) * log(P(x) / Q(x)))</code> for all x. This measures the expected extra "cost" (in bits or nats) of encoding data from distribution P using a code optimized for distribution Q. When P and Q are identical, the cost is zero.</p>
+
+    <h3>Why Asymmetry Matters</h3>
+    <p><code>KL(P || Q)</code> penalizes Q heavily wherever P has probability mass but Q does not. In RLHF, this means <code>KL(policy || reference)</code> prevents the fine-tuned policy from straying too far from the base model &mdash; it acts as a leash. The direction you choose determines which errors get penalized most.</p>
+
+    <h3>KL in Practice</h3>
+    <table>
+      <thead><tr><th>Application</th><th>P (reference)</th><th>Q (model)</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Distillation</td><td>Teacher output</td><td>Student output</td><td>Train student to match teacher</td></tr>
+        <tr><td>RLHF penalty</td><td>Base model output</td><td>Policy model output</td><td>Prevent reward hacking</td></tr>
+        <tr><td>VAE training</td><td>Standard normal</td><td>Encoder output</td><td>Regularize latent space</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-3" class="xref">Topic 3: Cross-Entropy Loss</a> for the relationship: cross-entropy = entropy + KL divergence.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>KL divergence is not a distance but a directional penalty. It keeps distributions close in a controlled way &mdash; essential for distillation, alignment, and policy optimization.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Cross-Entropy and KL Divergence</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Two probability distributions over 3 tokens</span>
+target  = np.<span class="fn">array</span>([<span class="num">0.0</span>, <span class="num">1.0</span>, <span class="num">0.0</span>])   <span class="com"># true: token 1 is correct</span>
+pred    = np.<span class="fn">array</span>([<span class="num">0.1</span>, <span class="num">0.8</span>, <span class="num">0.1</span>])   <span class="com"># model's prediction</span>
+teacher = np.<span class="fn">array</span>([<span class="num">0.05</span>, <span class="num">0.9</span>, <span class="num">0.05</span>]) <span class="com"># teacher model's softer output</span>
+
+eps = <span class="num">1e-12</span>  <span class="com"># numerical stability</span>
+
+<span class="com"># Cross-entropy: how well does pred match target?</span>
+cross_entropy = -(target * np.<span class="fn">log</span>(pred + eps)).<span class="fn">sum</span>()
+
+<span class="com"># KL divergence: how far is pred from teacher?</span>
+<span class="com"># KL(teacher || pred) = sum(teacher * log(teacher / pred))</span>
+kl = (teacher * (np.<span class="fn">log</span>(teacher + eps) - np.<span class="fn">log</span>(pred + eps))).<span class="fn">sum</span>()
+
+<span class="fn">print</span>(<span class="str">f"cross_entropy = </span>{cross_entropy:.4f}<span class="str">"</span>)  <span class="com"># 0.2231</span>
+<span class="fn">print</span>(<span class="str">f"kl_divergence = </span>{kl:.4f}<span class="str">"</span>)           <span class="com"># 0.0144</span>
+<span class="fn">print</span>(<span class="str">f"Note: KL is small because teacher and pred are similar"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is the KL penalty in RLHF and why is it needed?</summary>
+      <div class="fq-a">During RLHF, the model is optimized to maximize a reward signal. Without a constraint, it would exploit quirks in the reward model (reward hacking). The KL penalty <strong>penalizes the policy for drifting too far from the base model</strong>, keeping outputs reasonable. The coefficient on the KL term controls the trade-off: higher penalty = more conservative outputs; lower = more reward-driven.</div>
+    </details>
+    <details class="fq-item">
+      <summary>When would you use Jensen-Shannon divergence instead of KL?</summary>
+      <div class="fq-a"><strong>Jensen-Shannon divergence (JSD)</strong> is the symmetric, bounded version: JSD(P,Q) = 0.5 * KL(P||M) + 0.5 * KL(Q||M), where M = 0.5*(P+Q). Use JSD when you need a true distance metric (symmetric, satisfies triangle inequality) or when comparing two model outputs without a clear "reference" direction. GAN training historically used JSD.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Gradient Mechanics</span></div>
+    <p class="group-intro">How gradients flow through transformers &mdash; from embedding lookups through vector-valued layers to the chain rule that ties it all together.</p>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<style>
+.c14t05-embed-grid { display: flex; gap: 6px; justify-content: center; padding: 12px; flex-wrap: wrap; }
+.c14t05-row { display: flex; gap: 3px; align-items: center; }
+.c14t05-row-label { width: 70px; font-size: 0.72rem; color: #94a3b8; text-align: right; padding-right: 6px; }
+.c14t05-cell { width: 36px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'SF Mono', monospace; font-size: 0.68rem; font-weight: 600; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Gradients for Embeddings</h2></div>
+
+  <div class="quick-take">Each token lookup selects a row from the embedding matrix. During backpropagation, gradients flow only into the rows that were used in the forward pass. The embedding table is a trainable parameter matrix with sparse updates &mdash; only tokens in the batch receive direct gradient signal.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The embedding table is a dictionary where entries only get edited when they are actually looked up. Unused entries sleep through the training step.</div>
+
+  <div class="visual-container" id="c14t05-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;">Embedding matrix (rows = tokens). Only rows used in this batch get gradient updates:</div>
+    <div class="c14t05-embed-grid" id="c14t05-grid"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How It Works</h3>
+    <p>An embedding layer is mathematically equivalent to multiplying a one-hot vector by the embedding matrix. The one-hot vector selects exactly one row. During backpropagation, the gradient with respect to the embedding matrix is also sparse: it has non-zero entries only for the rows corresponding to tokens that appeared in the batch.</p>
+
+    <h3>Why Sparsity Matters</h3>
+    <p>With a vocabulary of 100,000 tokens and a batch of 2,048 tokens, fewer than 2% of embedding rows receive gradient updates on any given step. This has practical consequences:</p>
+    <ul>
+      <li><strong>Rare tokens</strong> get updated infrequently, so their embeddings are less refined</li>
+      <li><strong>Optimizers</strong> must handle sparse gradients correctly (Adam does this naturally via per-parameter moments)</li>
+      <li><strong>Gradient accumulation</strong> across batches helps rare tokens get enough updates</li>
+    </ul>
+
+    <h3>Frozen vs Trainable Embeddings</h3>
+    <p>In PEFT methods, embeddings are typically <strong>frozen</strong> (no gradient updates). This preserves the base model's token representations. In full fine-tuning, embedding updates can help with domain-specific terminology but also risk destabilizing well-learned representations for common tokens.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Embedding gradients are sparse &mdash; only tokens present in the batch get updated. This means rare tokens learn slowly and need more data or longer training to develop good representations.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Embedding Gradient Sparsity</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="com"># Create a small embedding table: 10 tokens, 4-dimensional embeddings</span>
+embed = nn.<span class="fn">Embedding</span>(<span class="num">10</span>, <span class="num">4</span>)
+
+<span class="com"># Forward pass: look up tokens [2, 5, 2]</span>
+token_ids = torch.<span class="fn">tensor</span>([<span class="num">2</span>, <span class="num">5</span>, <span class="num">2</span>])
+output = embed(token_ids)
+
+<span class="com"># Simulate a loss and backward pass</span>
+loss = output.<span class="fn">sum</span>()
+loss.<span class="fn">backward</span>()
+
+<span class="com"># Only rows 2 and 5 received gradients</span>
+<span class="fn">print</span>(<span class="str">"Gradient for each row:"</span>)
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">10</span>):
+    grad = embed.weight.grad[i]
+    has_grad = grad.<span class="fn">abs</span>().<span class="fn">sum</span>().<span class="fn">item</span>() > <span class="num">0</span>
+    <span class="fn">print</span>(<span class="str">f"  Token </span>{i}<span class="str">: </span>{<span class="str">'UPDATED'</span> <span class="kw">if</span> has_grad <span class="kw">else</span> <span class="str">'skipped'</span>:<span class="str">}</span><span class="str">  grad=</span>{grad.tolist()}<span class="str">"</span>)
+<span class="com"># Output: Only tokens 2 and 5 show non-zero gradients</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do embeddings differ from a regular linear layer?</summary>
+      <div class="fq-a">Mathematically, they are equivalent: <code>Embedding(token_id)</code> is the same as <code>one_hot(token_id) @ W</code>. The difference is <strong>implementation efficiency</strong>. Embedding layers use an index lookup (O(1) per token) instead of a matrix multiply (O(vocab_size * dim)), making them vastly faster for large vocabularies.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you freeze just the embeddings during fine-tuning?</summary>
+      <div class="fq-a">Yes, and it is a common practice. Freezing embeddings preserves the model's existing token representations while allowing higher layers to adapt. This is especially useful when your fine-tuning data is small &mdash; updating embeddings with limited data can worsen representations for common tokens that were well-learned during pre-training.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var batchTokens = [2, 5, 2, 7];
+  var vocabSize = 10;
+  var dim = 6;
+  var tokenNames = ['the','a','cat','dog','run','sat','on','mat','big','red'];
+  var container = document.getElementById('c14t05-grid');
+  var table = document.createElement('div');
+  for (var i = 0; i < vocabSize; i++) {
+    var used = batchTokens.indexOf(i) >= 0;
+    var row = document.createElement('div');
+    row.className = 'c14t05-row';
+    row.innerHTML = '<div class="c14t05-row-label" style="color:'+(used ? '#4ade80' : '#475569')+';">' + tokenNames[i] + ' [' + i + ']</div>';
+    for (var j = 0; j < dim; j++) {
+      var val = (Math.random() * 2 - 1).toFixed(1);
+      var bgColor = used ? hexToRgba('#4ade80', 0.12) : hexToRgba('#475569', 0.1);
+      var borderColor = used ? hexToRgba('#4ade80', 0.3) : hexToRgba('#475569', 0.2);
+      var textColor = used ? '#4ade80' : '#475569';
+      row.innerHTML += '<div class="c14t05-cell" style="background:'+bgColor+';border:1px solid '+borderColor+';color:'+textColor+';">'+val+'</div>';
+    }
+    if (used) {
+      row.innerHTML += '<span style="font-size:0.68rem;color:#4ade80;margin-left:6px;font-weight:600;">gradient</span>';
+    }
+    table.appendChild(row);
+  }
+  container.appendChild(table);
+})();
+</script>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>The Jacobian Matrix</h2></div>
+
+  <div class="quick-take">The Jacobian matrix contains all partial derivatives of a vector-valued function with respect to its inputs. In deep learning, it tells you how small changes in each input dimension affect each output dimension &mdash; essential for correctly backpropagating gradients through vector transformations.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> If a single derivative is "how much does the output wiggle when I wiggle the input," the Jacobian is the complete wiggle map for every input-output pair simultaneously.</div>
+
+  <div class="visual-container" id="c14t06-visual">
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:16px;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:0.75rem;font-weight:600;color:#38bdf8;text-transform:uppercase;margin-bottom:6px;">Input (x)</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="width:45px;height:28px;border-radius:4px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#38bdf8;">x1</div>
+          <div style="width:45px;height:28px;border-radius:4px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#38bdf8;">x2</div>
+          <div style="width:45px;height:28px;border-radius:4px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#38bdf8;">x3</div>
+        </div>
+      </div>
+      <div style="font-size:1.2rem;color:#64748b;">&#x2192;</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.75rem;font-weight:600;color:#a78bfa;text-transform:uppercase;margin-bottom:6px;">Jacobian J</div>
+        <div style="display:grid;grid-template-columns:repeat(3,45px);gap:3px;">
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df1/dx1</div>
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df1/dx2</div>
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df1/dx3</div>
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df2/dx1</div>
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df2/dx2</div>
+          <div style="height:28px;border-radius:4px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#a78bfa;">df2/dx3</div>
+        </div>
+      </div>
+      <div style="font-size:1.2rem;color:#64748b;">&#x2192;</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.75rem;font-weight:600;color:#34d399;text-transform:uppercase;margin-bottom:6px;">Output f(x)</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="width:45px;height:28px;border-radius:4px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#34d399;">f1</div>
+          <div style="width:45px;height:28px;border-radius:4px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#34d399;">f2</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>From Scalars to Vectors</h3>
+    <p>For a scalar function f(x), the derivative df/dx tells you the rate of change. For a vector-valued function <code>f: R^n -> R^m</code>, the Jacobian matrix <code>J</code> has shape <code>m x n</code>, where each entry <code>J[i,j] = df_i/dx_j</code>. This generalizes the single-variable derivative to the multivariate case.</p>
+
+    <h3>Why It Matters in Deep Learning</h3>
+    <p>Each layer in a neural network is a vector-valued function. Backpropagation needs to pass gradients backward through these functions. The <a href="#topic-7" class="xref">chain rule</a> for vector functions involves multiplying Jacobian matrices: <code>dL/dx = J^T * dL/df</code>. This is how gradient information flows from the loss back through every layer.</p>
+
+    <h3>Practical Implications</h3>
+    <ul>
+      <li><strong>Jacobian size</strong> &mdash; For a layer mapping R^4096 to R^4096, the full Jacobian has 16.7M entries. Storing it is impractical, which is why frameworks compute Jacobian-vector products instead.</li>
+      <li><strong>Jacobian conditioning</strong> &mdash; If the Jacobian has very large or very small singular values, gradients explode or vanish. This is the mathematical root of training instability in deep networks.</li>
+      <li><strong>Softmax Jacobian</strong> &mdash; The Jacobian of <a href="#topic-1" class="xref">softmax</a> has a specific structure that makes backpropagation through attention efficient.</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The Jacobian generalizes derivatives to vector functions. Backpropagation is chain-multiplying Jacobians &mdash; their conditioning determines whether gradients survive the journey through deep networks.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Computing the Jacobian</summary>
+    <pre><code><span class="kw">import</span> torch
+
+<span class="kw">def</span> <span class="fn">compute_jacobian</span>(f, x):
+    <span class="str">"""
+    Compute the full Jacobian matrix of f at point x.
+    f: function R^n -> R^m
+    x: input tensor of shape (n,)
+    Returns: Jacobian matrix of shape (m, n)
+    """</span>
+    x = x.<span class="fn">requires_grad_</span>(<span class="kw">True</span>)
+    y = <span class="fn">f</span>(x)
+    m = y.<span class="fn">shape</span>[<span class="num">0</span>]
+    n = x.<span class="fn">shape</span>[<span class="num">0</span>]
+
+    jacobian = torch.<span class="fn">zeros</span>(m, n)
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(m):
+        <span class="com"># Gradient of the i-th output w.r.t. all inputs</span>
+        grad = torch.autograd.<span class="fn">grad</span>(
+            y[i], x, retain_graph=<span class="kw">True</span>, create_graph=<span class="kw">True</span>
+        )[<span class="num">0</span>]
+        jacobian[i] = grad
+
+    <span class="kw">return</span> jacobian
+
+<span class="com"># Example: softmax Jacobian (3-dimensional)</span>
+x = torch.<span class="fn">tensor</span>([<span class="num">2.0</span>, <span class="num">1.0</span>, <span class="num">0.5</span>])
+J = <span class="fn">compute_jacobian</span>(torch.nn.functional.softmax, x)
+<span class="fn">print</span>(<span class="str">"Softmax Jacobian:\n"</span>, J)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Why not compute the full Jacobian during training?</summary>
+      <div class="fq-a">The full Jacobian has <code>m x n</code> entries per layer. For transformer layers with 4096-dimensional inputs and outputs, that is <strong>16.7 million entries per layer</strong>. Instead, backpropagation computes <strong>Jacobian-vector products</strong> (JVPs) directly, which gives you the gradient of the scalar loss w.r.t. inputs without ever materializing the full matrix. This is the key insight that makes training large models practical.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does the Jacobian relate to gradient vanishing/exploding?</summary>
+      <div class="fq-a">When you multiply Jacobians across many layers (via the <a href="#topic-7" class="xref">chain rule</a>), the product's magnitude depends on the <strong>singular values</strong> of each Jacobian. If singular values are consistently &lt; 1, the product shrinks exponentially (vanishing). If &gt; 1, it grows exponentially (exploding). <a href="#topic-9" class="xref">Residual connections and normalization</a> are designed to keep these products well-conditioned.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c14t07-chain { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 16px; flex-wrap: wrap; }
+.c14t07-node { border-radius: 8px; padding: 10px 16px; text-align: center; border: 1px solid #334155; min-width: 80px; }
+.c14t07-node-name { font-size: 0.82rem; font-weight: 700; }
+.c14t07-node-desc { font-size: 0.68rem; color: #94a3b8; }
+.c14t07-arrow { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.c14t07-arrow-fwd { color: #475569; font-size: 0.9rem; }
+.c14t07-arrow-bwd { color: #f472b6; font-size: 0.65rem; font-weight: 600; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>The Chain Rule and Backpropagation</h2></div>
+
+  <div class="quick-take">Neural networks are compositions of many functions. The chain rule computes the derivative of the whole composition by multiplying local derivatives step by step from output to input. Backpropagation is the efficient bookkeeping of that repeated chain-rule application.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The chain rule is the blame game. If the final answer is wrong, each layer passes back its share of responsibility for the error, multiplied through the chain of functions that produced the result.</div>
+
+  <div class="visual-container" id="c14t07-visual">
+    <div style="font-size:0.75rem;color:#64748b;text-align:center;margin-bottom:8px;">Forward pass (left to right) / Backward pass (right to left, in pink)</div>
+    <div class="c14t07-chain">
+      <div class="c14t07-node" style="background:rgba(56,189,248,0.08);">
+        <div class="c14t07-node-name" style="color:#38bdf8;">Input x</div>
+        <div class="c14t07-node-desc">tokens</div>
+      </div>
+      <div class="c14t07-arrow">
+        <div class="c14t07-arrow-fwd">&#x2192;</div>
+        <div class="c14t07-arrow-bwd">&#x2190; dL/dh1</div>
+      </div>
+      <div class="c14t07-node" style="background:rgba(167,139,250,0.08);">
+        <div class="c14t07-node-name" style="color:#a78bfa;">Layer 1</div>
+        <div class="c14t07-node-desc">h1 = f1(x)</div>
+      </div>
+      <div class="c14t07-arrow">
+        <div class="c14t07-arrow-fwd">&#x2192;</div>
+        <div class="c14t07-arrow-bwd">&#x2190; dL/dh2</div>
+      </div>
+      <div class="c14t07-node" style="background:rgba(52,211,153,0.08);">
+        <div class="c14t07-node-name" style="color:#34d399;">Layer 2</div>
+        <div class="c14t07-node-desc">h2 = f2(h1)</div>
+      </div>
+      <div class="c14t07-arrow">
+        <div class="c14t07-arrow-fwd">&#x2192;</div>
+        <div class="c14t07-arrow-bwd">&#x2190; dL/dy</div>
+      </div>
+      <div class="c14t07-node" style="background:rgba(244,114,182,0.08);">
+        <div class="c14t07-node-name" style="color:#f472b6;">Loss L</div>
+        <div class="c14t07-node-desc">L = loss(y)</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:0.78rem;color:#94a3b8;padding:8px;background:#0f172a;border-radius:8px;margin-top:8px;">
+      <span style="color:#f472b6;font-weight:600;">dL/dx = dL/dy &times; dy/dh2 &times; dh2/dh1 &times; dh1/dx</span><br>
+      <span style="color:#64748b;">Each factor is a local derivative (Jacobian) computed during the backward pass</span>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Core Idea</h3>
+    <p>For a composition <code>L = loss(f2(f1(x)))</code>, the chain rule gives: <code>dL/dx = dL/df2 * df2/df1 * df1/dx</code>. Each factor is a <strong>local derivative</strong> that depends only on the function at that layer and its current input. Backpropagation computes these factors right-to-left, reusing cached forward-pass values.</p>
+
+    <h3>Why Backpropagation Is Efficient</h3>
+    <p>A naive approach to computing gradients would re-evaluate the entire network for each parameter. Backpropagation instead makes <strong>one forward pass</strong> (caching intermediate values) and <strong>one backward pass</strong> (multiplying local derivatives). The computational cost of the backward pass is roughly 2x the forward pass, regardless of network depth.</p>
+
+    <h3>Practical Consequences</h3>
+    <table>
+      <thead><tr><th>Concept</th><th>What Happens</th><th>Engineering Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Activation checkpointing</td><td>Drop cached activations, recompute during backward</td><td>Trades compute for memory (critical for large models)</td></tr>
+        <tr><td>Gradient accumulation</td><td>Sum gradients over multiple mini-batches before updating</td><td>Simulates larger batch sizes with less GPU memory</td></tr>
+        <tr><td>Mixed precision</td><td>Forward in fp16/bf16, accumulate gradients in fp32</td><td>2x memory reduction, faster compute</td></tr>
+      </tbody>
+    </table>
+    <p>The chain rule is also why <a href="#topic-9" class="xref">residual connections</a> are critical &mdash; they create additive shortcut paths through the chain, preventing gradient signal from vanishing over many multiplications.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Backpropagation is the chain rule applied efficiently. Without it, training deep networks would be computationally infeasible. It is why deep models are trainable systems rather than black boxes.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Manual Backpropagation</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Manual chain rule through a 2-layer network</span>
+<span class="com"># y = relu(x @ W1) @ W2</span>
+<span class="com"># loss = 0.5 * (y - target)^2</span>
+
+np.random.<span class="fn">seed</span>(<span class="num">42</span>)
+x = np.<span class="fn">array</span>([<span class="num">1.0</span>, <span class="num">2.0</span>])               <span class="com"># input</span>
+W1 = np.random.<span class="fn">randn</span>(<span class="num">2</span>, <span class="num">3</span>)               <span class="com"># layer 1 weights</span>
+W2 = np.random.<span class="fn">randn</span>(<span class="num">3</span>, <span class="num">1</span>)               <span class="com"># layer 2 weights</span>
+target = np.<span class="fn">array</span>([<span class="num">1.0</span>])                 <span class="com"># target output</span>
+
+<span class="com"># --- Forward pass (cache intermediates) ---</span>
+z1 = x @ W1                               <span class="com"># pre-activation</span>
+h1 = np.<span class="fn">maximum</span>(<span class="num">0</span>, z1)                   <span class="com"># ReLU activation</span>
+y = h1 @ W2                               <span class="com"># output</span>
+loss = <span class="num">0.5</span> * (y - target) ** <span class="num">2</span>            <span class="com"># MSE loss</span>
+
+<span class="com"># --- Backward pass (chain rule, right to left) ---</span>
+dL_dy = y - target                         <span class="com"># dL/dy</span>
+dL_dW2 = h1.reshape(-<span class="num">1</span>, <span class="num">1</span>) @ dL_dy.reshape(<span class="num">1</span>, -<span class="num">1</span>)  <span class="com"># dL/dW2</span>
+dL_dh1 = dL_dy @ W2.T                     <span class="com"># chain: dL/dh1</span>
+dL_dz1 = dL_dh1 * (z1 > <span class="num">0</span>)               <span class="com"># ReLU derivative</span>
+dL_dW1 = x.reshape(-<span class="num">1</span>, <span class="num">1</span>) @ dL_dz1.reshape(<span class="num">1</span>, -<span class="num">1</span>)  <span class="com"># dL/dW1</span>
+
+<span class="fn">print</span>(<span class="str">f"Loss: </span>{loss.item():.4f}<span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"dL/dW1 shape: </span>{dL_dW1.shape}<span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"dL/dW2 shape: </span>{dL_dW2.shape}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is activation checkpointing and why does it help?</summary>
+      <div class="fq-a">During backpropagation, you need the cached activations from the forward pass to compute local derivatives. <strong>Activation checkpointing</strong> discards most cached activations and recomputes them on-the-fly during the backward pass. This trades ~33% more compute for ~60&ndash;70% less memory, enabling training of models that otherwise would not fit in GPU memory.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Why is the backward pass roughly 2x the cost of the forward pass?</summary>
+      <div class="fq-a">The forward pass computes one matrix multiply per layer. The backward pass computes <strong>two</strong>: one to propagate the gradient to the previous layer (dL/dx = J^T * dL/dy) and one to compute the parameter gradient (dL/dW = x^T * dL/dy). Each has similar cost to the forward multiply, hence the ~2x factor.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does gradient accumulation work?</summary>
+      <div class="fq-a">Instead of updating weights after every mini-batch, you <strong>sum (accumulate) gradients</strong> across N mini-batches and update once. This is mathematically equivalent to using a batch size N times larger, but uses only 1/N the memory. It is essential for training large models on limited hardware where the maximum batch size is small.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Stability &amp; Structure</span></div>
+    <p class="group-intro">The architectural and mathematical mechanisms that keep deep transformer training stable &mdash; activation functions, residual paths, normalization, and dimensionality reduction.</p>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<style>
+.c14t08-relu-chart { position: relative; height: 180px; margin: 12px 0; }
+.c14t08-canvas { width: 100%; height: 100%; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>The ReLU Derivative and Activation Functions</h2></div>
+
+  <div class="quick-take">ReLU passes positive inputs unchanged and zeros out negative inputs. Its derivative is 1 for positive inputs and 0 for negative, making it computationally simple and helping gradients flow better than older saturating activations like sigmoid. This simplicity was a key enabler of deep network training.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> ReLU is a one-way gate: positive signals pass through at full strength, negative signals are blocked. The gate's derivative is binary &mdash; either "pass" (1) or "block" (0) &mdash; which keeps gradient computation trivial.</div>
+
+  <div class="visual-container" id="c14t08-visual">
+    <div class="vis-btns" id="c14t08-btns">
+      <button class="vis-btn active" data-fn="relu">ReLU</button>
+      <button class="vis-btn" data-fn="gelu">GELU</button>
+      <button class="vis-btn" data-fn="sigmoid">Sigmoid</button>
+      <button class="vis-btn" data-fn="swish">SiLU/Swish</button>
+    </div>
+    <div class="c14t08-relu-chart">
+      <canvas id="c14t08-canvas" class="c14t08-canvas"></canvas>
+    </div>
+    <div style="display:flex;justify-content:center;gap:20px;font-size:0.75rem;margin-top:4px;">
+      <span><span style="color:#38bdf8;">&#x2014;</span> f(x)</span>
+      <span><span style="color:#f472b6;">&#x2014;</span> f'(x) (derivative)</span>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why ReLU Changed Deep Learning</h3>
+    <p>Before ReLU, networks used <strong>sigmoid</strong> and <strong>tanh</strong> activations. Both saturate at extreme values, producing derivatives near zero. When you multiply many near-zero derivatives via the <a href="#topic-7" class="xref">chain rule</a>, gradients vanish exponentially. ReLU's derivative of exactly 1 for positive inputs avoids this: gradients pass through unchanged.</p>
+
+    <h3>Activation Function Comparison</h3>
+    <table>
+      <thead><tr><th>Function</th><th>Formula</th><th>Derivative</th><th>Used In</th></tr></thead>
+      <tbody>
+        <tr><td>ReLU</td><td>max(0, x)</td><td>0 or 1</td><td>Earlier transformers, CNNs</td></tr>
+        <tr><td>GELU</td><td>x * Phi(x)</td><td>Smooth curve</td><td>GPT, BERT, most modern LLMs</td></tr>
+        <tr><td>SiLU/Swish</td><td>x * sigmoid(x)</td><td>Smooth, non-monotonic</td><td>LLaMA, PaLM</td></tr>
+        <tr><td>Sigmoid</td><td>1/(1+exp(-x))</td><td>sigma*(1-sigma)</td><td>Legacy, gating mechanisms</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Modern Transformers: GELU and SiLU</h3>
+    <p>Most current LLMs use <strong>GELU</strong> (Gaussian Error Linear Unit) or <strong>SiLU/Swish</strong> instead of plain ReLU. These smooth approximations of ReLU have non-zero gradients for slightly negative inputs, which helps with optimization. The key insight remains the same: avoid saturating derivatives that kill gradient flow.</p>
+    <p>The "dead neuron" problem of ReLU (neurons stuck at zero output) is largely avoided by GELU and SiLU, which is one reason modern architectures prefer them.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>ReLU's non-saturating derivative was the historical breakthrough. Modern LLMs use smoother variants (GELU, SiLU) that preserve the gradient-flow benefit while avoiding dead neurons.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Activation Functions and Derivatives</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">relu</span>(x):
+    <span class="str">"""ReLU: simple, fast, but can produce dead neurons."""</span>
+    <span class="kw">return</span> np.<span class="fn">maximum</span>(<span class="num">0</span>, x)
+
+<span class="kw">def</span> <span class="fn">relu_derivative</span>(x):
+    <span class="str">"""Binary derivative: 1 if x > 0, else 0."""</span>
+    <span class="kw">return</span> (x > <span class="num">0</span>).<span class="fn">astype</span>(<span class="fn">float</span>)
+
+<span class="kw">def</span> <span class="fn">gelu</span>(x):
+    <span class="str">"""GELU: used in GPT, BERT. Smooth approximation of ReLU."""</span>
+    <span class="kw">return</span> <span class="num">0.5</span> * x * (<span class="num">1</span> + np.<span class="fn">tanh</span>(np.<span class="fn">sqrt</span>(<span class="num">2</span>/np.pi) * (x + <span class="num">0.044715</span> * x**<span class="num">3</span>)))
+
+<span class="com"># Compare gradient flow through 50 layers</span>
+x = np.<span class="fn">array</span>([<span class="num">0.5</span>])
+relu_grad = <span class="num">1.0</span>
+sigmoid_grad = <span class="num">1.0</span>
+
+<span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">50</span>):
+    relu_grad *= <span class="fn">relu_derivative</span>(x)[<span class="num">0</span>]           <span class="com"># stays 1.0</span>
+    sig = <span class="num">1</span> / (<span class="num">1</span> + np.<span class="fn">exp</span>(-x[<span class="num">0</span>]))
+    sigmoid_grad *= sig * (<span class="num">1</span> - sig)               <span class="com"># shrinks fast</span>
+
+<span class="fn">print</span>(<span class="str">f"After 50 layers:"</span>)
+<span class="fn">print</span>(<span class="str">f"  ReLU gradient:    </span>{relu_grad:.6f}<span class="str">"</span>)      <span class="com"># 1.000000</span>
+<span class="fn">print</span>(<span class="str">f"  Sigmoid gradient: </span>{sigmoid_grad:.2e}<span class="str">"</span>)   <span class="com"># ~1e-38 (vanished!)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is the "dead neuron" problem in ReLU?</summary>
+      <div class="fq-a">If a neuron's input is always negative (due to unlucky initialization or large learning rates), its ReLU output is always zero and its gradient is always zero. The neuron is <strong>permanently dead</strong> and can never recover. This affects a small but non-trivial fraction of neurons in deep ReLU networks. GELU and SiLU avoid this because they have non-zero gradients for negative inputs.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Why did transformers switch from ReLU to GELU?</summary>
+      <div class="fq-a">GELU was introduced in the BERT paper and produces <strong>slightly better training dynamics</strong> for transformers. The smooth transition around zero (instead of ReLU's sharp corner) gives more informative gradients for inputs near zero, which are common after layer normalization. The computational overhead is negligible on modern hardware.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var fns = {
+    relu: {
+      f: function(x) { return Math.max(0, x); },
+      d: function(x) { return x > 0 ? 1 : 0; }
+    },
+    gelu: {
+      f: function(x) { return 0.5 * x * (1 + Math.tanh(Math.sqrt(2/Math.PI) * (x + 0.044715 * x*x*x))); },
+      d: function(x) { var h = 0.001; return (fns.gelu.f(x+h) - fns.gelu.f(x-h)) / (2*h); }
+    },
+    sigmoid: {
+      f: function(x) { return 1 / (1 + Math.exp(-x)); },
+      d: function(x) { var s = fns.sigmoid.f(x); return s * (1 - s); }
+    },
+    swish: {
+      f: function(x) { return x * (1 / (1 + Math.exp(-x))); },
+      d: function(x) { var h = 0.001; return (fns.swish.f(x+h) - fns.swish.f(x-h)) / (2*h); }
+    }
+  };
+  var currentFn = 'relu';
+
+  function draw() {
+    var canvas = document.getElementById('c14t08-canvas');
+    var ctx = canvas.getContext('2d');
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    var w = rect.width, h = rect.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    var xMin = -4, xMax = 4, yMin = -1, yMax = 3;
+    function toX(v) { return (v - xMin) / (xMax - xMin) * w; }
+    function toY(v) { return h - (v - yMin) / (yMax - yMin) * h; }
+
+    // Grid
+    ctx.strokeStyle = hexToRgba('#334155', 0.5);
+    ctx.lineWidth = 0.5;
+    for (var gx = Math.ceil(xMin); gx <= xMax; gx++) {
+      ctx.beginPath(); ctx.moveTo(toX(gx), 0); ctx.lineTo(toX(gx), h); ctx.stroke();
+    }
+    for (var gy = Math.ceil(yMin); gy <= yMax; gy++) {
+      ctx.beginPath(); ctx.moveTo(0, toY(gy)); ctx.lineTo(w, toY(gy)); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = hexToRgba('#64748b', 0.8);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(toX(xMin), toY(0)); ctx.lineTo(toX(xMax), toY(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toX(0), 0); ctx.lineTo(toX(0), h); ctx.stroke();
+
+    var fn = fns[currentFn];
+    var step = 0.05;
+
+    // Draw f(x)
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var x = xMin; x <= xMax; x += step) {
+      var y = fn.f(x);
+      if (x === xMin) ctx.moveTo(toX(x), toY(y));
+      else ctx.lineTo(toX(x), toY(y));
+    }
+    ctx.stroke();
+
+    // Draw f'(x)
+    ctx.strokeStyle = '#f472b6';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    for (var x = xMin; x <= xMax; x += step) {
+      var y = fn.d(x);
+      if (x === xMin) ctx.moveTo(toX(x), toY(y));
+      else ctx.lineTo(toX(x), toY(y));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Labels
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    for (var gx = Math.ceil(xMin); gx <= xMax; gx++) {
+      if (gx !== 0) ctx.fillText(gx, toX(gx), toY(0) + 12);
+    }
+    ctx.textAlign = 'right';
+    for (var gy = Math.ceil(yMin); gy <= yMax; gy++) {
+      if (gy !== 0) ctx.fillText(gy, toX(0) - 4, toY(gy) + 3);
+    }
+  }
+
+  document.querySelectorAll('#c14t08-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c14t08-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFn = btn.getAttribute('data-fn');
+      draw();
+    });
+  });
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+</script>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<style>
+.c14t09-residual-diagram { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; }
+.c14t09-block { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 400px; }
+.c14t09-transform { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; text-align: center; }
+.c14t09-transform-name { font-size: 0.82rem; font-weight: 600; }
+.c14t09-skip { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.c14t09-skip-line { width: 2px; height: 30px; border-left: 2px dashed; }
+.c14t09-plus { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
+</style>
+
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Residual Connections and Normalization</h2></div>
+
+  <div class="quick-take">Residual connections create short paths through which gradients can flow directly, reducing the chance that signal disappears across many layers. Normalization keeps activations in stable numerical ranges. Together, they are what make very deep transformer models practical at all.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The residual connection is a highway bypass &mdash; even if the main road (the transformer layer) has traffic jams (vanishing gradients), the highway lets the gradient signal through.</div>
+
+  <div class="visual-container" id="c14t09-visual">
+    <div class="c14t09-residual-diagram">
+      <div style="font-size:0.78rem;color:#38bdf8;font-weight:600;">Input x</div>
+      <div class="c14t09-block">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div class="c14t09-transform" style="border-color:rgba(167,139,250,0.4);">
+            <div class="c14t09-transform-name" style="color:#a78bfa;">LayerNorm</div>
+          </div>
+          <div style="color:#475569;">&#x2193;</div>
+          <div class="c14t09-transform" style="border-color:rgba(56,189,248,0.4);">
+            <div class="c14t09-transform-name" style="color:#38bdf8;">Self-Attention</div>
+          </div>
+        </div>
+        <div class="c14t09-skip">
+          <div class="c14t09-skip-line" style="border-color:rgba(74,222,128,0.4);"></div>
+          <div class="c14t09-plus" style="background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);">+</div>
+          <div style="font-size:0.68rem;color:#4ade80;">x + Attn(x)</div>
+        </div>
+      </div>
+      <div style="color:#475569;">&#x2193;</div>
+      <div class="c14t09-block">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div class="c14t09-transform" style="border-color:rgba(167,139,250,0.4);">
+            <div class="c14t09-transform-name" style="color:#a78bfa;">LayerNorm</div>
+          </div>
+          <div style="color:#475569;">&#x2193;</div>
+          <div class="c14t09-transform" style="border-color:rgba(251,146,60,0.4);">
+            <div class="c14t09-transform-name" style="color:#fb923c;">Feed-Forward</div>
+          </div>
+        </div>
+        <div class="c14t09-skip">
+          <div class="c14t09-skip-line" style="border-color:rgba(74,222,128,0.4);"></div>
+          <div class="c14t09-plus" style="background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);">+</div>
+          <div style="font-size:0.68rem;color:#4ade80;">y + FF(y)</div>
+        </div>
+      </div>
+      <div style="font-size:0.78rem;color:#34d399;font-weight:600;">Output</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Residual Connections: The Gradient Highway</h3>
+    <p>A residual connection computes <code>output = x + F(x)</code> instead of <code>output = F(x)</code>. During backpropagation, the gradient splits: <code>dL/dx = dL/doutput * (1 + dF/dx)</code>. The <strong>+1 term</strong> is the residual path &mdash; it passes gradient through unchanged regardless of what <code>F</code> does. Even if <code>dF/dx</code> approaches zero (vanishing gradient through the layer), the gradient still flows via the identity path.</p>
+
+    <h3>Layer Normalization</h3>
+    <p>LayerNorm normalizes activations across the feature dimension to have zero mean and unit variance. This prevents activations from drifting to extreme values across layers, keeping the inputs to each layer in a well-conditioned range. Without normalization, the accumulation of residual additions can cause activations to grow unboundedly.</p>
+
+    <h3>Pre-Norm vs Post-Norm</h3>
+    <table>
+      <thead><tr><th>Variant</th><th>Order</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Post-Norm (original)</td><td>Attention &rarr; Add &rarr; Norm</td><td>Harder to train deep models without warmup</td></tr>
+        <tr><td>Pre-Norm (modern)</td><td>Norm &rarr; Attention &rarr; Add</td><td>More stable training, preferred in most LLMs</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Why Both Are Needed Together</h3>
+    <p>Residual connections alone let gradients flow but can cause activation explosion. Normalization alone stabilizes activations but does not fix gradient vanishing through complex layers. Together, they create a training regime where 96-layer transformers train as reliably as 6-layer ones &mdash; a feat that seemed impossible before these techniques.</p>
+    <p>See <a href="#topic-7" class="xref">Topic 7: Chain Rule and Backpropagation</a> for why gradient flow matters, and <a href="#topic-6" class="xref">Topic 6: The Jacobian</a> for the mathematical framework.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Residual connections provide gradient highways; normalization prevents activation drift. Together, they are the architectural reason why 100-layer transformers can train stably.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Transformer Block with Residual + Norm</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="kw">class</span> <span class="fn">TransformerBlock</span>(nn.Module):
+    <span class="str">"""
+    A single transformer block with pre-norm residual connections.
+    This is the standard architecture in modern LLMs (GPT, LLaMA).
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, d_model, n_heads):
+        <span class="fn">super</span>().<span class="fn">__init__</span>()
+        <span class="com"># Pre-norm: normalize BEFORE the sublayer</span>
+        self.norm1 = nn.<span class="fn">LayerNorm</span>(d_model)
+        self.norm2 = nn.<span class="fn">LayerNorm</span>(d_model)
+        self.attn = nn.<span class="fn">MultiheadAttention</span>(d_model, n_heads, batch_first=<span class="kw">True</span>)
+        self.ff = nn.<span class="fn">Sequential</span>(
+            nn.<span class="fn">Linear</span>(d_model, <span class="num">4</span> * d_model),
+            nn.<span class="fn">GELU</span>(),                          <span class="com"># modern activation</span>
+            nn.<span class="fn">Linear</span>(<span class="num">4</span> * d_model, d_model),
+        )
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        <span class="com"># Residual connection 1: x + Attention(Norm(x))</span>
+        normed = self.<span class="fn">norm1</span>(x)
+        attn_out, _ = self.<span class="fn">attn</span>(normed, normed, normed)
+        x = x + attn_out                       <span class="com"># gradient highway</span>
+
+        <span class="com"># Residual connection 2: x + FF(Norm(x))</span>
+        x = x + self.<span class="fn">ff</span>(self.<span class="fn">norm2</span>(x))          <span class="com"># gradient highway</span>
+        <span class="kw">return</span> x</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is RMSNorm and why do some models prefer it?</summary>
+      <div class="fq-a"><strong>RMSNorm</strong> (Root Mean Square Normalization) normalizes by the RMS of activations instead of subtracting the mean and dividing by the standard deviation. It is computationally simpler (no mean computation) and has been shown to work equally well in practice. LLaMA and several other modern LLMs use RMSNorm for its efficiency advantage.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you have too many residual connections?</summary>
+      <div class="fq-a">In principle, each residual connection adds the input to the output, so activations grow with depth (linear accumulation). <strong>Normalization</strong> counteracts this by re-scaling after each block. The standard pattern of one residual + one norm per sub-layer is well-calibrated; adding extra skip connections can actually hurt by making the effective network shallower (the model learns to "skip" more layers).</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<style>
+.c14t10-pca-container { position: relative; height: 220px; }
+.c14t10-canvas { width: 100%; height: 100%; }
+.c14t10-controls { display: flex; gap: 8px; margin-top: 10px; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Eigenvalues, Eigenvectors, and Dimensionality Reduction</h2></div>
+
+  <div class="quick-take">Eigenvectors identify directions of variation in data; eigenvalues quantify how much variance each direction explains. Keeping the leading eigenvectors lets you compress data while preserving important structure &mdash; the mathematical foundation behind PCA, low-rank approximations, and why LoRA works.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Eigenvalues are like a priority list for dimensions. The top eigenvalues say "this direction matters most." Dimensionality reduction is keeping the VIP dimensions and dropping the noise.</div>
+
+  <div class="visual-container" id="c14t10-visual">
+    <div class="c14t10-pca-container">
+      <canvas id="c14t10-canvas" class="c14t10-canvas"></canvas>
+    </div>
+    <div class="c14t10-controls">
+      <button class="vis-btn active" id="c14t10-btn-all">All Dimensions</button>
+      <button class="vis-btn" id="c14t10-btn-pc1">PC1 Only (top eigenvector)</button>
+      <button class="vis-btn" id="c14t10-btn-both">PC1 + PC2</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Eigenvectors and Eigenvalues Are</h3>
+    <p>For a square matrix <code>A</code>, an eigenvector <code>v</code> satisfies <code>A * v = lambda * v</code>. The matrix only <strong>scales</strong> the eigenvector, without changing its direction. The scaling factor <code>lambda</code> is the eigenvalue. In PCA, the covariance matrix's eigenvectors point along the principal axes of variation in the data, and eigenvalues tell you how spread out the data is along each axis.</p>
+
+    <h3>Connection to LLM Practice</h3>
+    <table>
+      <thead><tr><th>Application</th><th>How Eigen-Analysis Appears</th></tr></thead>
+      <tbody>
+        <tr><td>LoRA</td><td>Low-rank adapters work because weight updates are approximately low-rank &mdash; most change concentrates in a few directions (large eigenvalues)</td></tr>
+        <tr><td>Embedding visualization</td><td>PCA projects high-dimensional token embeddings into 2D/3D for visualization</td></tr>
+        <tr><td>Training stability</td><td>The eigenvalues of the Hessian (curvature matrix) determine whether optimization is stable</td></tr>
+        <tr><td>Compression</td><td>SVD (which uses eigen-decomposition) is the mathematical backbone of model compression</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Why Low Rank Works for Adaptation</h3>
+    <p>When you fine-tune a model, the weight updates <code>delta_W</code> tend to be approximately low-rank: most of the change concentrates in a small subspace. This is why LoRA (see the chapter on fine-tuning) can capture most of the adaptation quality with rank 16 or 32 out of 4096 dimensions. The eigenvalue spectrum of typical weight updates drops off quickly &mdash; the top few directions carry most of the information.</p>
+
+    <h3>PCA in One Paragraph</h3>
+    <p>Principal Component Analysis computes the eigenvectors of the data's covariance matrix, sorts them by eigenvalue, and keeps the top k. Projecting data onto these k vectors gives a k-dimensional representation that preserves as much variance as possible. In LLM work, you rarely apply PCA inside the model, but the concept explains why lower-dimensional projections and latent spaces can retain useful structure.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Eigenvalues reveal which dimensions carry information and which carry noise. This principle underlies LoRA, PCA, SVD-based compression, and the intuition for why low-rank approximations work in practice.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; PCA and Eigenvalues</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># Generate some 2D data with clear principal directions</span>
+np.random.<span class="fn">seed</span>(<span class="num">42</span>)
+n = <span class="num">200</span>
+data = np.random.<span class="fn">randn</span>(n, <span class="num">2</span>) @ np.<span class="fn">array</span>([[<span class="num">3</span>, <span class="num">1</span>], [<span class="num">1</span>, <span class="num">0.5</span>]])
+
+<span class="com"># Step 1: Center the data</span>
+centered = data - data.<span class="fn">mean</span>(axis=<span class="num">0</span>)
+
+<span class="com"># Step 2: Compute covariance matrix</span>
+cov = (centered.T @ centered) / (n - <span class="num">1</span>)
+
+<span class="com"># Step 3: Eigen-decomposition</span>
+eigenvalues, eigenvectors = np.linalg.<span class="fn">eigh</span>(cov)
+
+<span class="com"># Sort by eigenvalue (descending)</span>
+idx = eigenvalues.<span class="fn">argsort</span>()[::-<span class="num">1</span>]
+eigenvalues = eigenvalues[idx]
+eigenvectors = eigenvectors[:, idx]
+
+<span class="com"># Variance explained</span>
+total_var = eigenvalues.<span class="fn">sum</span>()
+<span class="kw">for</span> i, ev <span class="kw">in</span> <span class="fn">enumerate</span>(eigenvalues):
+    <span class="fn">print</span>(<span class="str">f"PC</span>{i+<span class="num">1</span>}<span class="str">: eigenvalue=</span>{ev:.3f}<span class="str">, variance explained=</span>{ev/total_var:.1%}<span class="str">"</span>)
+
+<span class="com"># In LLM context: if eigenvalues drop off quickly,</span>
+<span class="com"># low-rank approximations (like LoRA) capture most of the signal</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How does SVD relate to eigenvalues?</summary>
+      <div class="fq-a"><strong>Singular Value Decomposition (SVD)</strong> decomposes any matrix A = U * S * V^T. The singular values (diagonal of S) are the square roots of the eigenvalues of A^T * A. SVD generalizes eigen-decomposition to non-square matrices, which is why it is more directly useful for weight matrices in neural networks. LoRA's low-rank decomposition is conceptually related to truncated SVD.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use PCA to compress a trained model?</summary>
+      <div class="fq-a">Yes, but with caveats. You can apply SVD to weight matrices and keep only the top-k singular values/vectors, effectively reducing parameter count. This is a form of <strong>post-training compression</strong>. The quality impact depends on how quickly singular values decay. For attention weight matrices, the decay is often rapid, enabling significant compression with modest quality loss.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Why does LoRA assume low-rank updates will work?</summary>
+      <div class="fq-a">Empirical evidence shows that <strong>fine-tuning weight deltas have low intrinsic dimensionality</strong>. The Aghajanyan et al. (2020) paper demonstrated that fine-tuning changes concentrate in a low-dimensional subspace. This means a rank-16 or rank-32 adapter can capture the essential adaptation despite the weight matrix being 4096-dimensional. The eigenvalue spectrum of the true delta drops off rapidly.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+
+  // Generate 2D data
+  var points = [];
+  var seed = 42;
+  function rand() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+  function randn() { var u = rand(), v = rand(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  for (var i = 0; i < 80; i++) {
+    var x = randn() * 2.5 + randn() * 0.8;
+    var y = randn() * 0.6 + x * 0.4;
+    points.push([x, y]);
+  }
+
+  // Compute mean
+  var mx = 0, my = 0;
+  points.forEach(function(p) { mx += p[0]; my += p[1]; });
+  mx /= points.length; my /= points.length;
+
+  // Center
+  var centered = points.map(function(p) { return [p[0]-mx, p[1]-my]; });
+
+  // Covariance
+  var cxx = 0, cxy = 0, cyy = 0;
+  centered.forEach(function(p) { cxx += p[0]*p[0]; cxy += p[0]*p[1]; cyy += p[1]*p[1]; });
+  cxx /= centered.length; cxy /= centered.length; cyy /= centered.length;
+
+  // Eigenvalues
+  var trace = cxx + cyy;
+  var det = cxx * cyy - cxy * cxy;
+  var disc = Math.sqrt(Math.max(0, trace*trace/4 - det));
+  var ev1 = trace/2 + disc;
+  var ev2 = trace/2 - disc;
+
+  // Eigenvectors
+  var angle1 = Math.atan2(cxy, ev1 - cyy);
+  var vec1 = [Math.cos(angle1), Math.sin(angle1)];
+  var angle2 = angle1 + Math.PI/2;
+  var vec2 = [Math.cos(angle2), Math.sin(angle2)];
+
+  var mode = 'all';
+
+  function draw() {
+    var canvas = document.getElementById('c14t10-canvas');
+    var ctx = canvas.getContext('2d');
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    var w = rect.width, h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    var scale = 20;
+    var cx = w/2, cy = h/2;
+    function toX(v) { return cx + v * scale; }
+    function toY(v) { return cy - v * scale; }
+
+    // Grid
+    ctx.strokeStyle = hexToRgba('#334155', 0.3);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+
+    // Draw points
+    centered.forEach(function(p) {
+      var px, py;
+      if (mode === 'pc1') {
+        var proj = p[0]*vec1[0] + p[1]*vec1[1];
+        px = proj * vec1[0]; py = proj * vec1[1];
+      } else {
+        px = p[0]; py = p[1];
+      }
+      ctx.beginPath();
+      ctx.arc(toX(px), toY(py), 3, 0, Math.PI*2);
+      ctx.fillStyle = hexToRgba('#38bdf8', 0.5);
+      ctx.fill();
+    });
+
+    // Draw eigenvectors
+    if (mode !== 'all') {
+      var len1 = Math.sqrt(ev1) * 3;
+      ctx.strokeStyle = hexToRgba('#f472b6', 0.8);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(toX(-vec1[0]*len1), toY(-vec1[1]*len1));
+      ctx.lineTo(toX(vec1[0]*len1), toY(vec1[1]*len1));
+      ctx.stroke();
+
+      ctx.fillStyle = '#f472b6';
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillText('PC1 (' + (ev1/(ev1+ev2)*100).toFixed(0) + '% var)', toX(vec1[0]*len1)+4, toY(vec1[1]*len1)-4);
+    }
+    if (mode === 'both') {
+      var len2 = Math.sqrt(ev2) * 3;
+      ctx.strokeStyle = hexToRgba('#a78bfa', 0.6);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(toX(-vec2[0]*len2), toY(-vec2[1]*len2));
+      ctx.lineTo(toX(vec2[0]*len2), toY(vec2[1]*len2));
+      ctx.stroke();
+
+      ctx.fillStyle = '#a78bfa';
+      ctx.fillText('PC2 (' + (ev2/(ev1+ev2)*100).toFixed(0) + '% var)', toX(vec2[0]*len2)+4, toY(vec2[1]*len2)+12);
+    }
+  }
+
+  document.getElementById('c14t10-btn-all').addEventListener('click', function() {
+    mode = 'all';
+    document.querySelectorAll('.c14t10-controls .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    draw();
+  });
+  document.getElementById('c14t10-btn-pc1').addEventListener('click', function() {
+    mode = 'pc1';
+    document.querySelectorAll('.c14t10-controls .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    draw();
+  });
+  document.getElementById('c14t10-btn-both').addEventListener('click', function() {
+    mode = 'both';
+    document.querySelectorAll('.c14t10-controls .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    draw();
+  });
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+</script>
+
+  </main>
+</div>
+
+<script>
+/* === Shared page scripts === */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

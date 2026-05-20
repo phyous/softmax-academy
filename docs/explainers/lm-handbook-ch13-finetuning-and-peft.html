@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 13: Fine-Tuning, PEFT &amp; Adaptation Strategies</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 13 &middot; 11 Topics</div>
+  <h1>Fine-Tuning, PEFT &amp; Adaptation Strategies</h1>
+  <p>When to fine-tune, what method to choose, and how to avoid turning a strong foundation model into an expensive liability.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Foundation models start broad, but production systems often need narrower behavior: better instruction following, domain adaptation, lower latency, or more stable outputs. This chapter walks through the full adaptation spectrum &mdash; from prompt engineering through LoRA and QLoRA to full fine-tuning &mdash; and focuses on the engineering discipline that separates useful specialization from wasted compute.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Adaptation Foundations</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Full vs Parameter-Efficient FT</a>
+      <a href="#topic-2"><span class="toc-num">2</span> LoRA &amp; QLoRA</a>
+      <a href="#topic-3"><span class="toc-num">3</span> SFT, Instruction &amp; Preference</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Model Distillation</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Decision Making</div>
+      <a href="#topic-5"><span class="toc-num">5</span> When FT Is Worth It</a>
+      <a href="#topic-6"><span class="toc-num">6</span> Dataset Quality</a>
+      <a href="#topic-7"><span class="toc-num">7</span> When to Avoid FT</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Risk &amp; Operations</div>
+      <a href="#topic-8"><span class="toc-num">8</span> Catastrophic Forgetting</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Evaluating Fine-Tuned Models</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Alignment &amp; Fine-Tuning</a>
+      <a href="#topic-11"><span class="toc-num">11</span> Cost Trade-Offs</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Adaptation Foundations</span></div>
+    <p class="group-intro">The core methods for adapting a pre-trained model &mdash; what each technique changes, what it preserves, and the trade-offs between them.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c13t01-diagram { display: flex; gap: 12px; align-items: stretch; margin-bottom: 12px; }
+.c13t01-card { flex: 1; background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; display: flex; flex-direction: column; }
+.c13t01-card-title { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.c13t01-card-title.full { color: #f472b6; }
+.c13t01-card-title.peft { color: #38bdf8; }
+.c13t01-layer { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; margin-bottom: 4px; font-size: 0.8rem; }
+.c13t01-layer .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.c13t01-legend { display: flex; gap: 16px; justify-content: center; font-size: 0.75rem; color: #94a3b8; margin-top: 8px; }
+.c13t01-legend-item { display: flex; align-items: center; gap: 5px; }
+.c13t01-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>Full Fine-Tuning vs Parameter-Efficient Fine-Tuning</h2></div>
+
+  <div class="quick-take">Full fine-tuning updates all model weights for maximum adaptation but at high compute and memory cost. PEFT methods update only a tiny fraction of parameters or add lightweight modules, making adaptation much cheaper and easier to manage across multiple tasks.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Full fine-tuning repaints the entire house; PEFT adds a few accent walls &mdash; both change the look, but one is far cheaper to redo.</div>
+
+  <div class="visual-container" id="c13t01-visual">
+    <div class="c13t01-diagram">
+      <div class="c13t01-card">
+        <div class="c13t01-card-title full">Full Fine-Tuning</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> Embedding layer</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> Attention Q, K, V</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> Attention output</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> Feed-forward layers</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> LayerNorm</div>
+        <div class="c13t01-layer" style="background:rgba(244,114,182,0.12)"><span class="dot" style="background:#f472b6"></span> LM head</div>
+      </div>
+      <div class="c13t01-card">
+        <div class="c13t01-card-title peft">PEFT / LoRA</div>
+        <div class="c13t01-layer" style="background:rgba(71,85,105,0.3)"><span class="dot" style="background:#475569"></span> Embedding layer</div>
+        <div class="c13t01-layer" style="background:rgba(56,189,248,0.12)"><span class="dot" style="background:#38bdf8"></span> Attention Q adapter</div>
+        <div class="c13t01-layer" style="background:rgba(71,85,105,0.3)"><span class="dot" style="background:#475569"></span> Attention output</div>
+        <div class="c13t01-layer" style="background:rgba(71,85,105,0.3)"><span class="dot" style="background:#475569"></span> Feed-forward layers</div>
+        <div class="c13t01-layer" style="background:rgba(71,85,105,0.3)"><span class="dot" style="background:#475569"></span> LayerNorm</div>
+        <div class="c13t01-layer" style="background:rgba(56,189,248,0.12)"><span class="dot" style="background:#38bdf8"></span> Attention V adapter</div>
+      </div>
+    </div>
+    <div class="c13t01-legend">
+      <div class="c13t01-legend-item"><span class="c13t01-legend-dot" style="background:#f472b6"></span> Updated</div>
+      <div class="c13t01-legend-item"><span class="c13t01-legend-dot" style="background:#38bdf8"></span> Adapter (trained)</div>
+      <div class="c13t01-legend-item"><span class="c13t01-legend-dot" style="background:#475569"></span> Frozen</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>What Changes in Each Approach</h3>
+    <p><strong>Full fine-tuning</strong> unfreezes every parameter in the model and runs gradient updates across them all. This gives the optimizer maximum freedom to reshape internal representations, which can yield the strongest task adaptation &mdash; but at the cost of enormous GPU memory, long training runs, and a full copy of the model per task.</p>
+    <p><strong>Parameter-efficient fine-tuning (PEFT)</strong> takes a different approach: freeze the base model and either inject small trainable modules (adapters, LoRA matrices) or selectively unfreeze a tiny subset of existing parameters (bias tuning, layer-norm tuning). The result is far fewer trainable parameters &mdash; often less than 1% of the total &mdash; with surprisingly competitive quality for many tasks.</p>
+
+    <h3>When to Prefer Each</h3>
+    <table>
+      <thead><tr><th>Criterion</th><th>Full Fine-Tuning</th><th>PEFT</th></tr></thead>
+      <tbody>
+        <tr><td>Adaptation depth</td><td>Deepest &mdash; can reshape all representations</td><td>Moderate &mdash; adds capacity but base stays fixed</td></tr>
+        <tr><td>GPU memory</td><td>Very high &mdash; optimizer states for all params</td><td>Low &mdash; only adapter gradients stored</td></tr>
+        <tr><td>Multi-task serving</td><td>One full model copy per task</td><td>Shared base + swappable adapter files</td></tr>
+        <tr><td>Risk of forgetting</td><td>Higher &mdash; all weights can drift</td><td>Lower &mdash; base knowledge is preserved</td></tr>
+        <tr><td>Data needed</td><td>More data for stable results</td><td>Can work with smaller curated sets</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Practical Considerations</h3>
+    <p>In production, the choice is rarely purely technical. Full fine-tuning produces a monolithic model that is harder to roll back or diff against the base. PEFT adapters, by contrast, are small files that can be version-controlled, A/B tested, and hot-swapped at serving time. This operational advantage often matters more than marginal quality differences. See <a href="#topic-11" class="xref">Topic 11: Cost Trade-Offs</a> for a full breakdown of lifecycle costs.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>PEFT methods trade a small quality ceiling for dramatically lower cost, faster iteration, and simpler model management &mdash; making them the default starting point for most adaptation work.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Comparing Trainable Parameters</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM
+<span class="kw">from</span> peft <span class="kw">import</span> LoraConfig, get_peft_model
+
+<span class="com"># Load a base model</span>
+base = AutoModelForCausalLM.<span class="fn">from_pretrained</span>(<span class="str">"meta-llama/Llama-3.1-8B"</span>)
+
+<span class="com"># Count full model parameters</span>
+full_params = <span class="fn">sum</span>(p.<span class="fn">numel</span>() <span class="kw">for</span> p <span class="kw">in</span> base.<span class="fn">parameters</span>())
+<span class="fn">print</span>(<span class="str">f"Full model params: </span>{full_params:,}<span class="str">"</span>)
+
+<span class="com"># Wrap with LoRA &mdash; only adapter weights are trainable</span>
+config = LoraConfig(
+    r=<span class="num">16</span>,                          <span class="com"># rank of the low-rank matrices</span>
+    lora_alpha=<span class="num">32</span>,                  <span class="com"># scaling factor</span>
+    lora_dropout=<span class="num">0.05</span>,              <span class="com"># regularization</span>
+    target_modules=[<span class="str">"q_proj"</span>, <span class="str">"v_proj"</span>],  <span class="com"># which weights get adapters</span>
+    task_type=<span class="str">"CAUSAL_LM"</span>,
+)
+peft_model = <span class="fn">get_peft_model</span>(base, config)
+
+<span class="com"># Show the dramatic difference</span>
+peft_model.<span class="fn">print_trainable_parameters</span>()
+<span class="com"># Typical output: trainable params: ~6M / 8B total (0.07%)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can you combine PEFT with full fine-tuning on different layers?</summary>
+      <div class="fq-a">Yes. A common hybrid approach is to freeze most layers, apply LoRA adapters to attention projections, and unfreeze the final few transformer blocks entirely. This gives deeper adaptation where it matters most (near the output) while keeping earlier representations stable. The trade-off is more complexity in the training script and a larger checkpoint than pure LoRA.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you serve multiple LoRA adapters efficiently?</summary>
+      <div class="fq-a">Frameworks like <strong>vLLM</strong> and <strong>LoRAX</strong> support loading one base model into GPU memory and dynamically attaching different LoRA adapter files per request. This means you can serve dozens of specialized variants from a single GPU deployment, which is impractical with full fine-tuned models that each need their own copy of all weights.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does PEFT always produce worse results than full fine-tuning?</summary>
+      <div class="fq-a">Not always. On many benchmarks, well-tuned LoRA with appropriate rank matches full fine-tuning quality. The gap widens mainly when the task requires deeply restructuring the model's internal representations &mdash; for example, learning a new language from scratch. For style adaptation, instruction following, and domain-specific formatting, PEFT often closes the gap entirely.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c13t02-lora-viz { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px; flex-wrap: wrap; }
+.c13t02-matrix { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.c13t02-matrix-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.c13t02-matrix-box { border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'SF Mono', monospace; font-size: 0.78rem; font-weight: 600; }
+.c13t02-op { font-size: 1.2rem; font-weight: 700; color: #64748b; }
+.c13t02-slider-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.c13t02-slider-label { font-size: 0.8rem; color: #94a3b8; white-space: nowrap; min-width: 60px; }
+.c13t02-rank-val { font-size: 0.85rem; font-weight: 700; color: #38bdf8; min-width: 30px; text-align: right; }
+.c13t02-stats { display: flex; gap: 20px; justify-content: center; margin-top: 12px; font-size: 0.82rem; }
+.c13t02-stat { display: flex; flex-direction: column; align-items: center; }
+.c13t02-stat-val { font-size: 1.1rem; font-weight: 700; color: #38bdf8; }
+.c13t02-stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>LoRA and QLoRA</h2></div>
+
+  <div class="quick-take">LoRA freezes the base model and learns small low-rank update matrices that modify selected transformer weights. QLoRA adds aggressive quantization of the frozen base to cut memory use even further, enabling fine-tuning of large models on modest hardware.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> LoRA is like adding sticky notes to a textbook &mdash; the book stays unchanged, but the notes customize your reading. QLoRA compresses the book to a pocket edition first.</div>
+
+  <div class="visual-container" id="c13t02-visual">
+    <div class="c13t02-lora-viz" id="c13t02-diagram">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="c13t02-slider-row">
+      <span class="c13t02-slider-label">Rank (r):</span>
+      <input type="range" id="c13t02-rank" min="1" max="64" value="16" style="flex:1">
+      <span class="c13t02-rank-val" id="c13t02-rank-val">16</span>
+    </div>
+    <div class="c13t02-stats" id="c13t02-stats"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Low-Rank Idea</h3>
+    <p>A standard transformer weight matrix <code>W</code> has shape <code>d x d</code> (e.g., 4096 x 4096 = 16.7M parameters). LoRA decomposes the update into two small matrices: <code>A</code> (d x r) and <code>B</code> (r x d), where r is typically 4 to 64. The effective update is <code>delta_W = B * A</code>, and the total adapter parameters drop to <code>2 * d * r</code> instead of <code>d * d</code>. At rank 16, that is 131K parameters instead of 16.7M &mdash; a 128x reduction.</p>
+
+    <h3>Key Hyperparameters</h3>
+    <table>
+      <thead><tr><th>Parameter</th><th>Role</th><th>Typical Values</th></tr></thead>
+      <tbody>
+        <tr><td><code>r</code> (rank)</td><td>Controls adapter capacity</td><td>4&ndash;64; 16 is a common default</td></tr>
+        <tr><td><code>lora_alpha</code></td><td>Scaling factor for the update (alpha/r)</td><td>Usually 2x the rank</td></tr>
+        <tr><td><code>lora_dropout</code></td><td>Regularization to prevent overfitting</td><td>0.0&ndash;0.1</td></tr>
+        <tr><td><code>target_modules</code></td><td>Which weight matrices get adapters</td><td><code>q_proj</code>, <code>v_proj</code>; sometimes all attention projections</td></tr>
+      </tbody>
+    </table>
+
+    <h3>QLoRA: Quantize Then Adapt</h3>
+    <p>QLoRA (Dettmers et al., 2023) keeps the same adapter structure but quantizes the frozen base model to 4-bit precision using NormalFloat (NF4) quantization. This slashes GPU memory from ~32 GB to ~6 GB for a 7B model, enabling fine-tuning on a single consumer GPU. The adapters themselves remain in higher precision to preserve gradient quality.</p>
+
+    <h3>LoRA vs QLoRA</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>LoRA</th><th>QLoRA</th></tr></thead>
+      <tbody>
+        <tr><td>Base model precision</td><td>fp16 / bf16</td><td>4-bit (NF4)</td></tr>
+        <tr><td>Training memory (7B)</td><td>~16 GB</td><td>~6 GB</td></tr>
+        <tr><td>Training speed</td><td>Faster</td><td>Slightly slower (dequantization overhead)</td></tr>
+        <tr><td>Quality</td><td>Baseline PEFT quality</td><td>Very close to LoRA on most tasks</td></tr>
+        <tr><td>Best for</td><td>Production with adequate GPU</td><td>Experimentation, prototyping, constrained hardware</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-1" class="xref">Topic 1: Full vs Parameter-Efficient FT</a> for how LoRA fits into the broader adaptation landscape, and <a href="#topic-5" class="xref">Topic 5: When FT Is Worth It</a> for decision criteria.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>LoRA reduces trainable parameters by 100x via low-rank decomposition; QLoRA further halves memory by quantizing the frozen base &mdash; but neither removes the need for good data and rigorous evaluation.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; LoRA Setup with PEFT</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM
+<span class="kw">from</span> peft <span class="kw">import</span> LoraConfig, get_peft_model
+
+<span class="com"># Load the pre-trained base model</span>
+base_model = AutoModelForCausalLM.<span class="fn">from_pretrained</span>(
+    <span class="str">"meta-llama/Llama-3.1-8B"</span>
+)
+
+<span class="com"># Configure LoRA adapters</span>
+config = LoraConfig(
+    r=<span class="num">16</span>,                            <span class="com"># low-rank dimension</span>
+    lora_alpha=<span class="num">32</span>,                    <span class="com"># scaling: effective lr = alpha / r</span>
+    lora_dropout=<span class="num">0.05</span>,                <span class="com"># dropout on adapter activations</span>
+    target_modules=[<span class="str">"q_proj"</span>, <span class="str">"v_proj"</span>],  <span class="com"># inject into Q and V projections</span>
+    task_type=<span class="str">"CAUSAL_LM"</span>,             <span class="com"># causal language modeling</span>
+)
+
+<span class="com"># Wrap the model &mdash; only adapter params are trainable</span>
+model = <span class="fn">get_peft_model</span>(base_model, config)
+model.<span class="fn">print_trainable_parameters</span>()
+<span class="com"># Output: trainable params: ~6.5M / 8B total (0.08%)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you choose the right rank for LoRA?</summary>
+      <div class="fq-a">Start with <strong>r=16</strong> as a solid default. Increase to 32&ndash;64 if the task is complex or quality plateaus. Decrease to 4&ndash;8 if you need minimal adapter size and the task is simple (e.g., style transfer). Higher rank adds capacity but also increases overfitting risk on small datasets. Always validate with held-out evaluation data, not training loss alone.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you merge LoRA weights back into the base model?</summary>
+      <div class="fq-a">Yes. After training, you can merge the adapter matrices back into the original weight matrices with a simple addition: <strong>W_new = W_base + (alpha/r) * B * A</strong>. This produces a standard model checkpoint with zero serving overhead. The trade-off is that you lose the ability to hot-swap adapters and must store a full model copy per task.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is QLoRA good enough for production, or only for prototyping?</summary>
+      <div class="fq-a">QLoRA is increasingly used in production, especially when serving cost matters. The quality gap versus LoRA is small for most tasks. However, you should <strong>always benchmark</strong> against full-precision LoRA on your specific evaluation set before committing. Some tasks with nuanced reasoning or rare token distributions may show measurable degradation from the 4-bit quantization.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var D = 4096;
+  function render() {
+    var rank = parseInt(document.getElementById('c13t02-rank').value);
+    document.getElementById('c13t02-rank-val').textContent = rank;
+    var fullParams = D * D;
+    var loraParams = 2 * D * rank;
+    var ratio = (loraParams / fullParams * 100).toFixed(2);
+
+    var diagram = document.getElementById('c13t02-diagram');
+    var wH = 80, wW = 80;
+    var aH = 80, aW = Math.max(12, Math.round(rank / 64 * 60));
+    var bH = Math.max(12, Math.round(rank / 64 * 60)), bW = 80;
+    diagram.innerHTML =
+      '<div class="c13t02-matrix"><div class="c13t02-matrix-box" style="width:'+wW+'px;height:'+wH+'px;background:'+hexToRgba('#475569',0.3)+';border:1px solid '+hexToRgba('#475569',0.5)+';color:#64748b;">W<br>frozen</div><div class="c13t02-matrix-label" style="color:#64748b;">'+D+'x'+D+'</div></div>' +
+      '<div class="c13t02-op">+</div>' +
+      '<div class="c13t02-matrix"><div class="c13t02-matrix-box" style="width:'+bW+'px;height:'+bH+'px;background:'+hexToRgba('#38bdf8',0.15)+';border:1px solid '+hexToRgba('#38bdf8',0.4)+';color:#38bdf8;">B</div><div class="c13t02-matrix-label" style="color:#38bdf8;">'+rank+'x'+D+'</div></div>' +
+      '<div class="c13t02-op">&times;</div>' +
+      '<div class="c13t02-matrix"><div class="c13t02-matrix-box" style="width:'+aW+'px;height:'+aH+'px;background:'+hexToRgba('#a78bfa',0.15)+';border:1px solid '+hexToRgba('#a78bfa',0.4)+';color:#a78bfa;">A</div><div class="c13t02-matrix-label" style="color:#a78bfa;">'+D+'x'+rank+'</div></div>';
+
+    document.getElementById('c13t02-stats').innerHTML =
+      '<div class="c13t02-stat"><span class="c13t02-stat-val">'+(fullParams/1e6).toFixed(1)+'M</span><span class="c13t02-stat-label">Full params</span></div>' +
+      '<div class="c13t02-stat"><span class="c13t02-stat-val">'+(loraParams/1e3).toFixed(0)+'K</span><span class="c13t02-stat-label">LoRA params</span></div>' +
+      '<div class="c13t02-stat"><span class="c13t02-stat-val">'+ratio+'%</span><span class="c13t02-stat-label">Of original</span></div>';
+  }
+  document.getElementById('c13t02-rank').addEventListener('input', render);
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<style>
+.c13t03-pipeline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 12px; }
+.c13t03-stage { background: #0f172a; border-radius: 8px; padding: 12px 16px; text-align: center; min-width: 120px; border: 1px solid #334155; }
+.c13t03-stage-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.c13t03-stage-desc { font-size: 0.72rem; color: #94a3b8; }
+.c13t03-arrow { color: #475569; font-size: 1.2rem; }
+.c13t03-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.c13t03-tab { padding: 6px 14px; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; cursor: pointer; font-size: 0.78rem; font-weight: 500; transition: all 0.15s; }
+.c13t03-tab:hover { border-color: #38bdf8; color: #e2e8f0; }
+.c13t03-tab.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+.c13t03-detail { background: #0f172a; border-radius: 8px; padding: 14px; margin-top: 10px; font-size: 0.82rem; color: #cbd5e1; min-height: 60px; border: 1px solid #334155; }
+.c13t03-detail strong { color: #e2e8f0; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>SFT, Instruction Tuning, and Preference Optimization</h2></div>
+
+  <div class="quick-take">Supervised fine-tuning teaches task patterns from input-output pairs. Instruction tuning broadens that to natural-language instructions across tasks. Preference optimization uses ranked feedback to push the model toward outputs humans prefer &mdash; each shapes a different aspect of model behavior.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> SFT teaches the model what to say. Instruction tuning teaches it how to listen. Preference optimization teaches it what sounds best.</div>
+
+  <div class="visual-container" id="c13t03-visual">
+    <div class="c13t03-pipeline">
+      <div class="c13t03-stage" style="border-color:rgba(56,189,248,0.4)">
+        <div class="c13t03-stage-title" style="color:#38bdf8">Pre-trained Base</div>
+        <div class="c13t03-stage-desc">Broad knowledge, no task focus</div>
+      </div>
+      <span class="c13t03-arrow">&#x2192;</span>
+      <div class="c13t03-stage" style="border-color:rgba(167,139,250,0.4)">
+        <div class="c13t03-stage-title" style="color:#a78bfa">SFT</div>
+        <div class="c13t03-stage-desc">Input-output pairs</div>
+      </div>
+      <span class="c13t03-arrow">&#x2192;</span>
+      <div class="c13t03-stage" style="border-color:rgba(52,211,153,0.4)">
+        <div class="c13t03-stage-title" style="color:#34d399">Instruction Tuning</div>
+        <div class="c13t03-stage-desc">Multi-task instructions</div>
+      </div>
+      <span class="c13t03-arrow">&#x2192;</span>
+      <div class="c13t03-stage" style="border-color:rgba(244,114,182,0.4)">
+        <div class="c13t03-stage-title" style="color:#f472b6">Preference / RLHF</div>
+        <div class="c13t03-stage-desc">Ranked human feedback</div>
+      </div>
+    </div>
+    <div class="c13t03-tabs" id="c13t03-tabs">
+      <button class="c13t03-tab active" data-idx="0">SFT</button>
+      <button class="c13t03-tab" data-idx="1">Instruction Tuning</button>
+      <button class="c13t03-tab" data-idx="2">Preference (RLHF/DPO)</button>
+    </div>
+    <div class="c13t03-detail" id="c13t03-detail"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How They Differ</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Training Signal</th><th>What It Shapes</th><th>Data Format</th></tr></thead>
+      <tbody>
+        <tr><td>SFT</td><td>Gold input-output pairs</td><td>Task-specific skill</td><td>Prompt &rarr; completion</td></tr>
+        <tr><td>Instruction Tuning</td><td>Diverse instruction-response pairs</td><td>General instruction following</td><td>Instruction &rarr; response</td></tr>
+        <tr><td>Preference Optimization</td><td>Ranked outputs (chosen vs rejected)</td><td>Helpfulness, safety, style</td><td>(prompt, chosen, rejected) triples</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Alignment Pipeline</h3>
+    <p>Modern chat models typically go through all three stages. First, SFT or instruction tuning gives the model basic conversational and task-following ability. Then preference optimization (via RLHF, DPO, or similar methods) refines the model's outputs to match human preferences for helpfulness, harmlessness, and honesty. This two-phase approach is what produced models like ChatGPT and Claude (Ouyang et al., 2022).</p>
+    <p>See <a href="#topic-10" class="xref">Topic 10: Alignment and Fine-Tuning</a> for a deeper look at how alignment relates to the fine-tuning process.</p>
+
+    <h3>DPO vs RLHF</h3>
+    <p><strong>RLHF</strong> trains a separate reward model on preference data, then uses reinforcement learning (PPO) to optimize the LLM against that reward. <strong>DPO</strong> (Direct Preference Optimization) skips the reward model entirely and directly optimizes the LLM using preference pairs. DPO is simpler to implement, more stable during training, and has become increasingly popular as a result.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>SFT teaches task patterns, instruction tuning broadens usability, and preference optimization refines quality beyond what imitation alone can achieve.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; SFT Data Format Example</summary>
+    <pre><code><span class="com"># Typical SFT training data structure</span>
+<span class="com"># Each example is a prompt-completion pair</span>
+sft_examples = [
+    {
+        <span class="str">"prompt"</span>: <span class="str">"Summarize the following article:\n{article_text}"</span>,
+        <span class="str">"completion"</span>: <span class="str">"The article discusses three key findings..."</span>
+    },
+    {
+        <span class="str">"prompt"</span>: <span class="str">"Classify the sentiment: 'Great product!'"</span>,
+        <span class="str">"completion"</span>: <span class="str">"Positive"</span>
+    },
+]
+
+<span class="com"># Preference data for DPO / RLHF</span>
+<span class="com"># Each example has a prompt, a preferred response, and a rejected one</span>
+preference_examples = [
+    {
+        <span class="str">"prompt"</span>: <span class="str">"Explain quantum computing simply."</span>,
+        <span class="str">"chosen"</span>: <span class="str">"Quantum computers use qubits that can be..."</span>,
+        <span class="str">"rejected"</span>: <span class="str">"Quantum computing is a paradigmatic shift..."</span>
+    },
+]</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can you do instruction tuning and preference optimization at the same time?</summary>
+      <div class="fq-a">In practice, they are typically done <strong>sequentially</strong> &mdash; instruction tuning first, then preference optimization. Some recent methods like ORPO try to combine both signals, but the sequential approach remains more established because each stage has distinct data requirements and loss functions.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How much instruction-tuning data is needed?</summary>
+      <div class="fq-a">Surprisingly little for strong results. The LIMA paper showed that just <strong>1,000 carefully curated examples</strong> could produce competitive instruction-following behavior. Quality matters far more than quantity. A few hundred high-quality, diverse examples often beat tens of thousands of noisy ones.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the difference between RLHF and RLAIF?</summary>
+      <div class="fq-a"><strong>RLHF</strong> uses human annotators to rank outputs. <strong>RLAIF</strong> (RL from AI Feedback) uses a stronger LLM as the judge instead. RLAIF is cheaper and scales better, but it can inherit biases from the judge model. Many production systems use a combination: AI feedback for bulk labeling with human review for edge cases.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var details = [
+    '<strong>Supervised Fine-Tuning (SFT)</strong> trains the model on explicit input-output examples. You provide the exact prompt and the exact completion you want. The model learns to reproduce those patterns. Think of it as teaching by example &mdash; "When you see this, produce that." SFT is the foundation of all task-specific adaptation.',
+    '<strong>Instruction Tuning</strong> is SFT at scale across many task types, where every example is phrased as a natural-language instruction. Instead of task-specific formats, the model learns a general skill: follow whatever instruction the user gives. This is what transforms a base model into a useful assistant.',
+    '<strong>Preference Optimization (RLHF/DPO)</strong> goes beyond imitation. Instead of showing the model what to say, you show it pairs of responses and indicate which is better. The model learns to generate outputs that align with human preferences for helpfulness, safety, and quality &mdash; producing behavior that no amount of SFT examples could fully specify.'
+  ];
+  var tabs = document.querySelectorAll('#c13t03-tabs .c13t03-tab');
+  var detail = document.getElementById('c13t03-detail');
+  detail.innerHTML = details[0];
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      detail.innerHTML = details[parseInt(tab.getAttribute('data-idx'))];
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<style>
+.c13t04-diagram { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 20px; flex-wrap: wrap; }
+.c13t04-model { text-align: center; }
+.c13t04-model-box { border-radius: 10px; padding: 20px 24px; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+.c13t04-model-label { font-size: 0.72rem; color: #94a3b8; }
+.c13t04-arrow-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.c13t04-arrow-text { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+.c13t04-arrow { font-size: 1.5rem; color: #475569; }
+</style>
+
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Model Distillation</h2></div>
+
+  <div class="quick-take">Distillation trains a smaller student model to imitate a larger teacher model, learning from soft probability distributions rather than hard labels. The goal is to preserve the teacher's behavior while dramatically reducing latency, memory, and serving cost.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Distillation is like a senior expert writing a concise field manual &mdash; the manual is smaller and faster to consult, but it captures the expert's key judgment calls.</div>
+
+  <div class="visual-container" id="c13t04-visual">
+    <div class="c13t04-diagram">
+      <div class="c13t04-model">
+        <div class="c13t04-model-box" style="background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.3);color:#f472b6;min-width:140px;">Teacher<br><span style="font-size:0.75rem;font-weight:400;color:#94a3b8;">70B parameters</span></div>
+        <div class="c13t04-model-label">High quality, high cost</div>
+      </div>
+      <div class="c13t04-arrow-block">
+        <div class="c13t04-arrow-text">Soft labels</div>
+        <div class="c13t04-arrow">&#x2192;</div>
+        <div class="c13t04-arrow-text">Knowledge transfer</div>
+      </div>
+      <div class="c13t04-model">
+        <div class="c13t04-model-box" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:#38bdf8;min-width:100px;">Student<br><span style="font-size:0.75rem;font-weight:400;color:#94a3b8;">7B parameters</span></div>
+        <div class="c13t04-model-label">Lower cost, good quality</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Soft Labels Matter</h3>
+    <p>When a teacher model predicts the next token, it produces a full probability distribution over the vocabulary. A hard label says "the answer is X." A soft label says "X has 70% probability, Y has 20%, Z has 10%." The student learns far more from soft labels because they encode the teacher's uncertainty, similarity judgments, and implicit knowledge about related alternatives.</p>
+
+    <h3>Distillation vs PEFT</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>Distillation</th><th>PEFT (LoRA)</th></tr></thead>
+      <tbody>
+        <tr><td>Output</td><td>A new, smaller model</td><td>The same model with adapters</td></tr>
+        <tr><td>Serving cost</td><td>Much lower (smaller model)</td><td>Same base model + adapter overhead</td></tr>
+        <tr><td>Training cost</td><td>High (need teacher inference + student training)</td><td>Moderate</td></tr>
+        <tr><td>Flexibility</td><td>Fixed once distilled</td><td>Adapters can be swapped</td></tr>
+        <tr><td>Best for</td><td>High-throughput, latency-critical production</td><td>Multi-task with shared base</td></tr>
+      </tbody>
+    </table>
+
+    <h3>When Distillation Makes Sense</h3>
+    <p>Distillation is most valuable when the production constraint is <strong>serving efficiency</strong>, not just training cost. Mobile deployments, edge inference, and high-throughput APIs where a 70B model is economically impossible are prime use cases. It is also common in <strong>cascading systems</strong> where a small model handles easy requests and routes hard ones to the full teacher (Hinton et al., 2015).</p>
+    <p>See <a href="#topic-1" class="xref">Topic 1: Full vs Parameter-Efficient FT</a> for how distillation fits alongside other adaptation methods.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Distillation creates a new smaller model, not a patched version of the original. Use it when serving cost and latency matter more than maximum capability.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Distillation Loss Concept</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn.functional <span class="kw">as</span> F
+
+<span class="kw">def</span> <span class="fn">distillation_loss</span>(student_logits, teacher_logits, labels, temperature=<span class="num">2.0</span>, alpha=<span class="num">0.5</span>):
+    <span class="str">"""
+    Combine soft-label KL divergence with hard-label cross-entropy.
+    temperature: higher = softer distribution (more knowledge transfer)
+    alpha: balance between soft and hard losses
+    """</span>
+    <span class="com"># Soft loss: KL divergence between teacher and student soft outputs</span>
+    soft_teacher = F.<span class="fn">softmax</span>(teacher_logits / temperature, dim=-<span class="num">1</span>)
+    soft_student = F.<span class="fn">log_softmax</span>(student_logits / temperature, dim=-<span class="num">1</span>)
+    soft_loss = F.<span class="fn">kl_div</span>(soft_student, soft_teacher, reduction=<span class="str">"batchmean"</span>)
+    soft_loss = soft_loss * (temperature ** <span class="num">2</span>)  <span class="com"># scale by T^2</span>
+
+    <span class="com"># Hard loss: standard cross-entropy against ground truth</span>
+    hard_loss = F.<span class="fn">cross_entropy</span>(student_logits, labels)
+
+    <span class="com"># Weighted combination</span>
+    <span class="kw">return</span> alpha * soft_loss + (<span class="num">1</span> - alpha) * hard_loss</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What role does temperature play in distillation?</summary>
+      <div class="fq-a">Higher temperature <strong>softens</strong> the teacher's probability distribution, making the student learn more about relationships between non-top tokens. A temperature of 1.0 uses the raw probabilities; a temperature of 2&ndash;5 spreads probability mass more evenly. This "dark knowledge" about second and third choices is often the most valuable part of distillation.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you distill a model into a fundamentally different architecture?</summary>
+      <div class="fq-a">Yes, cross-architecture distillation is possible and sometimes practical. You can distill a decoder-only transformer into an encoder-decoder, or even into a non-transformer architecture. The soft labels are architecture-agnostic &mdash; they only require that the student can produce a distribution over the same output space.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does distillation relate to synthetic data generation?</summary>
+      <div class="fq-a">They are closely related. Generating synthetic training data with a strong teacher and training a smaller model on it is a form of distillation. The difference is that classic distillation uses the full logit distribution, while synthetic-data approaches typically use only the teacher's top-1 output. Using soft labels preserves more information, but synthetic data is simpler to implement at scale.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Decision Making</span></div>
+    <p class="group-intro">Knowing when to fine-tune, what data quality means in practice, and when the right answer is to skip fine-tuning entirely.</p>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<style>
+.c13t05-checklist { padding: 12px; }
+.c13t05-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: #0f172a; border-radius: 7px; margin-bottom: 6px; border: 1px solid #334155; cursor: pointer; transition: all 0.15s; }
+.c13t05-item:hover { border-color: #475569; }
+.c13t05-item.checked { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.04); }
+.c13t05-check { width: 20px; height: 20px; border-radius: 5px; border: 2px solid #475569; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; transition: all 0.15s; margin-top: 1px; }
+.c13t05-item.checked .c13t05-check { border-color: #4ade80; background: rgba(74,222,128,0.15); color: #4ade80; }
+.c13t05-item-text { font-size: 0.84rem; color: #cbd5e1; }
+.c13t05-verdict { text-align: center; margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>When Is Fine-Tuning Worth the Effort?</h2></div>
+
+  <div class="quick-take">Fine-tuning is worth it when prompting and retrieval have plateaued, the task is stable, labeled data is available, and the business case rewards tighter consistency or lower per-request cost. It is not automatically the next step after a weak prompt.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Fine-tuning is surgery &mdash; powerful but invasive. Don't operate when rest and exercise (prompting and retrieval) would fix the problem.</div>
+
+  <div class="visual-container" id="c13t05-visual">
+    <div class="c13t05-checklist" id="c13t05-checklist">
+      <div class="c13t05-item" data-idx="0"><span class="c13t05-check"></span><span class="c13t05-item-text">Prompt engineering and retrieval improvements have been tried and hit a ceiling</span></div>
+      <div class="c13t05-item" data-idx="1"><span class="c13t05-check"></span><span class="c13t05-item-text">The task is stable and well-defined (not changing weekly)</span></div>
+      <div class="c13t05-item" data-idx="2"><span class="c13t05-check"></span><span class="c13t05-item-text">High-quality labeled data is available or can be created</span></div>
+      <div class="c13t05-item" data-idx="3"><span class="c13t05-check"></span><span class="c13t05-item-text">The same behavior must be repeated at scale (high volume)</span></div>
+      <div class="c13t05-item" data-idx="4"><span class="c13t05-check"></span><span class="c13t05-item-text">The business case justifies the upfront and ongoing investment</span></div>
+    </div>
+    <div class="c13t05-verdict" id="c13t05-verdict" style="background:rgba(71,85,105,0.2);color:#94a3b8;">Click items above to evaluate your readiness for fine-tuning</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Intervention Ladder</h3>
+    <p>Before fine-tuning, exhaust cheaper interventions. This is not about avoiding fine-tuning &mdash; it is about proving the problem actually requires it:</p>
+    <ol>
+      <li><strong>Prompt engineering</strong> &mdash; rewrite instructions, add examples, refine system prompts</li>
+      <li><strong>Retrieval improvements</strong> &mdash; better chunking, re-ranking, evidence selection</li>
+      <li><strong>Tool and workflow design</strong> &mdash; structured outputs, validation layers, fallbacks</li>
+      <li><strong>PEFT / LoRA</strong> &mdash; lightweight adaptation when behavior is the bottleneck</li>
+      <li><strong>Full fine-tuning</strong> &mdash; deep adaptation when nothing else closes the gap</li>
+    </ol>
+
+    <h3>Signals That Fine-Tuning Will Help</h3>
+    <ul>
+      <li><strong>Consistent format violations</strong> that prompt engineering cannot fix</li>
+      <li><strong>Domain-specific language patterns</strong> the base model does not produce reliably</li>
+      <li><strong>Latency or cost reduction</strong> from replacing a large model + long prompt with a smaller fine-tuned model</li>
+      <li><strong>Policy or safety behavior</strong> that must be deeply embedded, not just prompted</li>
+    </ul>
+    <p>See <a href="#topic-7" class="xref">Topic 7: When to Avoid Fine-Tuning</a> for the flip side of this decision.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Fine-tuning is justified only when cheaper alternatives have plateaued and the behavior gap is stable, measurable, and high-value enough to warrant the investment.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Decision Framework</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">should_fine_tune</span>(metrics):
+    <span class="str">"""
+    Simple decision framework: check all prerequisites
+    before recommending fine-tuning investment.
+    """</span>
+    checks = {
+        <span class="str">"prompt_engineering_tried"</span>: metrics.get(<span class="str">"prompt_iterations"</span>, <span class="num">0</span>) >= <span class="num">3</span>,
+        <span class="str">"retrieval_optimized"</span>: metrics.get(<span class="str">"retrieval_recall"</span>, <span class="num">0</span>) > <span class="num">0.85</span>,
+        <span class="str">"task_is_stable"</span>: metrics.get(<span class="str">"task_change_frequency_days"</span>, <span class="num">0</span>) > <span class="num">30</span>,
+        <span class="str">"data_quality_score"</span>: metrics.get(<span class="str">"label_agreement"</span>, <span class="num">0</span>) > <span class="num">0.90</span>,
+        <span class="str">"volume_justifies_cost"</span>: metrics.get(<span class="str">"monthly_requests"</span>, <span class="num">0</span>) > <span class="num">10000</span>,
+    }
+
+    passed = <span class="fn">sum</span>(checks.values())
+    <span class="fn">print</span>(<span class="str">f"Readiness: </span>{passed}<span class="str">/</span>{<span class="fn">len</span>(checks)}<span class="str"> checks passed"</span>)
+    <span class="kw">for</span> name, ok <span class="kw">in</span> checks.items():
+        status = <span class="str">"PASS"</span> <span class="kw">if</span> ok <span class="kw">else</span> <span class="str">"FAIL"</span>
+        <span class="fn">print</span>(<span class="str">f"  [{status}] </span>{name}<span class="str">"</span>)
+
+    <span class="kw">return</span> passed == <span class="fn">len</span>(checks)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can fine-tuning reduce API cost even if quality is already good?</summary>
+      <div class="fq-a">Yes. A common pattern is to fine-tune a <strong>smaller model</strong> to match the quality of a larger one on a specific task. If a fine-tuned 8B model achieves 95% of GPT-4's accuracy on your task, the 10&ndash;20x cost reduction in serving can justify the fine-tuning investment. This is essentially a form of <a href="#topic-4" class="xref">distillation</a>.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you measure that prompting has "plateaued"?</summary>
+      <div class="fq-a">Track a <strong>quantitative evaluation metric</strong> (accuracy, F1, human rating) across at least 3&ndash;5 prompt iterations. If the metric stops improving despite meaningful prompt changes, prompting has likely reached its ceiling. Also check whether the failures are in <strong>knowledge</strong> (retrieval can help) or in <strong>behavior</strong> (fine-tuning territory).</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var items = document.querySelectorAll('#c13t05-checklist .c13t05-item');
+  items.forEach(function(item) {
+    item.addEventListener('click', function() {
+      item.classList.toggle('checked');
+      var check = item.querySelector('.c13t05-check');
+      check.textContent = item.classList.contains('checked') ? '✓' : '';
+      var total = items.length;
+      var checked = document.querySelectorAll('#c13t05-checklist .c13t05-item.checked').length;
+      var verdict = document.getElementById('c13t05-verdict');
+      if (checked === total) {
+        verdict.style.background = 'rgba(74,222,128,0.1)';
+        verdict.style.color = '#4ade80';
+        verdict.textContent = 'All checks pass -- fine-tuning is likely justified';
+      } else if (checked >= 3) {
+        verdict.style.background = 'rgba(250,204,21,0.1)';
+        verdict.style.color = '#facc15';
+        verdict.textContent = checked + '/' + total + ' checks pass -- consider carefully';
+      } else {
+        verdict.style.background = 'rgba(248,113,113,0.1)';
+        verdict.style.color = '#f87171';
+        verdict.textContent = checked + '/' + total + ' checks pass -- try cheaper alternatives first';
+      }
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<style>
+.c13t06-quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.c13t06-quality-card { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+.c13t06-quality-card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.c13t06-quality-card-desc { font-size: 0.78rem; color: #94a3b8; }
+</style>
+
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>What Makes a Fine-Tuning Dataset High Quality?</h2></div>
+
+  <div class="quick-take">High-quality fine-tuning data is clear, representative, correctly labeled, diverse across edge cases, and aligned to the exact behavior you want in production. A small clean dataset is often more valuable than a large noisy one because the model will faithfully learn your inconsistencies too.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Fine-tuning data is a recipe, not raw ingredients. If the recipe has errors, the model will reproduce them at scale.</div>
+
+  <div class="visual-container" id="c13t06-visual">
+    <div class="c13t06-quality-grid">
+      <div class="c13t06-quality-card">
+        <div class="c13t06-quality-card-title" style="color:#4ade80;">Correctness</div>
+        <div class="c13t06-quality-card-desc">Labels must be accurate. Every wrong label teaches the model to produce that mistake.</div>
+      </div>
+      <div class="c13t06-quality-card">
+        <div class="c13t06-quality-card-title" style="color:#38bdf8;">Representativeness</div>
+        <div class="c13t06-quality-card-desc">Data should reflect production distribution &mdash; including edge cases and hard examples.</div>
+      </div>
+      <div class="c13t06-quality-card">
+        <div class="c13t06-quality-card-title" style="color:#a78bfa;">Consistency</div>
+        <div class="c13t06-quality-card-desc">Similar inputs should have similar outputs. Mixed conventions confuse the model.</div>
+      </div>
+      <div class="c13t06-quality-card">
+        <div class="c13t06-quality-card-title" style="color:#fb923c;">Diversity</div>
+        <div class="c13t06-quality-card-desc">Cover the range of inputs the model will see, not just the easy majority cases.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Quality Defines the Ceiling</h3>
+    <p>Fine-tuning amplifies the patterns in the data. It does not invent a better target than the one you provide. If 10% of your labels are wrong, the model learns to be wrong 10% of the time &mdash; with high confidence. This is why data quality is often the <strong>single biggest lever</strong> in a fine-tuning project, more impactful than model size, learning rate, or adapter rank.</p>
+
+    <h3>Common Data Quality Issues</h3>
+    <table>
+      <thead><tr><th>Issue</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Mislabeled examples</td><td>Model learns incorrect patterns</td><td>Multi-annotator review, agreement scoring</td></tr>
+        <tr><td>Distribution skew</td><td>Over-fits to common cases, fails on rare ones</td><td>Stratified sampling, targeted augmentation</td></tr>
+        <tr><td>Inconsistent formatting</td><td>Unstable output format in production</td><td>Style guides, automated validation</td></tr>
+        <tr><td>Data leakage</td><td>Inflated eval metrics, poor real-world performance</td><td>Strict train/eval splits, temporal splits</td></tr>
+        <tr><td>Too little diversity</td><td>Brittle to novel inputs</td><td>Adversarial examples, out-of-distribution test sets</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How Much Data Is Enough?</h3>
+    <p>There is no universal number. For LoRA on a well-pretrained base model, as few as <strong>200&ndash;500 high-quality examples</strong> can produce meaningful behavior change for narrow tasks (style, format, tone). For broader domain adaptation, thousands to tens of thousands are typical. The diminishing-returns curve is steep: cleaning 500 examples is almost always more impactful than collecting 5,000 noisy ones.</p>
+    <p>See <a href="#topic-5" class="xref">Topic 5: When FT Is Worth It</a> for dataset readiness as part of the fine-tuning decision.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Data quality defines the ceiling of fine-tuning. Invest in annotation quality, deduplication, and edge-case coverage before investing in more data volume.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Data Quality Checks</summary>
+    <pre><code><span class="kw">import</span> json
+<span class="kw">from</span> collections <span class="kw">import</span> Counter
+
+<span class="kw">def</span> <span class="fn">audit_dataset</span>(filepath):
+    <span class="str">"""Run basic quality checks on a JSONL fine-tuning dataset."""</span>
+    <span class="kw">with</span> <span class="fn">open</span>(filepath) <span class="kw">as</span> f:
+        examples = [json.<span class="fn">loads</span>(line) <span class="kw">for</span> line <span class="kw">in</span> f]
+
+    <span class="com"># Check for duplicates</span>
+    prompts = [ex[<span class="str">"prompt"</span>] <span class="kw">for</span> ex <span class="kw">in</span> examples]
+    dupes = <span class="fn">sum</span>(<span class="num">1</span> <span class="kw">for</span> c <span class="kw">in</span> Counter(prompts).<span class="fn">values</span>() <span class="kw">if</span> c > <span class="num">1</span>)
+
+    <span class="com"># Check for empty completions</span>
+    empty = <span class="fn">sum</span>(<span class="num">1</span> <span class="kw">for</span> ex <span class="kw">in</span> examples <span class="kw">if not</span> ex.get(<span class="str">"completion"</span>, <span class="str">""</span>).strip())
+
+    <span class="com"># Check completion length distribution</span>
+    lengths = [<span class="fn">len</span>(ex[<span class="str">"completion"</span>]) <span class="kw">for</span> ex <span class="kw">in</span> examples]
+
+    <span class="fn">print</span>(<span class="str">f"Total examples:     </span>{<span class="fn">len</span>(examples)}<span class="str">"</span>)
+    <span class="fn">print</span>(<span class="str">f"Duplicate prompts:  </span>{dupes}<span class="str">"</span>)
+    <span class="fn">print</span>(<span class="str">f"Empty completions:  </span>{empty}<span class="str">"</span>)
+    <span class="fn">print</span>(<span class="str">f"Avg completion len: </span>{<span class="fn">sum</span>(lengths)/<span class="fn">len</span>(lengths):.0f}<span class="str"> chars"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Is it better to have a small perfect dataset or a large noisy one?</summary>
+      <div class="fq-a">For most fine-tuning tasks, <strong>small and clean wins</strong>. Research consistently shows that 500 carefully curated examples outperform 10,000 noisy ones on downstream quality. Noise in labels teaches the model to produce errors with high confidence, which is worse than having less data. Scale up only after quality is locked in.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use LLM-generated data for fine-tuning?</summary>
+      <div class="fq-a">Yes, with caution. Using a stronger model to generate training data for a weaker one is a form of <strong>distillation</strong> (see <a href="#topic-4" class="xref">Topic 4</a>). The risk is "model collapse" where errors compound over generations. Mitigate by always having <strong>human review</strong> in the loop and validating against ground-truth benchmarks.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle class imbalance in fine-tuning data?</summary>
+      <div class="fq-a">The same principles as classical ML apply: <strong>stratified sampling</strong>, upsampling minority classes, or weighting the loss function. For generation tasks, ensure your data covers both common and rare instruction types. A model fine-tuned only on summarization prompts will degrade on other tasks even if it was a general-purpose base model.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c13t07-warning-list { padding: 12px; }
+.c13t07-warning { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: rgba(248,113,113,0.05); border: 1px solid rgba(248,113,113,0.15); border-radius: 7px; margin-bottom: 6px; }
+.c13t07-warning-icon { flex-shrink: 0; color: #f87171; font-size: 0.9rem; margin-top: 2px; }
+.c13t07-warning-text { font-size: 0.84rem; color: #cbd5e1; }
+.c13t07-warning-text strong { color: #f87171; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>When to Avoid Fine-Tuning</h2></div>
+
+  <div class="quick-take">Avoid fine-tuning when the task changes rapidly, the dataset is weak, the behavior gap is actually a retrieval or prompt-design problem, or the product can be solved with better tooling. Fine-tuning can add complexity without solving the actual bottleneck.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Do not build a custom engine when you need a better map. Fine-tuning the model cannot fix problems in the data, retrieval, or product design around it.</div>
+
+  <div class="visual-container" id="c13t07-visual">
+    <div class="c13t07-warning-list">
+      <div class="c13t07-warning"><span class="c13t07-warning-icon">&#x26A0;</span><span class="c13t07-warning-text"><strong>Rapidly changing tasks</strong> &mdash; If requirements shift weekly, any fine-tuned model is stale before it ships. Use prompt engineering for flexibility.</span></div>
+      <div class="c13t07-warning"><span class="c13t07-warning-icon">&#x26A0;</span><span class="c13t07-warning-text"><strong>Weak or insufficient data</strong> &mdash; Fine-tuning on bad data produces a confidently wrong model. Fix data quality first (see <a href="#topic-6" class="xref" style="color:#38bdf8">Topic 6</a>).</span></div>
+      <div class="c13t07-warning"><span class="c13t07-warning-icon">&#x26A0;</span><span class="c13t07-warning-text"><strong>Knowledge retrieval problems</strong> &mdash; If the model lacks facts, RAG is the answer, not fine-tuning. Fine-tuning teaches behavior, not knowledge freshness.</span></div>
+      <div class="c13t07-warning"><span class="c13t07-warning-icon">&#x26A0;</span><span class="c13t07-warning-text"><strong>Untested prompt engineering</strong> &mdash; Many teams jump to fine-tuning before trying structured outputs, few-shot examples, or system prompt iteration.</span></div>
+      <div class="c13t07-warning"><span class="c13t07-warning-icon">&#x26A0;</span><span class="c13t07-warning-text"><strong>No evaluation pipeline</strong> &mdash; Without metrics, you cannot tell if fine-tuning helped or hurt. Build evaluation before training (see <a href="#topic-9" class="xref" style="color:#38bdf8">Topic 9</a>).</span></div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Discipline Signal</h3>
+    <p>In interviews, saying "we should not fine-tune here" signals stronger engineering judgment than saying "let's fine-tune." It shows you understand the <strong>intervention ladder</strong> and can diagnose where the real bottleneck is. Good engineers do not optimize the wrong layer of the stack.</p>
+
+    <h3>Fine-Tuning vs Alternatives</h3>
+    <table>
+      <thead><tr><th>Problem</th><th>Wrong Solution</th><th>Right Solution</th></tr></thead>
+      <tbody>
+        <tr><td>Model lacks domain facts</td><td>Fine-tune on domain documents</td><td>Build a RAG pipeline</td></tr>
+        <tr><td>Output format is inconsistent</td><td>Fine-tune for formatting</td><td>Structured output schemas + validation</td></tr>
+        <tr><td>Model ignores instructions</td><td>Fine-tune on examples</td><td>Improve system prompt + few-shot examples</td></tr>
+        <tr><td>Responses are too long/short</td><td>Fine-tune for length</td><td>Add explicit length constraints to prompt</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Cost of Getting It Wrong</h3>
+    <p>An unnecessary fine-tuning project wastes not just compute but also engineering time, creates a model that needs ongoing maintenance, and can introduce <a href="#topic-8" class="xref">catastrophic forgetting</a> or <a href="#topic-11" class="xref">lifecycle costs</a> that compound over time. The opportunity cost of fixing the wrong layer is often the largest hidden cost.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The strongest adaptation decision is sometimes not to fine-tune. Diagnose the real bottleneck &mdash; data, retrieval, prompt, or tool design &mdash; before reaching for weight updates.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Bottleneck Diagnosis</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">diagnose_bottleneck</span>(eval_results):
+    <span class="str">"""
+    Analyze evaluation failures to identify the actual bottleneck
+    before committing to fine-tuning.
+    """</span>
+    categories = {
+        <span class="str">"knowledge_gap"</span>: [],    <span class="com"># Model lacks facts -> RAG</span>
+        <span class="str">"format_issue"</span>: [],     <span class="com"># Wrong format -> structured output</span>
+        <span class="str">"instruction_miss"</span>: [],  <span class="com"># Ignores instructions -> prompt</span>
+        <span class="str">"behavior_gap"</span>: [],     <span class="com"># Persistent style/skill issue -> FT</span>
+    }
+
+    <span class="kw">for</span> result <span class="kw">in</span> eval_results:
+        <span class="kw">if</span> result[<span class="str">"error_type"</span>] == <span class="str">"factual"</span>:
+            categories[<span class="str">"knowledge_gap"</span>].append(result)
+        <span class="kw">elif</span> result[<span class="str">"error_type"</span>] == <span class="str">"format"</span>:
+            categories[<span class="str">"format_issue"</span>].append(result)
+        <span class="kw">elif</span> result[<span class="str">"error_type"</span>] == <span class="str">"ignored_constraint"</span>:
+            categories[<span class="str">"instruction_miss"</span>].append(result)
+        <span class="kw">else</span>:
+            categories[<span class="str">"behavior_gap"</span>].append(result)
+
+    <span class="com"># Only recommend FT if behavior_gap dominates</span>
+    <span class="kw">for</span> cat, items <span class="kw">in</span> categories.items():
+        <span class="fn">print</span>(<span class="str">f"  </span>{cat}<span class="str">: </span>{<span class="fn">len</span>(items)}<span class="str"> failures"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What if we need both RAG and fine-tuning?</summary>
+      <div class="fq-a">That is a valid combination. Use RAG for <strong>knowledge grounding</strong> and fine-tuning for <strong>behavior shaping</strong>. For example, fine-tune for a specific medical report format while using RAG to provide up-to-date drug interaction data. The key is to be clear about which layer solves which problem.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you convince a team that wants to fine-tune not to?</summary>
+      <div class="fq-a">Show the data. Run a <strong>structured evaluation</strong> that categorizes failures into knowledge gaps, format issues, and behavior gaps. If most failures are knowledge or format related, fine-tuning is not the right fix. Present the cheaper alternative with a concrete implementation plan and timeline. Data-driven arguments are hard to argue with.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Risk &amp; Operations</span></div>
+    <p class="group-intro">The operational realities of running fine-tuned models in production &mdash; what can go wrong, how to evaluate, and how to manage costs over time.</p>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<style>
+.c13t08-balance { display: flex; align-items: flex-end; justify-content: center; gap: 24px; padding: 20px; }
+.c13t08-bar-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.c13t08-bar { width: 60px; border-radius: 6px 6px 0 0; transition: height 0.4s ease; }
+.c13t08-bar-label { font-size: 0.72rem; color: #94a3b8; text-align: center; max-width: 80px; }
+.c13t08-bar-val { font-size: 0.78rem; font-weight: 700; }
+.c13t08-slider-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.c13t08-slider-label { font-size: 0.8rem; color: #94a3b8; min-width: 140px; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Catastrophic Forgetting</h2></div>
+
+  <div class="quick-take">Catastrophic forgetting happens when fine-tuning pushes the model so strongly toward a new domain that it loses useful general capabilities. This matters when your product still relies on broad reasoning, style range, or knowledge outside the fine-tuned examples.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Teaching a model medical terminology should not make it forget how to write a poem. Good specialization does not unnecessarily destroy general competence.</div>
+
+  <div class="visual-container" id="c13t08-visual">
+    <div class="c13t08-balance" id="c13t08-bars">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="c13t08-slider-row">
+      <span class="c13t08-slider-label">Fine-tuning intensity:</span>
+      <input type="range" id="c13t08-intensity" min="0" max="100" value="30" style="flex:1">
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why It Happens</h3>
+    <p>Neural networks store knowledge distributed across many parameters. When fine-tuning updates those parameters for a new task, it can overwrite the representations that encoded prior capabilities. The more aggressive the fine-tuning (more epochs, higher learning rate, narrower data), the worse the forgetting.</p>
+
+    <h3>Mitigation Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Works</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>PEFT / LoRA</td><td>Freeze base weights, train only adapters</td><td>Preserves base well, may limit adaptation depth</td></tr>
+        <tr><td>Balanced data mix</td><td>Include general-purpose examples alongside task data</td><td>Slows convergence on the target task</td></tr>
+        <tr><td>Lower learning rate</td><td>Smaller updates preserve more prior knowledge</td><td>Requires more training steps</td></tr>
+        <tr><td>Early stopping</td><td>Stop before the model over-specializes</td><td>May leave target quality on the table</td></tr>
+        <tr><td>Elastic Weight Consolidation</td><td>Penalize changes to important prior-task weights</td><td>Adds training complexity</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Evaluating for Forgetting</h3>
+    <p>The critical discipline is to evaluate <strong>both new and retained capabilities</strong> after fine-tuning. Run the fine-tuned model on a held-out general-purpose benchmark alongside your task-specific evaluation. If general scores drop significantly, you are trading breadth for depth and need to decide whether that trade is acceptable. See <a href="#topic-9" class="xref">Topic 9: Evaluating Fine-Tuned Models</a> for the full evaluation framework.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Always measure what the model forgot, not just what it learned. PEFT methods inherently mitigate forgetting by leaving base weights untouched.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Forgetting Detection</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">detect_forgetting</span>(base_scores, finetuned_scores, threshold=<span class="num">0.05</span>):
+    <span class="str">"""
+    Compare base model vs fine-tuned model on general benchmarks.
+    Flag any capability where performance dropped significantly.
+    """</span>
+    regressions = {}
+    <span class="kw">for</span> benchmark, base_score <span class="kw">in</span> base_scores.items():
+        ft_score = finetuned_scores.get(benchmark, <span class="num">0</span>)
+        delta = ft_score - base_score
+        <span class="kw">if</span> delta < -threshold:
+            regressions[benchmark] = {
+                <span class="str">"base"</span>: base_score,
+                <span class="str">"finetuned"</span>: ft_score,
+                <span class="str">"regression"</span>: <span class="fn">abs</span>(delta),
+            }
+            <span class="fn">print</span>(<span class="str">f"WARNING: </span>{benchmark}<span class="str"> dropped </span>{<span class="fn">abs</span>(delta):.1%}<span class="str">"</span>)
+
+    <span class="kw">if not</span> regressions:
+        <span class="fn">print</span>(<span class="str">"No significant regressions detected."</span>)
+    <span class="kw">return</span> regressions</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does LoRA fully prevent catastrophic forgetting?</summary>
+      <div class="fq-a">Not fully, but it significantly reduces it. Because LoRA <strong>freezes the base weights</strong>, the model's original representations remain intact. The adapter adds a small perturbation on top. However, if the adapter is very high-rank and the data is highly specialized, some interference with base capabilities is still possible &mdash; just much less severe than full fine-tuning.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you recover forgotten capabilities without retraining from scratch?</summary>
+      <div class="fq-a">Sometimes. If you used LoRA, simply removing the adapter restores the base model entirely. For full fine-tuning, you can try <strong>further training with mixed data</strong> that includes general examples, but there is no guarantee of full recovery. This is why PEFT methods and good evaluation discipline are critical &mdash; they give you a rollback path.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var capabilities = [
+    { name: 'Target Task', base: 40, color: '#4ade80' },
+    { name: 'General Reasoning', base: 85, color: '#38bdf8' },
+    { name: 'Code Generation', base: 75, color: '#a78bfa' },
+    { name: 'Creative Writing', base: 80, color: '#fb923c' },
+    { name: 'Math', base: 70, color: '#f472b6' },
+  ];
+  function render() {
+    var intensity = parseInt(document.getElementById('c13t08-intensity').value) / 100;
+    var container = document.getElementById('c13t08-bars');
+    container.innerHTML = '';
+    capabilities.forEach(function(cap) {
+      var score;
+      if (cap.name === 'Target Task') {
+        score = cap.base + (100 - cap.base) * intensity;
+      } else {
+        score = cap.base * (1 - intensity * 0.6);
+      }
+      score = Math.max(5, Math.min(100, score));
+      var group = document.createElement('div');
+      group.className = 'c13t08-bar-group';
+      group.innerHTML =
+        '<div class="c13t08-bar-val" style="color:'+cap.color+'">'+Math.round(score)+'%</div>' +
+        '<div class="c13t08-bar" style="height:'+Math.round(score*1.2)+'px;background:'+hexToRgba(cap.color,0.3)+';border:1px solid '+hexToRgba(cap.color,0.5)+';"></div>' +
+        '<div class="c13t08-bar-label">'+cap.name+'</div>';
+      container.appendChild(group);
+    });
+  }
+  document.getElementById('c13t08-intensity').addEventListener('input', render);
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Evaluating a Fine-Tuned Model Before Release</h2></div>
+
+  <div class="quick-take">Evaluate both target-task gains and unintended regressions. Compare the fine-tuned model against the baseline and the cheapest non-fine-tuned alternative &mdash; otherwise you cannot tell whether fine-tuning truly earned its complexity.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A fine-tuned model that passes only its target test is like a student who aced one exam but forgot how to read. Test broadly.</div>
+
+  <div class="visual-container" id="c13t09-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;">
+        <div style="font-size:0.78rem;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Must Measure</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Task-specific accuracy / F1</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Formatting stability</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Safety and refusal behavior</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; General capability regression</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;">&#x2713; Latency and throughput</div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;">
+        <div style="font-size:0.78rem;font-weight:700;color:#f87171;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Must Compare Against</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Base model (no fine-tuning)</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Base model + best prompt</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Base model + RAG</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;margin-bottom:4px;">&#x2713; Previous fine-tuned version</div>
+        <div style="font-size:0.8rem;color:#cbd5e1;">&#x2713; Larger model (cost ceiling)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Three-Way Comparison</h3>
+    <p>A mature evaluation compares <strong>three systems</strong>: (1) the base model with the best prompt, (2) the fine-tuned model, and (3) the cheapest non-fine-tuned alternative that meets requirements. This triangulation reveals whether fine-tuning truly earned its complexity or whether a simpler approach would suffice.</p>
+
+    <h3>Evaluation Dimensions</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>What to Measure</th><th>Why It Matters</th></tr></thead>
+      <tbody>
+        <tr><td>Task accuracy</td><td>Precision, recall, F1 on target task</td><td>Did fine-tuning actually improve the target?</td></tr>
+        <tr><td>Format stability</td><td>Schema compliance rate</td><td>Inconsistent formats break downstream pipelines</td></tr>
+        <tr><td>Safety behavior</td><td>Refusal rates on harmful prompts</td><td>Fine-tuning can erode safety alignment</td></tr>
+        <tr><td>General capability</td><td>Scores on MMLU, HellaSwag, etc.</td><td>Detects <a href="#topic-8" class="xref">catastrophic forgetting</a></td></tr>
+        <tr><td>Realistic prompts</td><td>Performance on production-like inputs</td><td>Training-like prompts may not match real usage</td></tr>
+        <tr><td>Latency</td><td>p50, p99 response times</td><td>Fine-tuning should not degrade serving speed</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Red Flags in Evaluation</h3>
+    <ul>
+      <li><strong>Only training-like prompts tested</strong> &mdash; The model may memorize training patterns without generalizing.</li>
+      <li><strong>No baseline comparison</strong> &mdash; You cannot claim improvement without measuring what you started from.</li>
+      <li><strong>Safety not re-tested</strong> &mdash; Fine-tuning can subtly erode refusal behavior even when safety data is not explicitly included.</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Evaluation should compare the fine-tuned model against the baseline and the cheapest alternative. Measure regressions as carefully as gains.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Evaluation Harness</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">evaluate_fine_tuned_model</span>(model, test_sets):
+    <span class="str">"""
+    Comprehensive evaluation covering target task,
+    general capabilities, and safety behavior.
+    """</span>
+    results = {}
+
+    <span class="com"># Target task evaluation</span>
+    target = test_sets[<span class="str">"target"</span>]
+    results[<span class="str">"target_accuracy"</span>] = <span class="fn">run_accuracy</span>(model, target)
+
+    <span class="com"># General capability regression check</span>
+    <span class="kw">for</span> bench_name, bench_data <span class="kw">in</span> test_sets[<span class="str">"general"</span>].items():
+        results[<span class="str">f"general_</span>{bench_name}<span class="str">"</span>] = <span class="fn">run_accuracy</span>(model, bench_data)
+
+    <span class="com"># Safety refusal check</span>
+    safety = test_sets[<span class="str">"safety"</span>]
+    results[<span class="str">"refusal_rate"</span>] = <span class="fn">run_safety_check</span>(model, safety)
+
+    <span class="com"># Format compliance on structured output tasks</span>
+    format_tests = test_sets[<span class="str">"format"</span>]
+    results[<span class="str">"format_compliance"</span>] = <span class="fn">check_format</span>(model, format_tests)
+
+    <span class="kw">return</span> results</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How large should the evaluation set be?</summary>
+      <div class="fq-a">For target-task evaluation, at least <strong>200&ndash;500 examples</strong> with good coverage of edge cases. For regression testing, use established benchmarks with known baselines. The evaluation set should be completely disjoint from training data &mdash; even a few leaked examples can inflate metrics and mask real problems.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should you use automated metrics or human evaluation?</summary>
+      <div class="fq-a">Both. <strong>Automated metrics</strong> (accuracy, F1, BLEU) are fast and reproducible &mdash; use them for continuous monitoring. <strong>Human evaluation</strong> catches nuances that metrics miss: tone, helpfulness, factual accuracy in open-ended generations. A good practice is automated metrics for gate-keeping and human eval for final sign-off on major releases.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What if the fine-tuned model is better on the target but worse on safety?</summary>
+      <div class="fq-a">This is a <strong>release blocker</strong>. Safety regressions must be fixed before deployment, even if target performance is excellent. Options include mixing safety data into the fine-tuning set, adding a safety guardrail layer at serving time, or reducing the fine-tuning intensity (fewer epochs, lower rank) to preserve more of the base model's alignment.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Alignment and Fine-Tuning</h2></div>
+
+  <div class="quick-take">Alignment is broader than fine-tuning. It refers to shaping model behavior to match human intent, safety requirements, and product policy. Fine-tuning is one mechanism for alignment, but alignment also depends on preference data, guardrails, tools, retrieval constraints, and evaluation.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Fine-tuning is one lever on the alignment dashboard. Guardrails, retrieval policies, and tool constraints are the other levers &mdash; all must work together.</div>
+
+  <div class="visual-container" id="c13t10-visual">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px;">
+      <div style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#38bdf8;text-transform:uppercase;margin-bottom:4px;">SFT / RLHF</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Behavior shaping</div>
+      </div>
+      <div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#a78bfa;text-transform:uppercase;margin-bottom:4px;">Guardrails</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Runtime safety filters</div>
+      </div>
+      <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#34d399;text-transform:uppercase;margin-bottom:4px;">Retrieval Policy</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Knowledge boundaries</div>
+      </div>
+      <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);border-radius:8px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#fb923c;text-transform:uppercase;margin-bottom:4px;">Tool Constraints</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Action limitations</div>
+      </div>
+      <div style="background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.3);border-radius:8px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#f472b6;text-transform:uppercase;margin-bottom:4px;">Evaluation</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Continuous monitoring</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Alignment Is Not Just Politeness</h3>
+    <p>A common misconception is that alignment means making the model polite or adding refusals. In practice, alignment is about steering the model toward <strong>useful, appropriate, and policy-consistent behavior</strong> in the context of real applications. This includes:</p>
+    <ul>
+      <li><strong>Helpfulness</strong> &mdash; Actually solving the user's problem, not just being safe</li>
+      <li><strong>Truthfulness</strong> &mdash; Acknowledging uncertainty rather than hallucinating</li>
+      <li><strong>Policy compliance</strong> &mdash; Following organizational rules about data handling, tone, and scope</li>
+      <li><strong>Harmlessness</strong> &mdash; Avoiding outputs that could cause real-world harm</li>
+    </ul>
+
+    <h3>Fine-Tuning's Role in Alignment</h3>
+    <p>Fine-tuning (especially <a href="#topic-3" class="xref">preference optimization</a>) is how alignment gets baked into the model's weights. But weight-level alignment is only one layer. Production systems also need:</p>
+    <table>
+      <thead><tr><th>Layer</th><th>Mechanism</th><th>What It Catches</th></tr></thead>
+      <tbody>
+        <tr><td>Model weights</td><td>RLHF / DPO fine-tuning</td><td>Broad behavioral tendencies</td></tr>
+        <tr><td>System prompt</td><td>Instructions and constraints</td><td>Task-specific policies</td></tr>
+        <tr><td>Input filters</td><td>Content classification before the model</td><td>Obviously harmful requests</td></tr>
+        <tr><td>Output filters</td><td>Post-generation safety checks</td><td>Edge cases the model mishandles</td></tr>
+        <tr><td>Retrieval constraints</td><td>Limiting what knowledge the model accesses</td><td>Data boundary violations</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Alignment Tax</h3>
+    <p>Fine-tuning for alignment can reduce performance on narrow benchmarks. A model trained to refuse harmful requests may also over-refuse legitimate ones. A model trained for safety may become less creative. This tension is real and requires careful calibration &mdash; alignment is not a switch but a dial.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Alignment is a system property, not a model property. Fine-tuning shapes the model's tendencies, but guardrails, policies, and evaluation complete the picture.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Multi-Layer Alignment Check</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">alignment_check</span>(prompt, model, guardrails, retrieval_policy):
+    <span class="str">"""
+    Alignment is enforced at multiple layers, not just model weights.
+    Each layer catches different failure modes.
+    """</span>
+    <span class="com"># Layer 1: Input filter (block obviously harmful requests)</span>
+    <span class="kw">if</span> guardrails.<span class="fn">is_blocked_input</span>(prompt):
+        <span class="kw">return</span> <span class="str">"I cannot help with that request."</span>
+
+    <span class="com"># Layer 2: Retrieval constraint (limit knowledge scope)</span>
+    context = retrieval_policy.<span class="fn">get_permitted_context</span>(prompt)
+
+    <span class="com"># Layer 3: Model generation (alignment baked into weights)</span>
+    response = model.<span class="fn">generate</span>(prompt, context=context)
+
+    <span class="com"># Layer 4: Output filter (catch edge cases)</span>
+    <span class="kw">if</span> guardrails.<span class="fn">is_blocked_output</span>(response):
+        <span class="kw">return</span> <span class="str">"I need to rephrase my response."</span>
+
+    <span class="kw">return</span> response</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can fine-tuning undo alignment from the base model?</summary>
+      <div class="fq-a">Yes. Research has shown that even small amounts of adversarial fine-tuning can <strong>remove safety alignment</strong> from instruction-tuned models. This is one reason why fine-tuning access is often restricted, and why production systems need <strong>guardrails beyond the model weights</strong> (input/output filters, monitoring) as a defense-in-depth strategy.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you balance helpfulness and safety in alignment?</summary>
+      <div class="fq-a">This is one of the core challenges. Over-alignment toward safety produces a model that refuses too many legitimate requests. Under-alignment creates risk. The practical approach is to use <strong>red-teaming and edge-case evaluation</strong> to find the right balance point, then use runtime guardrails to catch remaining failures without over-constraining the model.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 11 ==================== -->
+<style>
+.c13t11-cost-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px; }
+.c13t11-cost-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; text-align: center; }
+.c13t11-cost-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.c13t11-cost-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.c13t11-cost-desc { font-size: 0.72rem; color: #94a3b8; }
+</style>
+
+<section id="topic-11" class="topic">
+  <div class="topic-header"><span class="topic-num">11</span><h2>Cost Trade-Offs in Fine-Tuning Projects</h2></div>
+
+  <div class="quick-take">Fine-tuning costs include data creation, training compute, evaluation effort, model storage, serving complexity, and ongoing maintenance. These are justified only if the fine-tuned model delivers measurable gains in quality, speed, or cost efficiency over prompting alone.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Fine-tuning has a sticker price (compute) and a hidden price tag (maintenance, versioning, governance). Teams that forget the hidden costs get surprised every quarter.</div>
+
+  <div class="visual-container" id="c13t11-visual">
+    <div class="c13t11-cost-grid">
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#38bdf8;">Data Creation</div>
+        <div class="c13t11-cost-desc">Annotation, curation, quality review</div>
+      </div>
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#a78bfa;">Training Compute</div>
+        <div class="c13t11-cost-desc">GPU hours, cloud costs</div>
+      </div>
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#34d399;">Evaluation</div>
+        <div class="c13t11-cost-desc">Benchmarks, human review, A/B testing</div>
+      </div>
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#fb923c;">Model Storage</div>
+        <div class="c13t11-cost-desc">Checkpoints, versioning, registry</div>
+      </div>
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#f472b6;">Serving Complexity</div>
+        <div class="c13t11-cost-desc">Separate endpoints, adapter routing</div>
+      </div>
+      <div class="c13t11-cost-card">
+        <div class="c13t11-cost-title" style="color:#facc15;">Maintenance</div>
+        <div class="c13t11-cost-desc">Retraining, drift monitoring, governance</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Upfront vs Lifecycle Costs</h3>
+    <p>Teams commonly focus on <strong>training cost</strong> (GPU hours, cloud spend) and forget the long-term burden. A fine-tuned model needs ongoing evaluation, periodic retraining as the base model evolves, version management, and governance review. These lifecycle costs often exceed the initial training investment within 6&ndash;12 months.</p>
+
+    <h3>Cost Comparison by Method</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Upfront Cost</th><th>Ongoing Cost</th><th>Operational Burden</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt engineering</td><td>Very low</td><td>Very low</td><td>Minimal</td></tr>
+        <tr><td>RAG</td><td>Moderate (infra)</td><td>Moderate (data refresh)</td><td>Index maintenance</td></tr>
+        <tr><td>LoRA / PEFT</td><td>Low&ndash;moderate</td><td>Low</td><td>Adapter versioning</td></tr>
+        <tr><td>Full fine-tuning</td><td>High</td><td>High</td><td>Full model lifecycle management</td></tr>
+        <tr><td>Distillation</td><td>Very high</td><td>Moderate</td><td>Student model serving</td></tr>
+      </tbody>
+    </table>
+
+    <h3>When the ROI Is Clear</h3>
+    <p>Fine-tuning has the strongest ROI when:</p>
+    <ul>
+      <li><strong>High volume</strong> &mdash; Amortizes the upfront cost across millions of requests</li>
+      <li><strong>Latency reduction</strong> &mdash; A smaller fine-tuned model replaces a larger base model + long prompt</li>
+      <li><strong>Consistent behavior</strong> &mdash; The same formatting, tone, or policy must apply every time</li>
+      <li><strong>Cost per request</strong> &mdash; Fine-tuned model uses fewer tokens (no long system prompt)</li>
+    </ul>
+    <p>See <a href="#topic-5" class="xref">Topic 5: When FT Is Worth It</a> for the readiness checklist.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Fine-tuning has both upfront and lifecycle costs. The strongest ROI comes from high-volume, stable tasks where behavior consistency or per-request cost reduction justifies the investment.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; ROI Calculator</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">fine_tuning_roi</span>(
+    monthly_requests,
+    base_cost_per_request,      <span class="com"># cost with prompting approach</span>
+    ft_cost_per_request,        <span class="com"># cost with fine-tuned model</span>
+    training_cost,              <span class="com"># one-time fine-tuning cost</span>
+    monthly_maintenance_cost,   <span class="com"># ongoing evaluation + retraining</span>
+):
+    <span class="str">"""Calculate months to break even on fine-tuning investment."""</span>
+    monthly_savings = monthly_requests * (base_cost_per_request - ft_cost_per_request)
+    net_monthly_gain = monthly_savings - monthly_maintenance_cost
+
+    <span class="kw">if</span> net_monthly_gain <= <span class="num">0</span>:
+        <span class="fn">print</span>(<span class="str">"Fine-tuning does NOT pay for itself at this volume."</span>)
+        <span class="kw">return</span> <span class="fn">float</span>(<span class="str">"inf"</span>)
+
+    months = training_cost / net_monthly_gain
+    <span class="fn">print</span>(<span class="str">f"Monthly savings:    $</span>{monthly_savings:,.2f}<span class="str">"</span>)
+    <span class="fn">print</span>(<span class="str">f"Net monthly gain:   $</span>{net_monthly_gain:,.2f}<span class="str">"</span>)
+    <span class="fn">print</span>(<span class="str">f"Break-even:         </span>{months:.1f}<span class="str"> months"</span>)
+    <span class="kw">return</span> months</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you budget for fine-tuning retraining cycles?</summary>
+      <div class="fq-a">Plan for retraining <strong>every time the base model is updated</strong> and every time your task requirements change significantly. A practical cadence is quarterly review with retraining as needed. Budget approximately <strong>50&ndash;100% of the initial training cost</strong> per retraining cycle, since data preparation is usually the largest expense and it improves over iterations.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is LoRA always cheaper than full fine-tuning?</summary>
+      <div class="fq-a">In compute and memory, yes &mdash; typically <strong>5&ndash;10x cheaper</strong>. But the total project cost includes data preparation, evaluation, and deployment, which are similar regardless of method. LoRA's biggest cost savings come from <strong>serving</strong>: one base model shared across many task-specific adapters vs. one full model copy per task.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you track ROI of a fine-tuning project over time?</summary>
+      <div class="fq-a">Track three metrics monthly: (1) <strong>quality delta</strong> vs. the best non-fine-tuned alternative, (2) <strong>cost per request</strong> including amortized training and maintenance, and (3) <strong>operational incidents</strong> caused by the fine-tuned model. If any metric trends badly, re-evaluate whether fine-tuning is still the right approach.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+/* === Shared page scripts === */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

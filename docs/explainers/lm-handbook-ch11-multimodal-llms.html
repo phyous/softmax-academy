@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 11: Multimodal Large Language Models</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 11 &middot; 10 Topics</div>
+  <h1>Multimodal Large Language Models</h1>
+  <p>How LLMs extend beyond text to process images, audio, and video &mdash; and why alignment between modalities is the central engineering challenge.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Multimodal models incorporate images, audio, video, and other non-text signals into the same reasoning loop as language. The technical challenge goes far beyond adding a new input type: you must encode each modality, align their representations into a shared space, and evaluate whether the system is truly grounded in evidence or merely generating plausible-sounding text. This chapter walks through architecture patterns, grounding, evaluation, failure modes, and the practical business cases where multimodality delivers measurable value.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Foundations</div>
+      <a href="#topic-1"><span class="toc-num">1</span> What Is a Multimodal LLM?</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Text-Image Architecture</a>
+      <a href="#topic-3"><span class="toc-num">3</span> CLIP and Contrastive Alignment</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Visual Grounding</a>
+      <a href="#topic-5"><span class="toc-num">5</span> OCR vs Vision-Language</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Practice &amp; Evaluation</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Multimodal Prompting</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Evaluating Multimodal Systems</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Common Failure Modes</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Audio &amp; Video Modalities</a>
+      <a href="#topic-10"><span class="toc-num">10</span> High-Value Use Cases</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Foundations</span></div>
+    <p class="group-intro">Core concepts: what multimodal means, how architectures bridge modalities, and why alignment is the key to useful systems.</p>
+
+<!-- ============ TOPIC 1 ============ -->
+<style>
+.c11t01-arch-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 16px 0; }
+.c11t01-box { padding: 10px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-align: center; min-width: 90px; }
+.c11t01-arrow { color: #475569; font-size: 1.2rem; }
+.c11t01-label { font-size: 0.72rem; color: #64748b; text-align: center; margin-top: 4px; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>What Is a Multimodal LLM?</h2></div>
+
+  <div class="quick-take">A multimodal LLM processes and reasons over more than one input or output modality &mdash; such as text plus images or text plus audio. The language model stays central, but modality-specific encoders and adapters convert non-text inputs into representations the LLM can use.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Think of the LLM as a brain that only speaks one language. Multimodal adapters are translators that convert what eyes and ears perceive into that language so the brain can reason about it.</div>
+
+  <div class="visual-container" id="c11t01-visual">
+    <div class="c11t01-arch-flow">
+      <div>
+        <div class="c11t01-box" style="background:rgba(244,114,182,0.18);color:#f472b6;border:1px solid rgba(244,114,182,0.35);">Image</div>
+        <div class="c11t01-label">raw pixels</div>
+      </div>
+      <span class="c11t01-arrow">&#x2192;</span>
+      <div>
+        <div class="c11t01-box" style="background:rgba(167,139,250,0.18);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);">Vision Encoder</div>
+        <div class="c11t01-label">e.g. ViT, SigLIP</div>
+      </div>
+      <span class="c11t01-arrow">&#x2192;</span>
+      <div>
+        <div class="c11t01-box" style="background:rgba(250,204,21,0.18);color:#facc15;border:1px solid rgba(250,204,21,0.35);">Adapter / Projector</div>
+        <div class="c11t01-label">align spaces</div>
+      </div>
+      <span class="c11t01-arrow">&#x2192;</span>
+      <div>
+        <div class="c11t01-box" style="background:rgba(56,189,248,0.18);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);">Language Model</div>
+        <div class="c11t01-label">reasoning</div>
+      </div>
+      <span class="c11t01-arrow">&#x2192;</span>
+      <div>
+        <div class="c11t01-box" style="background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.35);">Response</div>
+        <div class="c11t01-label">grounded text</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;">
+      <div class="c11t01-box" style="background:rgba(56,189,248,0.10);color:#94a3b8;border:1px solid rgba(56,189,248,0.2);font-weight:400;font-size:0.8rem;">Text Prompt</div>
+      <span class="c11t01-arrow">&#x2192;</span>
+      <span style="font-size:0.8rem;color:#64748b;">feeds directly into the language model alongside image-derived tokens</span>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>More Than Adding Images</h3>
+    <p>A common misconception is that multimodality simply means "the model can see pictures." In reality, multimodality is about <strong>aligning representations</strong> across modalities so the system can answer grounded questions rather than hallucinating from text priors alone. The model does not natively read pixels or hear audio &mdash; other models translate those signals into a form the LLM can reason over.</p>
+
+    <h3>What Makes It Work</h3>
+    <p>Three components must cooperate for a multimodal LLM to function:</p>
+    <ul>
+      <li><strong>Modality encoder:</strong> A specialized model (e.g., a Vision Transformer) that converts raw input into dense embeddings.</li>
+      <li><strong>Alignment layer:</strong> A projector or adapter that maps encoder embeddings into the language model's token space. Without this bridge, the two models speak different "languages."</li>
+      <li><strong>Language model:</strong> The reasoning engine that conditions on both text tokens and modality-derived representations to generate responses.</li>
+    </ul>
+    <p>The quality of the alignment layer is often the bottleneck. A strong vision encoder paired with a weak adapter produces a system that can describe images in generic terms but cannot answer specific visual questions. See <a href="#topic-2" class="xref">Topic 2: Text-Image Architecture</a> for the detailed pattern.</p>
+
+    <h3>The Alignment Spectrum</h3>
+    <table>
+      <thead><tr><th>Alignment Quality</th><th>Behavior</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>None</td><td>Model ignores image, answers from text priors</td><td>Generic captions regardless of image</td></tr>
+        <tr><td>Weak</td><td>Model gets general category right but misses details</td><td>"A chart" instead of reading the chart</td></tr>
+        <tr><td>Strong</td><td>Model references specific visual evidence</td><td>Reading exact numbers from a bar chart</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multimodal LLMs succeed only when representation alignment and reasoning both work &mdash; perception mistakes propagate into every downstream language answer.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Using a Multimodal API</summary>
+    <pre><code><span class="kw">import</span> base64, httpx
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+<span class="com"># Initialize the client for a multimodal model</span>
+client = OpenAI()
+
+<span class="com"># Read and encode an image as base64</span>
+image_data = base64.<span class="fn">b64encode</span>(
+    httpx.<span class="fn">get</span>(<span class="str">"https://example.com/chart.png"</span>).content
+).<span class="fn">decode</span>(<span class="str">"utf-8"</span>)
+
+<span class="com"># Send both text and image to the model</span>
+response = client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: [
+            {<span class="str">"type"</span>: <span class="str">"text"</span>,
+             <span class="str">"text"</span>: <span class="str">"What trend does this chart show?"</span>},
+            {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+             <span class="str">"image_url"</span>: {
+                 <span class="str">"url"</span>: <span class="str">f"data:image/png;base64,</span>{image_data}<span class="str">"</span>
+             }}
+        ]
+    }]
+)
+
+<span class="fn">print</span>(response.choices[<span class="num">0</span>].message.content)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can a multimodal model generate images, or only consume them?</summary>
+      <div class="fq-a">Some models can both consume and generate images (e.g., GPT-4o with DALL-E integration, Gemini with native image generation), but the architectures differ significantly. <strong>Consuming</strong> images requires an encoder and adapter. <strong>Generating</strong> images requires a decoder (typically a diffusion model). Most current systems specialize in one direction or chain separate models.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does the number of image tokens affect cost and latency?</summary>
+      <div class="fq-a">Each image is converted into a fixed number of tokens (e.g., 85&ndash;1700 tokens depending on resolution in GPT-4o). These tokens consume <strong>context window space</strong> and are billed like text tokens. Higher-resolution settings use more tokens, increasing both cost and processing time. Always choose the minimum resolution that preserves task-critical detail.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the difference between early fusion and late fusion?</summary>
+      <div class="fq-a"><strong>Early fusion</strong> mixes modality representations at the input level, letting the model attend across modalities from the first layer. <strong>Late fusion</strong> processes each modality independently and combines them only at decision time. Early fusion is more expressive but requires more compute; most modern multimodal LLMs use a form of early fusion via adapter-injected tokens.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 2 ============ -->
+<style>
+.c11t02-pipeline { display: flex; flex-direction: column; gap: 12px; }
+.c11t02-stage { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; background: rgba(30,41,59,0.6); }
+.c11t02-stage-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.c11t02-stage-body { flex: 1; }
+.c11t02-stage-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+.c11t02-stage-desc { font-size: 0.78rem; color: #94a3b8; }
+.c11t02-conn { text-align: center; color: #475569; font-size: 1rem; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Text-Image Architecture Pattern</h2></div>
+
+  <div class="quick-take">The dominant pattern for text-image systems is: vision encoder converts images to embeddings, a projection layer aligns those embeddings to the language model's space, and the LLM reasons over both text tokens and image-derived tokens to produce a response.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The vision encoder is a camera, the projector is a simultaneous interpreter, and the LLM is the analyst who only reads reports in one language.</div>
+
+  <div class="visual-container" id="c11t02-visual">
+    <div class="c11t02-pipeline">
+      <div class="c11t02-stage">
+        <span class="c11t02-stage-num" style="background:rgba(244,114,182,0.3);color:#f472b6;">1</span>
+        <div class="c11t02-stage-body">
+          <div class="c11t02-stage-title" style="color:#f472b6;">Image Input</div>
+          <div class="c11t02-stage-desc">Raw pixels (e.g., 224x224 or 336x336 patches), possibly at multiple resolutions.</div>
+        </div>
+      </div>
+      <div class="c11t02-conn">&#x2193;</div>
+      <div class="c11t02-stage">
+        <span class="c11t02-stage-num" style="background:rgba(167,139,250,0.3);color:#a78bfa;">2</span>
+        <div class="c11t02-stage-body">
+          <div class="c11t02-stage-title" style="color:#a78bfa;">Vision Encoder (ViT / SigLIP / CLIP)</div>
+          <div class="c11t02-stage-desc">Splits image into patches, produces a sequence of dense embedding vectors. Often pre-trained and frozen.</div>
+        </div>
+      </div>
+      <div class="c11t02-conn">&#x2193;</div>
+      <div class="c11t02-stage">
+        <span class="c11t02-stage-num" style="background:rgba(250,204,21,0.3);color:#facc15;">3</span>
+        <div class="c11t02-stage-body">
+          <div class="c11t02-stage-title" style="color:#facc15;">Adapter / Projector (MLP, Q-Former, Perceiver)</div>
+          <div class="c11t02-stage-desc">Maps vision embeddings into the LLM's token embedding space. This is the alignment bottleneck &mdash; trained specifically for the LLM.</div>
+        </div>
+      </div>
+      <div class="c11t02-conn">&#x2193;</div>
+      <div class="c11t02-stage">
+        <span class="c11t02-stage-num" style="background:rgba(56,189,248,0.3);color:#38bdf8;">4</span>
+        <div class="c11t02-stage-body">
+          <div class="c11t02-stage-title" style="color:#38bdf8;">Language Model</div>
+          <div class="c11t02-stage-desc">Receives interleaved text tokens and image tokens. Self-attention runs across all tokens, enabling cross-modal reasoning.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Bridge Is Everything</h3>
+    <p>The language model is not natively reading pixels. Another model turns pixels into a form the LLM can reason over. The quality and design of this bridge &mdash; the adapter/projector &mdash; determines how much visual detail survives into the reasoning stage.</p>
+
+    <h3>Common Adapter Architectures</h3>
+    <table>
+      <thead><tr><th>Adapter Type</th><th>How It Works</th><th>Used In</th></tr></thead>
+      <tbody>
+        <tr><td>Linear projection</td><td>Simple learned linear map from vision to text space</td><td>LLaVA v1</td></tr>
+        <tr><td>MLP projector</td><td>Two-layer MLP with nonlinearity for richer mapping</td><td>LLaVA v1.5+</td></tr>
+        <tr><td>Q-Former</td><td>Learned queries attend to vision features via cross-attention</td><td>BLIP-2, InstructBLIP</td></tr>
+        <tr><td>Perceiver resampler</td><td>Fixed number of latent queries compress variable-length vision outputs</td><td>Flamingo, Qwen-VL</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Training Strategy</h3>
+    <p>Most text-image systems train in two phases:</p>
+    <ol>
+      <li><strong>Pre-training alignment:</strong> Train the projector on large-scale image-caption pairs while keeping both the vision encoder and LLM frozen. This teaches the projector to map visual features into the language space.</li>
+      <li><strong>Instruction tuning:</strong> Fine-tune the projector (and sometimes parts of the LLM) on visual question-answering and instruction-following data. This teaches the system to respond to complex visual queries.</li>
+    </ol>
+    <p>See <a href="#topic-4" class="xref">Topic 4: Visual Grounding</a> for why the second phase is critical for producing answers tied to actual image evidence.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The adapter between vision encoder and LLM is the alignment bottleneck &mdash; it determines how much visual detail the language model can actually reason about.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; LLaVA-style Forward Pass (Pseudocode)</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM
+
+<span class="com"># Pseudocode for a LLaVA-style multimodal forward pass</span>
+<span class="kw">class</span> <span class="fn">MultimodalLLM</span>(torch.nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        <span class="fn">super</span>().__init__()
+        <span class="com"># Vision encoder: pre-trained ViT, usually frozen</span>
+        self.vision_encoder = <span class="fn">load_vit</span>(<span class="str">"openai/clip-vit-large"</span>)
+        <span class="com"># Projector: maps vision dims -> LLM dims</span>
+        self.projector = torch.nn.<span class="fn">Sequential</span>(
+            torch.nn.<span class="fn">Linear</span>(<span class="num">1024</span>, <span class="num">4096</span>),  <span class="com"># vision_dim -> llm_dim</span>
+            torch.nn.<span class="fn">GELU</span>(),
+            torch.nn.<span class="fn">Linear</span>(<span class="num">4096</span>, <span class="num">4096</span>),
+        )
+        <span class="com"># Language model: pre-trained, may be partially fine-tuned</span>
+        self.llm = AutoModelForCausalLM.<span class="fn">from_pretrained</span>(<span class="str">"meta-llama/Llama-3-8B"</span>)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, image, text_ids):
+        <span class="com"># Step 1: Encode image into patch embeddings</span>
+        vision_feats = self.vision_encoder(image)  <span class="com"># [B, num_patches, 1024]</span>
+        <span class="com"># Step 2: Project into LLM space</span>
+        image_tokens = self.projector(vision_feats) <span class="com"># [B, num_patches, 4096]</span>
+        <span class="com"># Step 3: Get text embeddings</span>
+        text_embeds = self.llm.<span class="fn">get_input_embeddings</span>()(text_ids)
+        <span class="com"># Step 4: Concatenate image + text tokens</span>
+        combined = torch.<span class="fn">cat</span>([image_tokens, text_embeds], dim=<span class="num">1</span>)
+        <span class="com"># Step 5: LLM reasons over combined sequence</span>
+        <span class="kw">return</span> self.llm(inputs_embeds=combined)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Should the vision encoder be frozen or fine-tuned?</summary>
+      <div class="fq-a">Freezing the vision encoder preserves its strong pre-trained features and reduces training cost. <strong>Fine-tuning</strong> the encoder can improve performance on domain-specific tasks (e.g., medical imaging) but risks catastrophic forgetting of general capabilities. Most systems freeze the encoder for pre-training alignment and optionally unfreeze it during instruction tuning.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does image resolution affect the number of tokens?</summary>
+      <div class="fq-a">Higher resolution images produce more patches from the vision encoder, which means more tokens entering the LLM. For example, a 224x224 image with 14x14 patches produces 256 tokens, while 336x336 produces 576. Some systems use <strong>dynamic resolution</strong>, tiling large images into multiple crops to preserve detail at the cost of more tokens.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the role of the Q-Former in BLIP-2?</summary>
+      <div class="fq-a">The <strong>Q-Former</strong> uses a fixed set of learned query tokens that attend to the vision encoder's output via cross-attention. This compresses the variable-length vision output into a fixed number of tokens (typically 32), reducing the load on the LLM. The trade-off is that compression can lose spatial detail, which is why systems like LLaVA pass all patch tokens directly.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 3 ============ -->
+<style>
+.c11t03-space { position: relative; height: 280px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; overflow: hidden; }
+.c11t03-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s ease; cursor: pointer; }
+.c11t03-dot:hover { transform: scale(1.5); }
+.c11t03-label { position: absolute; font-size: 0.7rem; color: #94a3b8; pointer-events: none; }
+.c11t03-line { position: absolute; height: 1px; transform-origin: left center; pointer-events: none; }
+.c11t03-legend { display: flex; gap: 16px; justify-content: center; margin-top: 10px; font-size: 0.78rem; }
+.c11t03-legend-item { display: flex; align-items: center; gap: 5px; color: #94a3b8; }
+.c11t03-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>CLIP and Contrastive Alignment</h2></div>
+
+  <div class="quick-take">CLIP showed that image and text representations can be aligned through contrastive learning on large-scale paired data. It made zero-shot vision tasks practical and established the idea that natural language can serve as a supervision signal for perception models.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> CLIP is like teaching two people who speak different languages to point at the same objects. After enough practice, they agree on what goes together even for things they have never seen before.</div>
+
+  <div class="visual-container" id="c11t03-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;text-align:center;">Contrastive Embedding Space &mdash; matched pairs pull together, mismatched pairs push apart</div>
+    <div class="c11t03-space" id="c11t03-space"></div>
+    <div class="c11t03-legend">
+      <div class="c11t03-legend-item"><span class="c11t03-legend-dot" style="background:#f472b6;"></span> Image embeddings</div>
+      <div class="c11t03-legend-item"><span class="c11t03-legend-dot" style="background:#38bdf8;"></span> Text embeddings</div>
+      <div class="c11t03-legend-item"><span style="width:16px;height:1px;background:#4ade80;display:block;"></span> Matched pair</div>
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <button class="vis-btn" id="c11t03-reset">Shuffle</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How Contrastive Learning Works</h3>
+    <p>CLIP trains an image encoder and a text encoder simultaneously on ~400 million image-text pairs scraped from the internet. For each batch of N pairs:</p>
+    <ol>
+      <li>Encode all N images and all N texts into the same embedding space.</li>
+      <li>Compute cosine similarity between every image-text combination (an N&times;N matrix).</li>
+      <li>Maximize similarity for the N correct pairs (the diagonal) and minimize similarity for the N&sup2;&minus;N incorrect combinations.</li>
+    </ol>
+    <p>The result is a shared embedding space where semantically related images and texts cluster together, regardless of the specific words or visual appearance used.</p>
+
+    <h3>Why CLIP Matters</h3>
+    <p>Before CLIP, vision models were trained on fixed label sets (e.g., ImageNet's 1,000 classes). CLIP demonstrated three breakthroughs:</p>
+    <ul>
+      <li><strong>Zero-shot transfer:</strong> Classify any image by comparing it to text descriptions of the candidate classes &mdash; no retraining needed.</li>
+      <li><strong>Language as supervision:</strong> Natural language captions provide richer, more flexible supervision than category labels.</li>
+      <li><strong>Shared representation space:</strong> The aligned space supports image retrieval, visual question answering, and multimodal generation (see <a href="#topic-1" class="xref">Topic 1: What Is a Multimodal LLM?</a>).</li>
+    </ul>
+
+    <h3>Limitations</h3>
+    <table>
+      <thead><tr><th>Limitation</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>Bag-of-concepts bias</td><td>CLIP captures <em>what</em> is in an image but struggles with spatial relationships ("left of," "on top of")</td></tr>
+        <tr><td>Training data biases</td><td>Internet-scraped pairs contain cultural and demographic biases that transfer into the embedding space</td></tr>
+        <tr><td>Fine-grained distinction</td><td>Distinguishing similar species, medical conditions, or technical diagrams may require domain-specific fine-tuning</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>CLIP proved that aligned representation spaces can support flexible multimodal reasoning and retrieval &mdash; replacing narrow fixed-label vision systems with open-vocabulary understanding.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; CLIP Zero-Shot Classification</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">from</span> PIL <span class="kw">import</span> Image
+<span class="kw">from</span> transformers <span class="kw">import</span> CLIPProcessor, CLIPModel
+
+<span class="com"># Load pre-trained CLIP model</span>
+model = CLIPModel.<span class="fn">from_pretrained</span>(<span class="str">"openai/clip-vit-base-patch32"</span>)
+processor = CLIPProcessor.<span class="fn">from_pretrained</span>(<span class="str">"openai/clip-vit-base-patch32"</span>)
+
+<span class="com"># Load an image</span>
+image = Image.<span class="fn">open</span>(<span class="str">"photo.jpg"</span>)
+
+<span class="com"># Define candidate classes as natural language</span>
+labels = [<span class="str">"a photo of a cat"</span>, <span class="str">"a photo of a dog"</span>,
+          <span class="str">"a photo of a car"</span>, <span class="str">"a photo of a building"</span>]
+
+<span class="com"># Encode image and text into the shared space</span>
+inputs = processor(text=labels, images=image,
+                   return_tensors=<span class="str">"pt"</span>, padding=<span class="kw">True</span>)
+outputs = model(**inputs)
+
+<span class="com"># Cosine similarities -> probabilities</span>
+probs = outputs.logits_per_image.<span class="fn">softmax</span>(dim=<span class="num">-1</span>)
+<span class="kw">for</span> label, prob <span class="kw">in</span> <span class="fn">zip</span>(labels, probs[<span class="num">0</span>]):
+    <span class="fn">print</span>(<span class="str">f"  </span>{label}: {prob:.1%}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is SigLIP and how does it improve on CLIP?</summary>
+      <div class="fq-a"><strong>SigLIP</strong> replaces CLIP's softmax-based contrastive loss with a sigmoid loss applied to each image-text pair independently. This removes the need for large batch sizes (which CLIP relies on for negatives) and often achieves better performance. SigLIP is used as the vision encoder in PaLI and Gemini.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can CLIP embeddings be used for retrieval directly?</summary>
+      <div class="fq-a">Yes. CLIP embeddings are widely used for <strong>cross-modal retrieval</strong>: given a text query, find the most similar images (or vice versa) by nearest-neighbor search in the shared embedding space. This powers image search engines, content moderation, and multimodal RAG systems.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does contrastive pre-training differ from generative pre-training?</summary>
+      <div class="fq-a"><strong>Contrastive</strong> pre-training learns to distinguish matching pairs from non-matching pairs, producing good embeddings for retrieval and classification. <strong>Generative</strong> pre-training (like GPT) learns to predict the next token, producing good models for text generation. Modern multimodal systems often combine both: contrastive alignment for the encoder, generative training for the LLM.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var pairs = [
+    { img: 'cat', txt: '"a photo of a cat"' },
+    { img: 'sunset', txt: '"golden sunset over ocean"' },
+    { img: 'code', txt: '"Python source code"' },
+    { img: 'dog', txt: '"a happy dog running"' },
+    { img: 'chart', txt: '"bar chart of Q4 revenue"' }
+  ];
+  var space = document.getElementById('c11t03-space');
+  function render() {
+    space.innerHTML = '';
+    var w = space.offsetWidth || 400, h = space.offsetHeight || 280;
+    pairs.forEach(function(p, i) {
+      var ix = 40 + Math.random() * (w * 0.4 - 60);
+      var iy = 30 + (i / pairs.length) * (h - 60) + (Math.random() - 0.5) * 30;
+      var tx = ix + 30 + Math.random() * 60;
+      var ty = iy + (Math.random() - 0.5) * 25;
+      var imgDot = document.createElement('div');
+      imgDot.className = 'c11t03-dot';
+      imgDot.style.left = ix + 'px'; imgDot.style.top = iy + 'px';
+      imgDot.style.background = '#f472b6';
+      imgDot.title = p.img;
+      space.appendChild(imgDot);
+      var txtDot = document.createElement('div');
+      txtDot.className = 'c11t03-dot';
+      txtDot.style.left = tx + 'px'; txtDot.style.top = ty + 'px';
+      txtDot.style.background = '#38bdf8';
+      txtDot.title = p.txt;
+      space.appendChild(txtDot);
+      var lbl1 = document.createElement('div');
+      lbl1.className = 'c11t03-label';
+      lbl1.style.left = (ix - 4) + 'px'; lbl1.style.top = (iy + 14) + 'px';
+      lbl1.textContent = p.img;
+      space.appendChild(lbl1);
+      var lbl2 = document.createElement('div');
+      lbl2.className = 'c11t03-label';
+      lbl2.style.left = (tx + 14) + 'px'; lbl2.style.top = (ty - 4) + 'px';
+      lbl2.textContent = p.txt;
+      space.appendChild(lbl2);
+      var dx = tx - ix, dy = ty - iy;
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      var line = document.createElement('div');
+      line.className = 'c11t03-line';
+      line.style.left = (ix + 5) + 'px'; line.style.top = (iy + 5) + 'px';
+      line.style.width = dist + 'px';
+      line.style.transform = 'rotate(' + angle + 'deg)';
+      line.style.background = hexToRgba('#4ade80', 0.35);
+      space.appendChild(line);
+    });
+  }
+  render();
+  document.getElementById('c11t03-reset').addEventListener('click', render);
+})();
+</script>
+
+<!-- ============ TOPIC 4 ============ -->
+<style>
+.c11t04-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c11t04-panel { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c11t04-panel-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 8px; }
+.c11t04-example { font-size: 0.85rem; color: #cbd5e1; line-height: 1.6; }
+.c11t04-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin-bottom: 6px; }
+</style>
+
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Visual Grounding</h2></div>
+
+  <div class="quick-take">Visual grounding means the model's language output is actually tied to the image evidence rather than being generated from language priors or stereotyped assumptions. A grounded answer about a chart should reflect what is present in the image, not what is merely plausible in general.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Grounding is like the difference between a witness testimony (based on observation) and a guess (based on common sense). Only the testimony counts as evidence.</div>
+
+  <div class="visual-container" id="c11t04-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Same question about a chart image &mdash; grounded vs. ungrounded responses</div>
+    <div class="c11t04-grid">
+      <div class="c11t04-panel">
+        <div class="c11t04-tag" style="background:rgba(248,113,113,0.2);color:#f87171;">Ungrounded</div>
+        <div class="c11t04-panel-title" style="color:#f87171;">Answers from text priors</div>
+        <div class="c11t04-example">"The chart shows that revenue has been growing steadily over the past year, which is typical for a company in this sector."</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">Problem: sounds plausible but is not based on the actual chart data</div>
+      </div>
+      <div class="c11t04-panel">
+        <div class="c11t04-tag" style="background:rgba(74,222,128,0.2);color:#4ade80;">Grounded</div>
+        <div class="c11t04-panel-title" style="color:#4ade80;">Answers from image evidence</div>
+        <div class="c11t04-example">"The bar chart shows Q1 at $2.3M, Q2 at $1.8M (a 22% decline), Q3 at $2.1M, and Q4 at $3.1M. Revenue dipped in Q2 before recovering."</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">Strength: references specific values visible in the chart</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Core Trust Problem</h3>
+    <p>Grounding is the core trust problem in multimodal AI. A language model that has read millions of financial reports can generate plausible-sounding chart descriptions without looking at the chart at all. <strong>Fluency without grounding produces very convincing errors.</strong> Users assume "the model saw the image, so it must know" &mdash; making ungrounded answers especially dangerous.</p>
+
+    <h3>How Grounding Fails</h3>
+    <ul>
+      <li><strong>Prior override:</strong> The model's text knowledge overrides weak visual signal. A chart labeled "Revenue Growth" may trigger boilerplate about growth even if the chart shows decline.</li>
+      <li><strong>Hallucinated details:</strong> The model invents specific numbers, labels, or objects not present in the image.</li>
+      <li><strong>Stereotype completion:</strong> Given a photo of a kitchen, the model describes items it expects to see (microwave, toaster) rather than what is actually visible.</li>
+    </ul>
+
+    <h3>Testing for Grounding</h3>
+    <p>To verify grounding, use adversarial or counter-intuitive images: a chart that shows decline when the title says "growth," a photo with unusual objects, or a document with intentional errors. If the model's answer matches the image rather than common expectations, it is grounded. See <a href="#topic-7" class="xref">Topic 7: Evaluating Multimodal Systems</a> for systematic evaluation approaches.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Grounding is what separates a multimodal model that observes from one that merely guesses &mdash; and users cannot easily tell the difference without deliberate testing.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Grounding Test with Counter-Intuitive Image</summary>
+    <pre><code><span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+client = OpenAI()
+
+<span class="com"># Test grounding: the chart title says "Growth"</span>
+<span class="com"># but the actual bars show a 40% decline</span>
+response = client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: [
+            {<span class="str">"type"</span>: <span class="str">"text"</span>,
+             <span class="str">"text"</span>: <span class="str">"Describe the trend shown in this chart. "</span>
+                      <span class="str">"Report the actual values you see."</span>},
+            {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+             <span class="str">"image_url"</span>: {<span class="str">"url"</span>: <span class="str">"file://misleading_chart.png"</span>}}
+        ]
+    }]
+)
+
+answer = response.choices[<span class="num">0</span>].message.content
+<span class="com"># GROUNDED: mentions the decline despite the misleading title</span>
+<span class="com"># UNGROUNDED: echoes "growth" from the title</span>
+<span class="fn">print</span>(<span class="str">"Grounded?"</span>, <span class="str">"decline"</span> <span class="kw">in</span> answer.lower())</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How can you encourage grounding in prompts?</summary>
+      <div class="fq-a">Ask the model to <strong>"describe only what you see"</strong>, <strong>"quote the exact text visible"</strong>, or <strong>"if you cannot determine this from the image, say so."</strong> Explicit instructions to reference visual evidence and refuse when uncertain significantly improve grounding behavior compared to open-ended questions.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is grounding better in newer models?</summary>
+      <div class="fq-a">Yes, generally. Models like GPT-4o, Claude 3.5 Sonnet, and Gemini 1.5 Pro show significantly better grounding than earlier systems. However, <strong>no current model is perfectly grounded</strong>. All still exhibit hallucination on challenging images, especially small text, dense charts, and spatially complex scenes. Verification remains essential.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the relationship between grounding and hallucination?</summary>
+      <div class="fq-a">Hallucination is the symptom; <strong>lack of grounding is the cause</strong>. When the model fails to ground its output in the visual input, it falls back on text priors, which generates plausible but unverified content. Reducing hallucination in multimodal systems requires improving grounding, not just penalizing "wrong" outputs.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 5 ============ -->
+<style>
+.c11t05-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c11t05-card { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c11t05-card-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.c11t05-list { list-style: none; padding: 0; }
+.c11t05-list li { padding: 5px 0; font-size: 0.82rem; color: #94a3b8; border-bottom: 1px solid #1e293b; display: flex; align-items: center; gap: 6px; }
+.c11t05-list li:last-child { border-bottom: none; }
+.c11t05-check { color: #4ade80; font-size: 0.9rem; }
+.c11t05-x { color: #f87171; font-size: 0.9rem; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>OCR vs Vision-Language Understanding</h2></div>
+
+  <div class="quick-take">OCR excels when the image is primarily text (documents, forms, receipts). Native vision-language models are more valuable when spatial layout, objects, relationships, and mixed visual-text cues matter together. Many strong systems combine both rather than treating them as mutually exclusive.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> OCR reads the letters on a page. A vision-language model reads the page and understands the diagram next to the letters.</div>
+
+  <div class="visual-container" id="c11t05-visual">
+    <div class="c11t05-comparison">
+      <div class="c11t05-card">
+        <div class="c11t05-card-title" style="color:#38bdf8;">OCR Best For</div>
+        <ul class="c11t05-list">
+          <li><span class="c11t05-check">&#10003;</span> Typed documents and forms</li>
+          <li><span class="c11t05-check">&#10003;</span> Receipts and invoices</li>
+          <li><span class="c11t05-check">&#10003;</span> Screenshots with structured text</li>
+          <li><span class="c11t05-check">&#10003;</span> Scanned pages with uniform layout</li>
+          <li><span class="c11t05-x">&#10007;</span> Photos with mixed text and objects</li>
+          <li><span class="c11t05-x">&#10007;</span> Charts requiring spatial reasoning</li>
+        </ul>
+      </div>
+      <div class="c11t05-card">
+        <div class="c11t05-card-title" style="color:#a78bfa;">Vision-Language Best For</div>
+        <ul class="c11t05-list">
+          <li><span class="c11t05-check">&#10003;</span> Charts, graphs, and diagrams</li>
+          <li><span class="c11t05-check">&#10003;</span> Photos with spatial relationships</li>
+          <li><span class="c11t05-check">&#10003;</span> Mixed media documents</li>
+          <li><span class="c11t05-check">&#10003;</span> Handwritten + visual content</li>
+          <li><span class="c11t05-x">&#10007;</span> Dense text extraction at scale</li>
+          <li><span class="c11t05-x">&#10007;</span> Exact character-level fidelity</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Choosing the Right Tool</h3>
+    <p>The practical answer is to choose the tool that best matches the information source. If you need to extract structured text from thousands of scanned invoices, dedicated OCR pipelines (Tesseract, Azure Document Intelligence, Google Document AI) will be faster, cheaper, and more accurate than sending each page to a multimodal LLM.</p>
+    <p>But if you need to understand a complex infographic that mixes charts, icons, and text annotations &mdash; and answer questions about it &mdash; a vision-language model is far more capable because it can reason about the spatial relationships between visual elements.</p>
+
+    <h3>The Hybrid Approach</h3>
+    <p>Many production systems combine both:</p>
+    <ol>
+      <li><strong>OCR first:</strong> Extract structured text from the document.</li>
+      <li><strong>Vision-language second:</strong> Send the image plus extracted text to the multimodal model, giving it both visual context and reliable text extraction.</li>
+    </ol>
+    <p>This hybrid approach addresses a key weakness of vision-language models: they can misread small text, confuse similar characters (0/O, 1/l), or skip text in crowded layouts. The OCR layer provides a reliable text backbone while the vision model handles layout and visual reasoning.</p>
+
+    <h3>When OCR Alone Is Not Enough</h3>
+    <table>
+      <thead><tr><th>Scenario</th><th>Why OCR Falls Short</th><th>What VL Models Add</th></tr></thead>
+      <tbody>
+        <tr><td>Chart comprehension</td><td>OCR extracts axis labels but not visual trends</td><td>Understands bar heights, line slopes, relative sizes</td></tr>
+        <tr><td>Form with checkboxes</td><td>OCR reads text but misses checked/unchecked state</td><td>Perceives checkbox state as visual signal</td></tr>
+        <tr><td>Handwritten notes</td><td>OCR accuracy drops significantly</td><td>Handles messy handwriting with contextual inference</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>OCR and vision-language models are complementary &mdash; combine them when the task requires both precise text extraction and visual-spatial reasoning.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Hybrid OCR + Vision-Language Pipeline</summary>
+    <pre><code><span class="kw">import</span> pytesseract
+<span class="kw">from</span> PIL <span class="kw">import</span> Image
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+<span class="com"># Step 1: Extract text with OCR for reliable text extraction</span>
+image = Image.<span class="fn">open</span>(<span class="str">"invoice.png"</span>)
+ocr_text = pytesseract.<span class="fn">image_to_string</span>(image)
+
+<span class="com"># Step 2: Send image + OCR text to multimodal model</span>
+<span class="com"># The OCR provides reliable text; the model adds layout understanding</span>
+client = OpenAI()
+response = client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: [
+            {<span class="str">"type"</span>: <span class="str">"text"</span>,
+             <span class="str">"text"</span>: <span class="str">f"OCR extracted text:\n</span>{ocr_text}<span class="str">\n\n"</span>
+                      <span class="str">"Using the image and extracted text, "</span>
+                      <span class="str">"identify the total amount and due date."</span>},
+            {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+             <span class="str">"image_url"</span>: {<span class="str">"url"</span>: <span class="str">"file://invoice.png"</span>}}
+        ]
+    }]
+)
+<span class="fn">print</span>(response.choices[<span class="num">0</span>].message.content)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Are multimodal LLMs replacing traditional OCR?</summary>
+      <div class="fq-a">For <strong>high-volume, structured document processing</strong>, traditional OCR remains faster and cheaper. Multimodal LLMs are replacing OCR in scenarios requiring <strong>understanding</strong> rather than just extraction &mdash; answering questions about documents, summarizing visual content, or handling unstructured layouts. The two are converging but not yet substitutes at scale.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How accurate are multimodal LLMs at reading small text in images?</summary>
+      <div class="fq-a">Accuracy varies significantly with image resolution and text size. Current models handle large, clear text well but <strong>struggle with text under ~8px height</strong>, low-contrast text, and text in unusual fonts or orientations. For critical text extraction, always verify with dedicated OCR or request high-resolution image inputs.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Practice &amp; Evaluation</span></div>
+    <p class="group-intro">How to prompt, evaluate, and debug multimodal systems &mdash; plus the modalities beyond static images and the business cases that deliver real value.</p>
+
+<!-- ============ TOPIC 6 ============ -->
+<style>
+.c11t06-examples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c11t06-ex { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c11t06-ex-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 6px; }
+.c11t06-prompt { font-size: 0.82rem; color: #cbd5e1; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1.55; white-space: pre-wrap; }
+</style>
+
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Multimodal Prompting</h2></div>
+
+  <div class="quick-take">Multimodal prompting must direct the model not only on what to answer but also on what visual evidence to inspect. Good prompts specify the task, the level of detail needed, and whether the model should prioritize text, objects, layout, or anomalies in the image.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A text prompt is like asking a question. A multimodal prompt is like asking a question and pointing at the whiteboard &mdash; you must tell the model where to look, not just what to think about.</div>
+
+  <div class="visual-container" id="c11t06-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Weak vs. strong multimodal prompts for the same image</div>
+    <div class="c11t06-examples">
+      <div class="c11t06-ex">
+        <div class="c11t06-ex-label" style="color:#f87171;">Weak Prompt</div>
+        <div class="c11t06-prompt">What does this image show?</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">Too vague &mdash; model picks whatever it finds easiest to describe</div>
+      </div>
+      <div class="c11t06-ex">
+        <div class="c11t06-ex-label" style="color:#4ade80;">Strong Prompt</div>
+        <div class="c11t06-prompt">This is a bar chart of quarterly
+revenue. Read the exact value
+for each quarter from the y-axis.
+If any value is unclear, say so.
+Report any trend or anomaly.</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">Specific task, precision level, and abstention guidance</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Same Principle, Extended</h3>
+    <p>The fundamental prompting principle still applies: clear tasks beat vague requests. But multimodal prompting adds dimensions that text-only prompting does not require:</p>
+    <ul>
+      <li><strong>Perception guidance:</strong> Tell the model what type of visual content to focus on (text in image, object positions, colors, chart axes).</li>
+      <li><strong>Detail calibration:</strong> Specify whether you need a high-level summary or pixel-level precision.</li>
+      <li><strong>Abstention instruction:</strong> Explicitly tell the model to say "I cannot determine this" when image quality or content is insufficient. Without this, the model will fabricate details.</li>
+      <li><strong>Format specification:</strong> Request structured output (JSON, table, list) when you need to parse the results programmatically.</li>
+    </ul>
+
+    <h3>Prompting Strategies by Image Type</h3>
+    <table>
+      <thead><tr><th>Image Type</th><th>Effective Strategy</th></tr></thead>
+      <tbody>
+        <tr><td>Charts/graphs</td><td>Ask for specific axis values, trends, and data points by name</td></tr>
+        <tr><td>Documents</td><td>Request structured extraction with field names</td></tr>
+        <tr><td>Photos/scenes</td><td>Specify spatial reasoning ("what is to the left of...")</td></tr>
+        <tr><td>Screenshots</td><td>Ask about UI elements, error messages, or specific regions</td></tr>
+        <tr><td>Medical/technical</td><td>Request domain-specific observations with confidence levels</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-4" class="xref">Topic 4: Visual Grounding</a> for why abstention instructions are critical for maintaining trust.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multimodal prompts must guide perception, not just reasoning &mdash; tell the model what to look at and how precisely, or it will default to superficial description.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Structured Multimodal Prompt</summary>
+    <pre><code><span class="com"># A well-structured multimodal prompt for chart analysis</span>
+prompt = <span class="str">"""Analyze this bar chart image. Follow these steps:
+
+1. AXES: Read the x-axis labels and y-axis scale.
+2. VALUES: Report the exact value for each bar.
+   If a value is ambiguous, give a range.
+3. TREND: Describe the overall trend in 1 sentence.
+4. ANOMALIES: Note any unusual patterns or outliers.
+
+Output as JSON with keys: axes, values, trend, anomalies.
+If any part is unreadable, set its value to null."""</span>
+
+<span class="com"># This structured approach gets far better results</span>
+<span class="com"># than asking "What does this chart show?"</span>
+response = client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: [
+            {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: prompt},
+            {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+             <span class="str">"image_url"</span>: {<span class="str">"url"</span>: chart_url}}
+        ]
+    }],
+    response_format={<span class="str">"type"</span>: <span class="str">"json_object"</span>}
+)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does chain-of-thought prompting work for multimodal tasks?</summary>
+      <div class="fq-a">Yes. Asking the model to <strong>"first describe what you see, then reason about it"</strong> often improves accuracy on complex visual tasks. This two-step approach forces the model to commit to observations before drawing conclusions, reducing the chance that text priors override visual evidence. See <a href="#topic-4" class="xref">Topic 4: Visual Grounding</a>.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How should you handle multiple images in one prompt?</summary>
+      <div class="fq-a">When sending multiple images, <strong>label each image explicitly</strong> ("Image 1 shows..., Image 2 shows...") and reference them by label in your question. Without labels, the model may confuse which image you are asking about, especially when the images are similar. Most APIs support multiple images in a single message.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What perception limits should you account for?</summary>
+      <div class="fq-a">Current models struggle with: <strong>small text</strong> (under 8px), <strong>fine-grained counting</strong> (exact number of objects in a crowd), <strong>spatial precision</strong> (exact pixel coordinates), and <strong>rotated or skewed content</strong>. Design prompts that acknowledge these limits by asking for confidence levels or ranges rather than exact values.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 7 ============ -->
+<style>
+.c11t07-dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.c11t07-dim { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; text-align: center; }
+.c11t07-dim-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.c11t07-dim-name { font-size: 0.82rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+.c11t07-dim-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Evaluating Multimodal Systems</h2></div>
+
+  <div class="quick-take">Evaluation should measure grounded correctness, not just fluency. Multimodal evaluation usually requires task-specific datasets plus manual review because many failures are subtle and cannot be detected by string matching alone.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Evaluating a multimodal model is like grading an open-book exam where you must also check whether the student actually read the book or just made up convincing answers.</div>
+
+  <div class="visual-container" id="c11t07-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Evaluation dimensions for multimodal systems</div>
+    <div class="c11t07-dims">
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f3af;</div>
+        <div class="c11t07-dim-name">Answer Accuracy</div>
+        <div class="c11t07-dim-desc">Is the factual content correct given the image?</div>
+      </div>
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f50d;</div>
+        <div class="c11t07-dim-name">Object/Attribute</div>
+        <div class="c11t07-dim-desc">Are named objects and their properties correct?</div>
+      </div>
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f4c4;</div>
+        <div class="c11t07-dim-name">OCR Fidelity</div>
+        <div class="c11t07-dim-desc">Is text in the image read accurately?</div>
+      </div>
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f4d0;</div>
+        <div class="c11t07-dim-name">Spatial Reasoning</div>
+        <div class="c11t07-dim-desc">Are positions and relationships correct?</div>
+      </div>
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f6d1;</div>
+        <div class="c11t07-dim-name">Refusal Quality</div>
+        <div class="c11t07-dim-desc">Does it refuse when the image is unclear?</div>
+      </div>
+      <div class="c11t07-dim">
+        <div class="c11t07-dim-icon">&#x1f465;</div>
+        <div class="c11t07-dim-name">Human Preference</div>
+        <div class="c11t07-dim-desc">Do users find the response useful?</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Standard NLP Metrics Fail</h3>
+    <p>Multimodal quality cannot be evaluated with standard NLP metrics like BLEU or ROUGE. A response that uses different words to describe the same visual observation may score poorly on string matching but be perfectly correct. Conversely, a response that copies common patterns may score well on string overlap while being completely ungrounded.</p>
+
+    <h3>Evaluation Dimensions</h3>
+    <p>Depending on the task, evaluation should span multiple dimensions:</p>
+    <ul>
+      <li><strong>Answer accuracy:</strong> Is the response factually correct given the specific image?</li>
+      <li><strong>Object/attribute correctness:</strong> Are named objects, colors, quantities, and labels correct?</li>
+      <li><strong>OCR fidelity:</strong> When text appears in the image, is it read accurately?</li>
+      <li><strong>Spatial reasoning:</strong> Are positional relationships (left/right, above/below, inside/outside) correct?</li>
+      <li><strong>Refusal behavior:</strong> Does the model appropriately refuse or hedge when the image is blurry, ambiguous, or insufficient?</li>
+      <li><strong>Human preference:</strong> Is the response actually useful to the target user?</li>
+    </ul>
+
+    <h3>Building a Multimodal Eval Suite</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Purpose</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Task-specific dataset</td><td>Test accuracy on your actual use case</td><td>100 real customer support screenshots with ground-truth answers</td></tr>
+        <tr><td>Adversarial images</td><td>Test grounding and robustness</td><td>Charts with misleading titles, photos with unusual objects</td></tr>
+        <tr><td>Edge-case gallery</td><td>Test failure modes</td><td>Blurry images, tiny text, dense layouts</td></tr>
+        <tr><td>Human review protocol</td><td>Catch subtle errors automated metrics miss</td><td>Domain experts rating responses on a 1&ndash;5 scale</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-8" class="xref">Topic 8: Common Failure Modes</a> for the specific failures your eval suite should be designed to catch.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multimodal evaluation requires task-specific datasets and human review &mdash; fluency metrics will not catch the subtle perception and grounding errors that matter most.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Simple Eval Framework</summary>
+    <pre><code><span class="kw">import</span> json
+
+<span class="kw">def</span> <span class="fn">evaluate_multimodal_response</span>(response, ground_truth):
+    <span class="str">"""Score a multimodal response across key dimensions."""</span>
+    scores = {}
+
+    <span class="com"># 1. Factual accuracy: check key facts appear in response</span>
+    key_facts = ground_truth[<span class="str">"facts"</span>]
+    found = <span class="fn">sum</span>(<span class="num">1</span> <span class="kw">for</span> f <span class="kw">in</span> key_facts <span class="kw">if</span> f.lower() <span class="kw">in</span> response.lower())
+    scores[<span class="str">"accuracy"</span>] = found / <span class="fn">len</span>(key_facts)
+
+    <span class="com"># 2. Hallucination check: detect fabricated details</span>
+    forbidden = ground_truth.<span class="fn">get</span>(<span class="str">"absent_objects"</span>, [])
+    hallucinated = [f <span class="kw">for</span> f <span class="kw">in</span> forbidden <span class="kw">if</span> f.lower() <span class="kw">in</span> response.lower()]
+    scores[<span class="str">"hallucination_count"</span>] = <span class="fn">len</span>(hallucinated)
+
+    <span class="com"># 3. Refusal quality: did it refuse when it should have?</span>
+    should_refuse = ground_truth.<span class="fn">get</span>(<span class="str">"should_refuse"</span>, <span class="kw">False</span>)
+    refusal_phrases = [<span class="str">"cannot determine"</span>, <span class="str">"unclear"</span>, <span class="str">"not visible"</span>]
+    did_refuse = <span class="fn">any</span>(p <span class="kw">in</span> response.lower() <span class="kw">for</span> p <span class="kw">in</span> refusal_phrases)
+    scores[<span class="str">"refusal_correct"</span>] = did_refuse == should_refuse
+
+    <span class="kw">return</span> scores</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What public benchmarks exist for multimodal evaluation?</summary>
+      <div class="fq-a">Key benchmarks include <strong>MMMU</strong> (multi-discipline understanding), <strong>MMBench</strong> (broad visual reasoning), <strong>VQAv2</strong> (visual question answering), <strong>TextVQA</strong> (text-in-image reading), and <strong>RealWorldQA</strong> (real-world spatial reasoning). However, public benchmarks often saturate quickly and may not reflect your specific use case. Custom eval sets are essential.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use an LLM to judge multimodal responses?</summary>
+      <div class="fq-a">Yes, <strong>LLM-as-judge</strong> approaches work for multimodal evaluation, but with caveats. You can send the image, the model's response, and the ground truth to a stronger model and ask it to rate accuracy. This catches many errors but can miss subtle spatial or OCR mistakes. Combine with human review for high-stakes applications.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How often should you re-evaluate after model updates?</summary>
+      <div class="fq-a">Re-evaluate after <strong>every model version change</strong>. Provider model updates can change multimodal behavior significantly &mdash; improving some capabilities while regressing on others. Maintain a fixed eval set and run it automatically to detect regressions before they reach production.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 8 ============ -->
+<style>
+.c11t08-failures { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.c11t08-fail-card { background: #0f172a; border-radius: 8px; padding: 12px; border-left: 3px solid; }
+.c11t08-fail-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.c11t08-fail-desc { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Common Failure Modes</h2></div>
+
+  <div class="quick-take">Multimodal LLMs commonly hallucinate unseen objects, misread small text, lose spatial relationships, confuse charts, overtrust noisy OCR, and answer beyond what the image actually supports. These failures are especially dangerous because users assume the model saw the image.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Multimodal failures are like an overconfident tour guide who describes landmarks that are not there &mdash; the confidence makes the errors more harmful, not less.</div>
+
+  <div class="visual-container" id="c11t08-visual">
+    <div class="c11t08-failures">
+      <div class="c11t08-fail-card" style="border-color:#f472b6;">
+        <div class="c11t08-fail-name" style="color:#f472b6;">Object Hallucination</div>
+        <div class="c11t08-fail-desc">Describes objects not present in the image based on scene expectations (e.g., "there is a laptop on the desk" when no laptop exists).</div>
+      </div>
+      <div class="c11t08-fail-card" style="border-color:#fb923c;">
+        <div class="c11t08-fail-name" style="color:#fb923c;">Text Misreading</div>
+        <div class="c11t08-fail-desc">Misreads small or stylized text, confuses similar characters (0/O, 1/l/I), or invents text that is not in the image.</div>
+      </div>
+      <div class="c11t08-fail-card" style="border-color:#facc15;">
+        <div class="c11t08-fail-name" style="color:#facc15;">Spatial Confusion</div>
+        <div class="c11t08-fail-desc">Gets left/right, above/below, or containment relationships wrong, especially in complex layouts.</div>
+      </div>
+      <div class="c11t08-fail-card" style="border-color:#38bdf8;">
+        <div class="c11t08-fail-name" style="color:#38bdf8;">Chart Misinterpretation</div>
+        <div class="c11t08-fail-desc">Reads wrong values from axes, confuses chart types, or describes trends opposite to what the data shows.</div>
+      </div>
+      <div class="c11t08-fail-card" style="border-color:#a78bfa;">
+        <div class="c11t08-fail-name" style="color:#a78bfa;">Overconfident OCR Trust</div>
+        <div class="c11t08-fail-desc">Trusts noisy or partial OCR output without hedging, propagating extraction errors into analysis.</div>
+      </div>
+      <div class="c11t08-fail-card" style="border-color:#f87171;">
+        <div class="c11t08-fail-name" style="color:#f87171;">Distribution Shift</div>
+        <div class="c11t08-fail-desc">Performance on real-world images is much worse than on curated benchmarks due to noise, blur, unusual angles.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Multimodal Failures Are Dangerous</h3>
+    <p>A senior answer adds that multimodal failures are especially dangerous because <strong>users may assume "the model saw the image, so it must know."</strong> In text-only settings, users understand the model is generating from training data. In multimodal settings, the image creates an illusion of observation, making hallucinations more credible and harder to catch.</p>
+
+    <h3>Failure Categories in Detail</h3>
+    <ul>
+      <li><strong>Hallucinating unseen objects:</strong> The model describes plausible but absent elements based on scene priors. A kitchen image may trigger descriptions of common appliances regardless of what is actually shown.</li>
+      <li><strong>Misreading small text:</strong> Characters under ~8 pixels are unreliable. Numbers are especially prone to errors (e.g., "2,341" read as "2,841").</li>
+      <li><strong>Losing spatial relationships:</strong> "The red box is above the blue box" may be reversed. Models encode position weakly compared to object identity.</li>
+      <li><strong>Confusing charts:</strong> Values read from the wrong axis, trends described opposite to the data, or chart types misidentified.</li>
+      <li><strong>Answering beyond the image:</strong> When asked about something not visible, the model fills in from general knowledge rather than refusing.</li>
+    </ul>
+
+    <h3>Mitigation Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Helps</th></tr></thead>
+      <tbody>
+        <tr><td>Abstention prompting</td><td>Instruct the model to say "I cannot determine" when uncertain</td></tr>
+        <tr><td>High-resolution mode</td><td>More pixels per patch reduces text misreading</td></tr>
+        <tr><td>Multi-crop processing</td><td>Process image regions separately for detail-heavy areas</td></tr>
+        <tr><td>Verification pipeline</td><td>Use a second model or OCR to cross-check critical claims</td></tr>
+        <tr><td>Human-in-the-loop</td><td>Require human review for high-stakes visual decisions</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-4" class="xref">Topic 4: Visual Grounding</a> for the underlying grounding problem that drives most failures, and <a href="#topic-7" class="xref">Topic 7: Evaluating Multimodal Systems</a> for how to build eval suites that catch them.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multimodal errors are uniquely dangerous because the image creates an illusion of observation &mdash; grounding checks and abstention are essential, not optional.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Hallucination Detection Check</summary>
+    <pre><code><span class="kw">def</span> <span class="fn">check_for_hallucination</span>(image_path, primary_response):
+    <span class="str">"""Cross-check a multimodal response with a second query."""</span>
+    <span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+    client = OpenAI()
+
+    <span class="com"># Ask a focused verification question about key claims</span>
+    verification_prompt = <span class="str">f"""The following response was generated about
+an image. Verify whether each claimed object or fact is
+actually visible in the image.
+
+Response to verify:
+{primary_response}
+
+For each claim, state: CONFIRMED, UNCERTAIN, or NOT_VISIBLE.
+Only mark CONFIRMED if you can clearly see the evidence."""</span>
+
+    result = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[{
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: [
+                {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: verification_prompt},
+                {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+                 <span class="str">"image_url"</span>: {<span class="str">"url"</span>: <span class="str">f"file://</span>{image_path}<span class="str">"</span>}}
+            ]
+        }]
+    )
+    <span class="kw">return</span> result.choices[<span class="num">0</span>].message.content</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you distinguish perception errors from reasoning errors?</summary>
+      <div class="fq-a">Ask the model to <strong>describe what it sees</strong> before answering the question. If the description is wrong (e.g., wrong objects, wrong text), it is a <strong>perception error</strong>. If the description is correct but the conclusion is wrong, it is a <strong>reasoning error</strong>. This distinction matters because the fixes are different: perception errors require better encoders or resolution; reasoning errors require better prompting or model capability.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does increasing image resolution always help?</summary>
+      <div class="fq-a">Higher resolution improves text reading and fine detail detection but <strong>increases token count and cost</strong>. It also does not help with fundamental spatial reasoning weaknesses. The optimal strategy is to use high resolution only for regions that need it (multi-crop approaches) rather than upscaling the entire image.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Are some image types more prone to hallucination?</summary>
+      <div class="fq-a">Yes. <strong>Dense charts, medical images, satellite imagery, and technical diagrams</strong> produce significantly more hallucinations than everyday photos. These images require precise interpretation that models were less exposed to during training. For these domains, always pair multimodal models with domain-specific verification.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 9 ============ -->
+<style>
+.c11t09-modality-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.c11t09-mod { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; text-align: center; }
+.c11t09-mod-icon { font-size: 1.5rem; margin-bottom: 6px; }
+.c11t09-mod-name { font-size: 0.88rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+.c11t09-mod-detail { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
+.c11t09-challenge { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(250,204,21,0.08); border-radius: 6px; margin-top: 8px; font-size: 0.78rem; color: #facc15; }
+</style>
+
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Audio &amp; Video Modalities</h2></div>
+
+  <div class="quick-take">Audio and video introduce time, so the system must model sequences of frames or acoustic features as well as their relationship to language. That increases compute cost and raises additional alignment questions, such as what moment in the video supports the answer.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Static images are snapshots. Audio and video are movies &mdash; the model must now decide not just what to look at, but when to look.</div>
+
+  <div class="visual-container" id="c11t09-visual">
+    <div class="c11t09-modality-grid">
+      <div class="c11t09-mod">
+        <div class="c11t09-mod-icon">&#x1f5bc;</div>
+        <div class="c11t09-mod-name" style="color:#f472b6;">Image</div>
+        <div class="c11t09-mod-detail">Single frame, no temporal dimension. One-shot encoding.</div>
+        <div class="c11t09-challenge">Complexity: Low</div>
+      </div>
+      <div class="c11t09-mod">
+        <div class="c11t09-mod-icon">&#x1f3b5;</div>
+        <div class="c11t09-mod-name" style="color:#38bdf8;">Audio</div>
+        <div class="c11t09-mod-detail">Temporal sequences of acoustic features. Speech, music, environmental sounds.</div>
+        <div class="c11t09-challenge">Complexity: Medium</div>
+      </div>
+      <div class="c11t09-mod">
+        <div class="c11t09-mod-icon">&#x1f3ac;</div>
+        <div class="c11t09-mod-name" style="color:#a78bfa;">Video</div>
+        <div class="c11t09-mod-detail">Spatial + temporal. Frame sampling, segmentation, synchronization with audio.</div>
+        <div class="c11t09-challenge">Complexity: High</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Time Dimension</h3>
+    <p>Temporal modalities require capabilities that static image processing does not:</p>
+    <ul>
+      <li><strong>Sampling:</strong> A 60-second video at 30fps has 1,800 frames. You cannot encode all of them &mdash; you must sample strategically (uniform sampling, keyframe detection, or scene-change detection).</li>
+      <li><strong>Segmentation:</strong> Breaking audio or video into meaningful segments (speech turns, scenes, actions) before encoding.</li>
+      <li><strong>Synchronization:</strong> Aligning audio track with video frames so the model can associate speech with visual events.</li>
+      <li><strong>Hierarchical reasoning:</strong> Understanding events at multiple time scales (a gesture within a sentence within a scene within a conversation).</li>
+    </ul>
+
+    <h3>Audio Processing Patterns</h3>
+    <p>Audio is typically processed through a speech/audio encoder (like Whisper) that converts acoustic features into embedding sequences. These embeddings are then projected into the LLM's space, similar to how vision encoders work for images. The key difference is that audio sequences can be very long &mdash; a 10-minute audio clip produces far more tokens than a single image.</p>
+
+    <h3>Video Processing Challenges</h3>
+    <table>
+      <thead><tr><th>Challenge</th><th>Why It Is Hard</th><th>Common Approach</th></tr></thead>
+      <tbody>
+        <tr><td>Frame count</td><td>Too many frames to encode at full rate</td><td>Sample 8&ndash;32 frames uniformly or at scene changes</td></tr>
+        <tr><td>Temporal grounding</td><td>Must link language answer to specific moment</td><td>Timestamp prediction or segment-level attention</td></tr>
+        <tr><td>Compute cost</td><td>Encoding 32 frames costs 32x a single image</td><td>Shared encoder with temporal pooling</td></tr>
+        <tr><td>Long-form reasoning</td><td>Events spanning minutes require memory</td><td>Hierarchical summarization of frame embeddings</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-1" class="xref">Topic 1: What Is a Multimodal LLM?</a> for the general architecture pattern that extends to these temporal modalities.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Temporal modalities require sampling, segmentation, synchronization, and hierarchical reasoning &mdash; making them fundamentally harder than static image understanding.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Video Frame Sampling for Multimodal Input</summary>
+    <pre><code><span class="kw">import</span> cv2
+<span class="kw">import</span> base64
+
+<span class="kw">def</span> <span class="fn">sample_video_frames</span>(video_path, num_frames=<span class="num">8</span>):
+    <span class="str">"""Sample frames uniformly from a video for multimodal input."""</span>
+    cap = cv2.<span class="fn">VideoCapture</span>(video_path)
+    total_frames = <span class="fn">int</span>(cap.<span class="fn">get</span>(cv2.CAP_PROP_FRAME_COUNT))
+
+    <span class="com"># Calculate uniform sample indices</span>
+    indices = [<span class="fn">int</span>(i * total_frames / num_frames)
+               <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(num_frames)]
+
+    frames_b64 = []
+    <span class="kw">for</span> idx <span class="kw">in</span> indices:
+        cap.<span class="fn">set</span>(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.<span class="fn">read</span>()
+        <span class="kw">if</span> ret:
+            <span class="com"># Encode frame as JPEG, then base64</span>
+            _, buffer = cv2.<span class="fn">imencode</span>(<span class="str">".jpg"</span>, frame)
+            b64 = base64.<span class="fn">b64encode</span>(buffer).<span class="fn">decode</span>(<span class="str">"utf-8"</span>)
+            frames_b64.<span class="fn">append</span>(b64)
+    cap.<span class="fn">release</span>()
+
+    <span class="com"># Build multimodal message with sampled frames</span>
+    content = [{<span class="str">"type"</span>: <span class="str">"text"</span>,
+                <span class="str">"text"</span>: <span class="str">f"These are </span>{num_frames}<span class="str"> frames sampled "</span>
+                        <span class="str">"uniformly from a video. Describe what happens."</span>}]
+    <span class="kw">for</span> b64 <span class="kw">in</span> frames_b64:
+        content.<span class="fn">append</span>({
+            <span class="str">"type"</span>: <span class="str">"image_url"</span>,
+            <span class="str">"image_url"</span>: {<span class="str">"url"</span>: <span class="str">f"data:image/jpeg;base64,</span>{b64}<span class="str">"</span>}
+        })
+    <span class="kw">return</span> content</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How does Gemini handle video natively compared to frame sampling?</summary>
+      <div class="fq-a">Gemini processes video natively by encoding frames through its vision encoder and interleaving them with audio tokens. This avoids the information loss of coarse frame sampling but requires <strong>significantly more compute and context window space</strong>. For long videos, Gemini still uses internal sampling and temporal compression strategies.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can multimodal LLMs process real-time audio/video streams?</summary>
+      <div class="fq-a">Some models (GPT-4o, Gemini Live) support <strong>real-time streaming</strong> for audio, processing speech incrementally. Real-time video is more challenging due to bandwidth and compute requirements. Current real-time systems typically operate on audio with periodic video frame sampling rather than continuous video encoding.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is Whisper's role in multimodal audio systems?</summary>
+      <div class="fq-a"><strong>Whisper</strong> is OpenAI's speech recognition model that converts audio into text. In some multimodal systems, Whisper serves as the audio encoder, producing embeddings that are projected into the LLM's space. In simpler pipelines, Whisper transcribes audio to text first, and the LLM reasons over the transcript. The encoder approach preserves more acoustic information (tone, emphasis, speaker identity).</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 10 ============ -->
+<style>
+.c11t10-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.c11t10-case { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c11t10-case-name { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+.c11t10-case-why { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; }
+.c11t10-case-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 600; margin-bottom: 6px; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>High-Value Use Cases</h2></div>
+
+  <div class="quick-take">The best early multimodal use cases are those where grounding is clear and the workflow has measurable value: document understanding, screenshot support, visual quality inspection, chart explanation, medical imaging assistance with human oversight, and accessibility-oriented image description.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The business value of multimodality comes from grounded perception in places where text alone is insufficient &mdash; not from adding images for novelty.</div>
+
+  <div class="visual-container" id="c11t10-visual">
+    <div class="c11t10-cases">
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(52,211,153,0.2);color:#34d399;">High ROI</div>
+        <div class="c11t10-case-name">Document Understanding</div>
+        <div class="c11t10-case-why">Invoices, contracts, forms &mdash; structured extraction with layout awareness saves hours of manual work.</div>
+      </div>
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(52,211,153,0.2);color:#34d399;">High ROI</div>
+        <div class="c11t10-case-name">Screenshot Support</div>
+        <div class="c11t10-case-why">Users share screenshots of errors, UI states, dashboards. The model can diagnose from the visual context.</div>
+      </div>
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(56,189,248,0.2);color:#38bdf8;">Medium ROI</div>
+        <div class="c11t10-case-name">Quality Inspection</div>
+        <div class="c11t10-case-why">Manufacturing defect detection, product photo validation, compliance checking on visual materials.</div>
+      </div>
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(56,189,248,0.2);color:#38bdf8;">Medium ROI</div>
+        <div class="c11t10-case-name">Chart &amp; Data Explanation</div>
+        <div class="c11t10-case-why">Auto-generate plain-language summaries of business dashboards and reports for non-technical stakeholders.</div>
+      </div>
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(167,139,250,0.2);color:#a78bfa;">Specialized</div>
+        <div class="c11t10-case-name">Medical Imaging Assist</div>
+        <div class="c11t10-case-why">Pre-screening, report drafting, teaching aids. Always requires human oversight for clinical decisions.</div>
+      </div>
+      <div class="c11t10-case">
+        <div class="c11t10-case-tag" style="background:rgba(167,139,250,0.2);color:#a78bfa;">Specialized</div>
+        <div class="c11t10-case-name">Accessibility</div>
+        <div class="c11t10-case-why">Alt text generation, image descriptions for screen readers, visual content narration for visually impaired users.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Value Comes from Grounded Perception</h3>
+    <p>A strong interview answer focuses on use cases where multimodality adds nontrivial evidence &mdash; not on adding images for novelty. The business value comes from grounded perception in places where text alone is insufficient. If a text-only model could do the job equally well, the multimodal overhead (cost, latency, complexity) is not justified.</p>
+
+    <h3>Evaluating Use Case Fit</h3>
+    <table>
+      <thead><tr><th>Criterion</th><th>Good Fit</th><th>Poor Fit</th></tr></thead>
+      <tbody>
+        <tr><td>Grounding clarity</td><td>Answer is verifiable from the image</td><td>Answer requires world knowledge more than image</td></tr>
+        <tr><td>Measurable value</td><td>Saves hours of manual work per day</td><td>"Nice to have" feature with no metric</td></tr>
+        <tr><td>Error tolerance</td><td>Errors are caught by downstream process</td><td>Single error causes major harm</td></tr>
+        <tr><td>Data availability</td><td>Representative image dataset for eval exists</td><td>No way to measure visual accuracy</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Implementation Priorities</h3>
+    <p>When deploying multimodal use cases, prioritize in this order:</p>
+    <ol>
+      <li><strong>Build evaluation first:</strong> Create a task-specific eval set with ground-truth answers before building the pipeline. See <a href="#topic-7" class="xref">Topic 7: Evaluating Multimodal Systems</a>.</li>
+      <li><strong>Start with high-grounding tasks:</strong> Document extraction and screenshot analysis are reliable because the expected output is verifiable.</li>
+      <li><strong>Add human oversight for high-stakes tasks:</strong> Medical imaging and legal document review must include human verification.</li>
+      <li><strong>Measure continuously:</strong> Track grounding quality over time as models update and user patterns shift.</li>
+    </ol>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Deploy multimodal capabilities where the image provides irreplaceable evidence &mdash; the best use cases pair clear grounding with measurable workflow improvement.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Document Understanding Pipeline</summary>
+    <pre><code><span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+<span class="kw">import</span> json
+
+client = OpenAI()
+
+<span class="kw">def</span> <span class="fn">extract_invoice_data</span>(image_url):
+    <span class="str">"""Extract structured data from an invoice image."""</span>
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[{
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: [
+                {<span class="str">"type"</span>: <span class="str">"text"</span>,
+                 <span class="str">"text"</span>: <span class="str">"""Extract the following from this invoice:
+- vendor_name: string
+- invoice_number: string
+- date: YYYY-MM-DD
+- line_items: [{description, quantity, unit_price, total}]
+- subtotal: number
+- tax: number
+- total: number
+
+If any field is unreadable, set it to null.
+Return valid JSON only."""</span>},
+                {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+                 <span class="str">"image_url"</span>: {<span class="str">"url"</span>: image_url}}
+            ]
+        }],
+        response_format={<span class="str">"type"</span>: <span class="str">"json_object"</span>}
+    )
+
+    <span class="com"># Parse and validate the structured output</span>
+    data = json.<span class="fn">loads</span>(response.choices[<span class="num">0</span>].message.content)
+    <span class="com"># Flag any null fields for human review</span>
+    nulls = [k <span class="kw">for</span> k, v <span class="kw">in</span> data.items() <span class="kw">if</span> v <span class="kw">is</span> <span class="kw">None</span>]
+    <span class="kw">if</span> nulls:
+        data[<span class="str">"_needs_review"</span>] = nulls
+    <span class="kw">return</span> data</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you justify the cost of multimodal models for document processing?</summary>
+      <div class="fq-a">Calculate the <strong>cost per document</strong> with multimodal processing versus manual review. If a human takes 5 minutes per document at $30/hour, that is $2.50 per document. A multimodal API call might cost $0.05&ndash;$0.20 per document. Even with a human review step for flagged documents, the ROI is typically 5&ndash;20x.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What role does accessibility play as a multimodal use case?</summary>
+      <div class="fq-a">Accessibility is one of the most impactful multimodal applications. Generating <strong>alt text for images</strong>, describing visual content for screen readers, and narrating video content directly improves access for visually impaired users. This use case also has relatively high error tolerance &mdash; an imperfect description is better than none &mdash; making it ideal for early deployment.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should multimodal features be mandatory or opt-in for users?</summary>
+      <div class="fq-a">Start with <strong>opt-in</strong>. Multimodal processing adds latency and cost, and not every workflow benefits. Let users attach images when they find it helpful. Monitor adoption rates and success metrics to identify where multimodal becomes the default. Mandatory multimodal input (e.g., requiring a photo upload) should only be enforced when the image is truly essential to the task.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

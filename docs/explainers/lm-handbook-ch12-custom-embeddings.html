@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 12: Custom Embeddings &amp; Retrieval Optimization</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 12 &middot; 10 Topics</div>
+  <h1>Custom Embeddings &amp; Retrieval Optimization</h1>
+  <p>When off-the-shelf embeddings plateau &mdash; how to diagnose gaps, adapt representations, and systematically improve retrieval quality.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Off-the-shelf embedding models are often surprisingly strong, but retrieval quality can stall when the domain language is highly specialized. This chapter covers when and how to adapt representation quality: data selection, hard negatives, training losses, chunking strategies, multilinguality, compression, thresholds, monitoring, and model migration. The key theme is that retrieval quality is rarely fixed &mdash; it can be systematically improved, but each improvement must be measured against a benchmark that reflects the real workload.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Foundations</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Why Custom Embeddings?</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Domain Adaptation</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Hard Negatives</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Training Losses</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Long Document Retrieval</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Operations</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Multilingual Embeddings</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Compression &amp; Quantization</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Similarity Thresholds</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Monitoring Retrieval Drift</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Embedding Model Migration</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Foundations</span></div>
+    <p class="group-intro">When general-purpose embeddings fall short, what drives the decision to customize, and how the training pipeline works.</p>
+
+<!-- ============ TOPIC 1 ============ -->
+<style>
+.c12t01-ladder { display: flex; flex-direction: column; gap: 0; }
+.c12t01-rung { display: flex; align-items: stretch; gap: 0; }
+.c12t01-rung-num { width: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+.c12t01-rung-body { flex: 1; padding: 12px 16px; border-bottom: 1px solid #334155; }
+.c12t01-rung-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+.c12t01-rung-desc { font-size: 0.78rem; color: #94a3b8; }
+.c12t01-rung-why { font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 4px; }
+.c12t01-arrow-col { display: flex; align-items: center; justify-content: center; width: 30px; color: #475569; font-size: 0.9rem; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>Why Custom Embeddings?</h2></div>
+
+  <div class="quick-take">A team chooses custom embeddings when domain-specific distinctions matter more than general semantic similarity. In medicine, finance, law, or internal enterprise knowledge, a generic embedding model may collapse distinctions that your application cannot afford to lose.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> General embeddings see "prescription" and "over-the-counter" as similar (both are medicines). A custom medical embedding knows that confusing them could be dangerous.</div>
+
+  <div class="visual-container" id="c12t01-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Optimization Ladder &mdash; exhaust cheaper levers before training custom embeddings</div>
+    <div class="c12t01-ladder">
+      <div class="c12t01-rung">
+        <div class="c12t01-rung-num" style="background:rgba(52,211,153,0.15);color:#34d399;">1</div>
+        <div class="c12t01-rung-body">
+          <div class="c12t01-rung-title" style="color:#34d399;">Data Hygiene</div>
+          <div class="c12t01-rung-desc">Better chunking, document cleanup, metadata enrichment</div>
+          <div class="c12t01-rung-why">Cheap, high-leverage, and easy to validate.</div>
+        </div>
+      </div>
+      <div class="c12t01-rung">
+        <div class="c12t01-rung-num" style="background:rgba(56,189,248,0.15);color:#38bdf8;">2</div>
+        <div class="c12t01-rung-body">
+          <div class="c12t01-rung-title" style="color:#38bdf8;">Ranking</div>
+          <div class="c12t01-rung-desc">Add a reranker or metadata-aware filters</div>
+          <div class="c12t01-rung-why">Often improves precision without retraining embeddings.</div>
+        </div>
+      </div>
+      <div class="c12t01-rung">
+        <div class="c12t01-rung-num" style="background:rgba(167,139,250,0.15);color:#a78bfa;">3</div>
+        <div class="c12t01-rung-body">
+          <div class="c12t01-rung-title" style="color:#a78bfa;">Query Strategy</div>
+          <div class="c12t01-rung-desc">Reformulate queries, add hybrid search (keyword + vector)</div>
+          <div class="c12t01-rung-why">Helps recall on short or ambiguous queries.</div>
+        </div>
+      </div>
+      <div class="c12t01-rung">
+        <div class="c12t01-rung-num" style="background:rgba(244,114,182,0.15);color:#f472b6;">4</div>
+        <div class="c12t01-rung-body" style="border-bottom:none;">
+          <div class="c12t01-rung-title" style="color:#f472b6;">Custom Training</div>
+          <div class="c12t01-rung-desc">Domain-adapt the embedding model</div>
+          <div class="c12t01-rung-why">Best once earlier levers are exhausted and benchmarks prove the gap.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When General Embeddings Fall Short</h3>
+    <p>Off-the-shelf embedding models (OpenAI text-embedding-3, Cohere embed, BGE, E5) capture broad semantic similarity well. But they can fail on:</p>
+    <ul>
+      <li><strong>Domain jargon:</strong> Internal abbreviations, product names, and technical terms that rarely appear in public training data.</li>
+      <li><strong>Near-synonym distinctions:</strong> In law, "negligence" and "gross negligence" have very different legal consequences, but general embeddings may place them close together.</li>
+      <li><strong>Entity-heavy corpora:</strong> When retrieval depends on matching specific entity names (drug names, part numbers, case IDs) rather than general meaning.</li>
+      <li><strong>Multilingual enterprise jargon:</strong> Internal terms mixed across languages in international organizations.</li>
+    </ul>
+
+    <h3>The Decision Framework</h3>
+    <p>Custom embeddings are justified when:</p>
+    <ol>
+      <li>Evaluation shows <strong>repeated domain misses</strong> that chunking and reranking cannot fix.</li>
+      <li>The <strong>value of better retrieval exceeds the cost</strong> of training, serving, and migrating the index.</li>
+      <li>You have a <strong>trustworthy offline benchmark</strong> that reflects your real workload.</li>
+    </ol>
+    <div class="key-box"><strong>Red flag:</strong> Training a custom embedding model before building a trustworthy offline benchmark. You cannot measure improvement without a baseline.</div>
+
+    <h3>Cost of Customization</h3>
+    <table>
+      <thead><tr><th>Cost Factor</th><th>What It Involves</th></tr></thead>
+      <tbody>
+        <tr><td>Data curation</td><td>Collecting query-document pairs with relevance labels</td></tr>
+        <tr><td>Training compute</td><td>GPU hours for fine-tuning (typically hours to days)</td></tr>
+        <tr><td>Re-indexing</td><td>Re-embedding the entire corpus with the new model</td></tr>
+        <tr><td>Threshold recalibration</td><td>Previous similarity thresholds no longer apply</td></tr>
+        <tr><td>Ongoing maintenance</td><td>Retraining as the domain evolves</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-2" class="xref">Topic 2: Domain Adaptation</a> for the specific approaches to customization.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Custom embeddings are worth the effort only after cheaper relevance levers are measured and exhausted against a benchmark that reflects the real workload.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Building an Offline Eval Benchmark</summary>
+    <pre><code><span class="kw">import</span> json
+<span class="kw">from</span> typing <span class="kw">import</span> List, Dict
+
+<span class="kw">def</span> <span class="fn">build_retrieval_benchmark</span>(
+    queries: List[str],
+    relevant_docs: Dict[str, List[str]],
+    corpus: List[str]
+) -> Dict:
+    <span class="str">"""Build an offline benchmark for retrieval evaluation.
+
+    Args:
+        queries: list of real user queries
+        relevant_docs: mapping query -> list of relevant doc IDs
+        corpus: list of all documents
+    """</span>
+    benchmark = {
+        <span class="str">"queries"</span>: [],
+        <span class="str">"corpus_size"</span>: <span class="fn">len</span>(corpus),
+    }
+
+    <span class="kw">for</span> query <span class="kw">in</span> queries:
+        entry = {
+            <span class="str">"query"</span>: query,
+            <span class="str">"relevant"</span>: relevant_docs.<span class="fn">get</span>(query, []),
+            <span class="str">"num_relevant"</span>: <span class="fn">len</span>(relevant_docs.<span class="fn">get</span>(query, [])),
+        }
+        benchmark[<span class="str">"queries"</span>].<span class="fn">append</span>(entry)
+
+    <span class="com"># Save for reproducible evaluation</span>
+    <span class="kw">with</span> <span class="fn">open</span>(<span class="str">"retrieval_benchmark.json"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+        json.<span class="fn">dump</span>(benchmark, f, indent=<span class="num">2</span>)
+
+    <span class="fn">print</span>(<span class="str">f"Benchmark: </span>{<span class="fn">len</span>(queries)}<span class="str"> queries, "</span>
+          <span class="str">f"</span>{<span class="fn">len</span>(corpus)}<span class="str"> docs, "</span>
+          <span class="str">f"avg </span>{<span class="fn">sum</span>(<span class="fn">len</span>(v) <span class="kw">for</span> v <span class="kw">in</span> relevant_docs.values())/<span class="fn">len</span>(queries):.1f}<span class="str"> "</span>
+          <span class="str">f"relevant per query"</span>)
+    <span class="kw">return</span> benchmark</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How many labeled examples do you need for a retrieval benchmark?</summary>
+      <div class="fq-a">A useful benchmark requires at least <strong>50&ndash;100 queries</strong> with relevance judgments. More is better, but even 50 well-chosen queries covering different query types and failure modes can reveal systematic gaps. The key is that the queries must reflect real user behavior, not synthetic patterns.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use reranking instead of custom embeddings?</summary>
+      <div class="fq-a">Often, yes. A <strong>cross-encoder reranker</strong> (e.g., Cohere Rerank, BGE-reranker) re-scores the top-k results from a general embedding model and frequently recovers most of the quality gap. Reranking is cheaper to deploy than re-embedding the entire corpus and should be tested before committing to custom training. See <a href="#topic-1" class="xref">the optimization ladder above</a>.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the difference between fine-tuning embeddings and training from scratch?</summary>
+      <div class="fq-a"><strong>Fine-tuning</strong> starts from a pre-trained embedding model and adapts it with domain data, preserving general capabilities while adding domain specificity. <strong>Training from scratch</strong> builds a new model entirely from domain data, which requires far more data and compute. Fine-tuning is almost always the right choice unless your domain is radically different from any public text.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 2 ============ -->
+<style>
+.c12t02-approaches { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.c12t02-approach { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c12t02-approach-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.c12t02-approach-desc { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; }
+.c12t02-approach-when { font-size: 0.75rem; color: #64748b; margin-top: 6px; font-style: italic; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Domain Adaptation Approaches</h2></div>
+
+  <div class="quick-take">Common approaches include continued pretraining on domain text, supervised contrastive training on labeled query-document pairs, hard-negative mining, and task-specific fine-tuning. The right approach depends on the amount and quality of supervision available.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Domain adaptation is like teaching a translator who already knows the language but not the industry jargon. You give them domain documents and examples of correct usage until they learn the distinctions that matter.</div>
+
+  <div class="visual-container" id="c12t02-visual">
+    <div class="c12t02-approaches">
+      <div class="c12t02-approach">
+        <div class="c12t02-approach-name" style="color:#34d399;">Continued Pretraining</div>
+        <div class="c12t02-approach-desc">Continue the masked/contrastive pretraining objective on unlabeled domain text.</div>
+        <div class="c12t02-approach-when">When: lots of domain text, no labeled pairs</div>
+      </div>
+      <div class="c12t02-approach">
+        <div class="c12t02-approach-name" style="color:#38bdf8;">Supervised Contrastive</div>
+        <div class="c12t02-approach-desc">Train on labeled (query, positive, negative) triplets with contrastive loss.</div>
+        <div class="c12t02-approach-when">When: labeled query-document pairs available</div>
+      </div>
+      <div class="c12t02-approach">
+        <div class="c12t02-approach-name" style="color:#a78bfa;">Hard Negative Mining</div>
+        <div class="c12t02-approach-desc">Select negatives that are deceptively similar to force fine-grained learning.</div>
+        <div class="c12t02-approach-when">When: basic model works but lacks precision</div>
+      </div>
+      <div class="c12t02-approach">
+        <div class="c12t02-approach-name" style="color:#f472b6;">Task-Specific Fine-Tuning</div>
+        <div class="c12t02-approach-desc">Fine-tune for the exact retrieval or similarity objective of your pipeline.</div>
+        <div class="c12t02-approach-when">When: clear downstream task (Q&amp;A, search, dedup)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Driven by Errors You Can Name</h3>
+    <p>Domain adaptation should be driven by <strong>retrieval errors you can name</strong>. If the system is missing exact domain distinctions, you need data and objectives that teach those distinctions explicitly. Common error patterns that drive adaptation:</p>
+    <ul>
+      <li><strong>Synonym collapse:</strong> "Tylenol" and "acetaminophen" should be identical; the model treats them as different.</li>
+      <li><strong>False similarity:</strong> "myocardial infarction" and "myocardial inflammation" are retrieved interchangeably, but they are clinically different.</li>
+      <li><strong>Jargon blindness:</strong> Internal terms like "P0 escalation" or "T2-weighted MRI" have no meaning to the general model.</li>
+    </ul>
+
+    <h3>Adaptation Strategy by Data Availability</h3>
+    <table>
+      <thead><tr><th>Available Data</th><th>Best Approach</th><th>Expected Gain</th></tr></thead>
+      <tbody>
+        <tr><td>Unlabeled domain text only</td><td>Continued pretraining (MLM/contrastive)</td><td>Moderate (domain vocabulary alignment)</td></tr>
+        <tr><td>50&ndash;500 labeled pairs</td><td>Few-shot fine-tuning with synthetic negatives</td><td>Moderate to high</td></tr>
+        <tr><td>500&ndash;10K labeled pairs</td><td>Supervised contrastive + hard negative mining</td><td>High</td></tr>
+        <tr><td>10K+ labeled pairs</td><td>Full fine-tuning with curriculum (easy &rarr; hard negatives)</td><td>Highest</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Synthetic Data Generation</h3>
+    <p>When labeled pairs are scarce, you can use an LLM to generate synthetic training data. Given a document chunk, ask a strong LLM to generate plausible queries that the chunk would answer. This "doc2query" approach can produce thousands of training pairs from an unlabeled corpus. The quality of synthetic data should always be validated against your benchmark. See <a href="#topic-3" class="xref">Topic 3: Hard Negatives</a> for how to pair these synthetic queries with effective negative examples.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Domain adaptation should be driven by retrieval errors you can name &mdash; if the system is missing exact domain distinctions, you need data and objectives that teach those distinctions explicitly.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Generating Synthetic Training Pairs</summary>
+    <pre><code><span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+client = OpenAI()
+
+<span class="kw">def</span> <span class="fn">generate_training_queries</span>(document_chunk: str, n: int = <span class="num">3</span>):
+    <span class="str">"""Generate synthetic queries for a document chunk.
+
+    This 'doc2query' approach creates training pairs
+    when labeled data is scarce.
+    """</span>
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o-mini"</span>,
+        messages=[{
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: <span class="str">f"""Generate </span>{n}<span class="str"> diverse search queries that
+this document chunk would be the ideal answer for.
+Make queries realistic (how a user would actually search).
+Return one query per line, no numbering.
+
+Document chunk:
+{document_chunk}"""</span>
+        }],
+        temperature=<span class="num">0.8</span>
+    )
+
+    queries = response.choices[<span class="num">0</span>].message.content.strip().<span class="fn">split</span>(<span class="str">"\n"</span>)
+    <span class="com"># Each (query, chunk) pair becomes a positive training example</span>
+    <span class="kw">return</span> [{<span class="str">"query"</span>: q.strip(), <span class="str">"positive"</span>: document_chunk}
+            <span class="kw">for</span> q <span class="kw">in</span> queries <span class="kw">if</span> q.strip()]</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How much domain text is needed for continued pretraining?</summary>
+      <div class="fq-a">The amount depends on domain specificity. For highly specialized domains (legal, medical), <strong>1&ndash;10 million tokens</strong> of domain text can show measurable improvement. For moderately specialized domains, you may need 50&ndash;100 million tokens. The key metric is whether domain-specific vocabulary and concepts appear frequently enough for the model to learn their relationships.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does domain adaptation risk forgetting general capabilities?</summary>
+      <div class="fq-a">Yes, <strong>catastrophic forgetting</strong> is a real risk. Aggressive fine-tuning on domain data can degrade performance on general queries. Mitigations include using a lower learning rate, mixing domain data with general data during training, and evaluating on both domain and general benchmarks. Some teams keep both the original and adapted models and route queries based on domain detection.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you adapt embedding models using RLHF or preference data?</summary>
+      <div class="fq-a">Yes, preference-based training for embeddings is an emerging approach. Instead of explicit relevance labels, you use <strong>pairwise preferences</strong> ("Document A is more relevant than Document B for this query"). This is easier to collect from user click data or expert feedback and can produce models that better match real-world relevance judgments.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 3 ============ -->
+<style>
+.c12t03-neg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c12t03-neg-panel { background: #0f172a; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
+.c12t03-neg-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 8px; }
+.c12t03-neg-example { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; padding: 8px 10px; background: rgba(30,41,59,0.5); border-radius: 6px; margin-bottom: 6px; }
+.c12t03-neg-effect { font-size: 0.75rem; font-style: italic; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Hard Negatives</h2></div>
+
+  <div class="quick-take">Hard negatives are non-relevant items that look deceptively similar to the query. They force the model to learn fine-grained distinctions instead of relying on superficial cues. Easy negatives teach separation; hard negatives teach precision.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Easy negatives are like studying for a test with obviously wrong answers. Hard negatives are like studying with trick questions &mdash; they force you to really understand the material.</div>
+
+  <div class="visual-container" id="c12t03-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Query: "side effects of metformin in elderly patients"</div>
+    <div class="c12t03-neg-grid">
+      <div class="c12t03-neg-panel">
+        <div class="c12t03-neg-title" style="color:#34d399;">Easy Negative</div>
+        <div class="c12t03-neg-example">"The history of bicycle manufacturing in the 20th century."</div>
+        <div class="c12t03-neg-effect" style="color:#34d399;">Teaches: basic topic separation (medicine vs. manufacturing)</div>
+      </div>
+      <div class="c12t03-neg-panel">
+        <div class="c12t03-neg-title" style="color:#fb923c;">Hard Negative</div>
+        <div class="c12t03-neg-example">"Metformin dosing guidelines for type 2 diabetes management in adult patients."</div>
+        <div class="c12t03-neg-effect" style="color:#fb923c;">Teaches: distinguishing "side effects + elderly" from "dosing + adults" despite shared drug name</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Hard Negatives Matter</h3>
+    <p>Without hard negatives, the model learns an overly easy decision boundary. It can tell that a medical query should not return cooking recipes, but it cannot distinguish which of several relevant-looking medical documents is actually the right one. This is the difference between <strong>recall</strong> (finding the right neighborhood) and <strong>precision</strong> (finding the right house).</p>
+
+    <h3>Mining Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Works</th><th>Difficulty Level</th></tr></thead>
+      <tbody>
+        <tr><td>Random negatives</td><td>Sample random documents from the corpus</td><td>Easy (good for early training)</td></tr>
+        <tr><td>BM25 negatives</td><td>Top BM25 results that are not labeled relevant</td><td>Medium (keyword-similar but not relevant)</td></tr>
+        <tr><td>In-batch negatives</td><td>Other positives in the same training batch</td><td>Medium (topically related)</td></tr>
+        <tr><td>Embedding negatives</td><td>Nearest neighbors from a current embedding that are not relevant</td><td>Hard (semantically close but wrong)</td></tr>
+        <tr><td>LLM-generated</td><td>Ask an LLM to create plausible-but-wrong documents</td><td>Very hard (designed to confuse)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Curriculum: Easy to Hard</h3>
+    <p>Best practice is to train with a <strong>curriculum</strong>: start with easy negatives so the model learns basic topical separation, then gradually introduce harder negatives as training progresses. This avoids the model being overwhelmed by difficult examples before it has learned basic distinctions.</p>
+    <p>See <a href="#topic-4" class="xref">Topic 4: Training Losses</a> for the loss functions that use these negatives during training.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Easy negatives teach the model to separate topics; hard negatives teach it to distinguish within topics &mdash; the latter drives the precision gains that matter in production retrieval.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Mining Hard Negatives from Embeddings</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+
+<span class="kw">def</span> <span class="fn">mine_hard_negatives</span>(
+    queries, positives, corpus,
+    model_name=<span class="str">"BAAI/bge-base-en-v1.5"</span>,
+    top_k=<span class="num">10</span>, n_negatives=<span class="num">3</span>
+):
+    <span class="str">"""Mine hard negatives using current embedding model.
+
+    For each query, find the top-k nearest corpus items
+    that are NOT in the positive set.
+    """</span>
+    model = SentenceTransformer(model_name)
+
+    <span class="com"># Encode everything</span>
+    q_emb = model.<span class="fn">encode</span>(queries, normalize_embeddings=<span class="kw">True</span>)
+    c_emb = model.<span class="fn">encode</span>(corpus, normalize_embeddings=<span class="kw">True</span>)
+
+    <span class="com"># Compute cosine similarities</span>
+    sims = q_emb @ c_emb.T  <span class="com"># [n_queries, n_corpus]</span>
+
+    triplets = []
+    <span class="kw">for</span> i, query <span class="kw">in</span> <span class="fn">enumerate</span>(queries):
+        <span class="com"># Get indices sorted by similarity (descending)</span>
+        ranked = np.<span class="fn">argsort</span>(-sims[i])
+        pos_set = <span class="fn">set</span>(positives[i])
+        <span class="com"># Hard negatives: highest-similarity non-positives</span>
+        hard_negs = [
+            corpus[idx] <span class="kw">for</span> idx <span class="kw">in</span> ranked
+            <span class="kw">if</span> idx <span class="kw">not in</span> pos_set
+        ][:n_negatives]
+
+        <span class="kw">for</span> neg <span class="kw">in</span> hard_negs:
+            triplets.<span class="fn">append</span>({
+                <span class="str">"query"</span>: query,
+                <span class="str">"positive"</span>: corpus[positives[i][<span class="num">0</span>]],
+                <span class="str">"negative"</span>: neg,
+            })
+    <span class="kw">return</span> triplets</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How many negatives per query should you use?</summary>
+      <div class="fq-a">Typical practice is <strong>3&ndash;7 hard negatives per query</strong>. More negatives per query generally help, but with diminishing returns beyond ~10. Some loss functions (like multiple negatives ranking loss) use all other in-batch samples as implicit negatives, which can provide hundreds of negatives per query without explicit mining.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can hard negatives that are too hard hurt training?</summary>
+      <div class="fq-a">Yes. If negatives are so close to the query that they are arguably relevant (false negatives), the model receives <strong>conflicting gradients</strong>. This is why human verification of the hardest negatives matters, and why curriculum training (easy to hard) is more stable than starting with only the hardest examples.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is cross-encoder distillation for negative mining?</summary>
+      <div class="fq-a">A <strong>cross-encoder</strong> (which processes query and document together) gives more accurate relevance scores than a bi-encoder (which embeds them separately). You can use a cross-encoder to score candidate negatives and keep only those that the cross-encoder confirms are truly non-relevant. This reduces false-negative noise in your training data.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 4 ============ -->
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Training Losses for Embedding Fine-Tuning</h2></div>
+
+  <div class="quick-take">Contrastive, triplet, and multiple-negatives ranking losses are common because they directly optimize the geometry of relevant and non-relevant pairs in embedding space. The exact loss matters less than whether it aligns with the retrieval behavior you want.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The training loss is like the scoring rubric for an exam. Different rubrics emphasize different skills. Choose the rubric that tests what matters for your use case.</div>
+
+  <div class="visual-container" id="c12t04-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Common embedding training losses and their geometric effects</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.85rem;font-weight:600;color:#34d399;margin-bottom:6px;">Contrastive</div>
+        <div style="font-size:2rem;margin-bottom:6px;">&#x2194;</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Pull positives together, push negatives apart by a margin</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.85rem;font-weight:600;color:#38bdf8;margin-bottom:6px;">Triplet</div>
+        <div style="font-size:2rem;margin-bottom:6px;">&#x25B3;</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Anchor closer to positive than negative by a margin</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.85rem;font-weight:600;color:#a78bfa;margin-bottom:6px;">MNRL</div>
+        <div style="font-size:2rem;margin-bottom:6px;">&#x2193;</div>
+        <div style="font-size:0.78rem;color:#94a3b8;">Softmax over in-batch similarities; positive should rank #1</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Loss Functions Compared</h3>
+    <table>
+      <thead><tr><th>Loss</th><th>Inputs</th><th>Key Property</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>Contrastive (Siamese)</td><td>Pairs + label</td><td>Fixed margin between positive/negative distances</td><td>Binary similarity (same/different)</td></tr>
+        <tr><td>Triplet</td><td>Anchor, positive, negative</td><td>Relative ordering: pos closer than neg</td><td>Fine-grained ranking with explicit negatives</td></tr>
+        <tr><td>Multiple Negatives Ranking (MNRL)</td><td>Anchor, positive (negatives from batch)</td><td>Softmax cross-entropy over batch</td><td>Large-batch training, no explicit negative mining</td></tr>
+        <tr><td>InfoNCE</td><td>Anchor, positive, N negatives</td><td>Contrastive with temperature scaling</td><td>Self-supervised and supervised contrastive learning</td></tr>
+        <tr><td>Cosine similarity</td><td>Pairs + continuous score</td><td>Direct regression on similarity score</td><td>Semantic textual similarity (STS)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Choose by Downstream Behavior</h3>
+    <p>The loss should be evaluated through downstream ranking quality, not chosen because it is fashionable. <strong>Retrieval is the target behavior</strong>, so training should be judged by retrieval metrics (recall@k, MRR, NDCG). A loss that produces great STS scores but poor retrieval results is the wrong choice for a retrieval system.</p>
+
+    <h3>Practical Recommendations</h3>
+    <ul>
+      <li><strong>Start with MNRL:</strong> It is simple, uses in-batch negatives (no explicit mining needed), and works well with large batch sizes.</li>
+      <li><strong>Add hard negatives with triplet/InfoNCE:</strong> Once the baseline works, add mined hard negatives (see <a href="#topic-3" class="xref">Topic 3: Hard Negatives</a>) to push precision.</li>
+      <li><strong>Tune temperature:</strong> The temperature parameter in InfoNCE/MNRL controls how "sharp" the similarity distribution is. Lower temperature means stricter matching.</li>
+    </ul>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The training loss shapes the geometry of your embedding space &mdash; choose it based on downstream retrieval metrics, not theoretical elegance.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Fine-Tuning with Sentence Transformers</summary>
+    <pre><code><span class="kw">from</span> sentence_transformers <span class="kw">import</span> (
+    SentenceTransformer, InputExample, losses
+)
+<span class="kw">from</span> torch.utils.data <span class="kw">import</span> DataLoader
+
+<span class="com"># Load base model to fine-tune</span>
+model = SentenceTransformer(<span class="str">"BAAI/bge-base-en-v1.5"</span>)
+
+<span class="com"># Prepare training data as (query, positive_doc) pairs</span>
+<span class="com"># MNRL uses in-batch negatives automatically</span>
+train_examples = [
+    InputExample(texts=[
+        <span class="str">"metformin side effects in elderly"</span>,
+        <span class="str">"Common adverse effects of metformin in patients over 65..."</span>
+    ]),
+    InputExample(texts=[
+        <span class="str">"dosing guidelines for lisinopril"</span>,
+        <span class="str">"Recommended starting dose of lisinopril is 10mg daily..."</span>
+    ]),
+    <span class="com"># ... more (query, positive) pairs</span>
+]
+
+<span class="com"># Use MNRL: in-batch negatives, no mining needed</span>
+train_dataloader = DataLoader(train_examples, batch_size=<span class="num">32</span>,
+                              shuffle=<span class="kw">True</span>)
+train_loss = losses.<span class="fn">MultipleNegativesRankingLoss</span>(model)
+
+<span class="com"># Fine-tune for 1 epoch</span>
+model.<span class="fn">fit</span>(
+    train_objectives=[(train_dataloader, train_loss)],
+    epochs=<span class="num">1</span>,
+    warmup_steps=<span class="num">100</span>,
+    output_path=<span class="str">"./domain-adapted-embedding"</span>,
+)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What batch size should you use for MNRL?</summary>
+      <div class="fq-a">Larger batches provide more in-batch negatives, which improves training signal. Aim for <strong>32&ndash;256</strong> per GPU. If your GPU memory is limited, use gradient accumulation to simulate larger batches. Batch sizes below 16 provide too few negatives for MNRL to work well.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does the temperature parameter affect training?</summary>
+      <div class="fq-a">Temperature scales the logits before softmax. <strong>Lower temperature</strong> (e.g., 0.05) creates a sharper distribution, penalizing hard negatives more aggressively. <strong>Higher temperature</strong> (e.g., 0.1) creates a softer distribution, which is more forgiving of noisy labels. Start with the default (usually 0.05&ndash;0.07) and tune based on validation retrieval metrics.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 5 ============ -->
+<style>
+.c12t05-hierarchy { display: flex; flex-direction: column; gap: 2px; }
+.c12t05-level { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; }
+.c12t05-level-icon { font-size: 1.2rem; flex-shrink: 0; }
+.c12t05-level-body { flex: 1; }
+.c12t05-level-name { font-size: 0.85rem; font-weight: 600; }
+.c12t05-level-desc { font-size: 0.78rem; color: #94a3b8; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Long Document Retrieval</h2></div>
+
+  <div class="quick-take">Long documents are usually split into chunks because compressing an entire document into one vector often loses too much detail. Embed chunks for retrieval, then reconstruct document-level understanding from the relevant pieces.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A single embedding for a book is like a one-sentence summary &mdash; it tells you the topic but not which chapter answers your question. Chunk-level embeddings are like an index.</div>
+
+  <div class="visual-container" id="c12t05-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">The retrieval hierarchy: chunk for search, aggregate for understanding</div>
+    <div class="c12t05-hierarchy">
+      <div class="c12t05-level" style="background:rgba(244,114,182,0.1);">
+        <div class="c12t05-level-icon">&#x1f4d5;</div>
+        <div class="c12t05-level-body">
+          <div class="c12t05-level-name" style="color:#f472b6;">Full Document</div>
+          <div class="c12t05-level-desc">Too long for a single embedding. Key details are averaged away.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:0.9rem;">&#x2193; split &#x2193;</div>
+      <div class="c12t05-level" style="background:rgba(56,189,248,0.1);">
+        <div class="c12t05-level-icon">&#x1f4c4;</div>
+        <div class="c12t05-level-body">
+          <div class="c12t05-level-name" style="color:#38bdf8;">Chunks (200&ndash;512 tokens each)</div>
+          <div class="c12t05-level-desc">Each chunk gets its own embedding. Preserves granularity for retrieval.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:0.9rem;">&#x2193; retrieve top-k &#x2193;</div>
+      <div class="c12t05-level" style="background:rgba(52,211,153,0.1);">
+        <div class="c12t05-level-icon">&#x1f50d;</div>
+        <div class="c12t05-level-body">
+          <div class="c12t05-level-name" style="color:#34d399;">Retrieved Chunks</div>
+          <div class="c12t05-level-desc">Top-k most relevant chunks returned to the LLM for reasoning.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#475569;font-size:0.9rem;">&#x2193; aggregate &#x2193;</div>
+      <div class="c12t05-level" style="background:rgba(167,139,250,0.1);">
+        <div class="c12t05-level-icon">&#x1f9e0;</div>
+        <div class="c12t05-level-body">
+          <div class="c12t05-level-name" style="color:#a78bfa;">Document-Level Reasoning</div>
+          <div class="c12t05-level-desc">LLM synthesizes across retrieved chunks, optionally re-ranking or expanding.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why One Vector Per Document Fails</h3>
+    <p>A 50-page document covers many subtopics. Compressing it into a single 768- or 1536-dimensional vector necessarily loses most of the specific content. The resulting embedding captures the document's general topic but cannot match queries about specific paragraphs, figures, or data points within it.</p>
+
+    <h3>Chunking Strategies</h3>
+    <table>
+      <thead><tr><th>Strategy</th><th>How It Works</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>Fixed-size token chunks</td><td>Split every N tokens with overlap</td><td>Simple, works for most text</td></tr>
+        <tr><td>Semantic chunking</td><td>Split at natural boundaries (paragraphs, sections, headings)</td><td>Structured documents</td></tr>
+        <tr><td>Recursive splitting</td><td>Try paragraph, then sentence, then token-level splits</td><td>Mixed-format documents</td></tr>
+        <tr><td>Sliding window</td><td>Overlapping windows ensure no content falls in a gap</td><td>Narrative text without clear sections</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Chunk Size Trade-offs</h3>
+    <ul>
+      <li><strong>Too small (50&ndash;100 tokens):</strong> Chunks lack context. The embedding captures a sentence fragment that may be ambiguous without surrounding text.</li>
+      <li><strong>Too large (1000+ tokens):</strong> Chunks contain too many topics. The embedding averages across unrelated content, reducing retrieval precision.</li>
+      <li><strong>Sweet spot (200&ndash;512 tokens):</strong> Large enough for context, small enough for specificity. Most production systems land here.</li>
+    </ul>
+    <p>Add overlapping windows (e.g., 50-token overlap) to ensure content at chunk boundaries is not lost. Include document metadata (title, section heading) as a prefix to each chunk to improve embedding quality.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Embed chunks for retrieval, then reconstruct document-level understanding from the relevant pieces &mdash; this hierarchy is usually more effective than one-vector-per-document strategies.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Semantic Chunking with Overlap</summary>
+    <pre><code><span class="kw">from</span> typing <span class="kw">import</span> List
+<span class="kw">import</span> tiktoken
+
+<span class="kw">def</span> <span class="fn">chunk_document</span>(
+    text: str,
+    max_tokens: int = <span class="num">400</span>,
+    overlap_tokens: int = <span class="num">50</span>,
+    doc_title: str = <span class="str">""</span>,
+) -> List[str]:
+    <span class="str">"""Split a document into overlapping chunks with metadata prefix."""</span>
+    enc = tiktoken.<span class="fn">get_encoding</span>(<span class="str">"cl100k_base"</span>)
+    tokens = enc.<span class="fn">encode</span>(text)
+
+    chunks = []
+    start = <span class="num">0</span>
+    <span class="kw">while</span> start < <span class="fn">len</span>(tokens):
+        end = start + max_tokens
+        chunk_tokens = tokens[start:end]
+        chunk_text = enc.<span class="fn">decode</span>(chunk_tokens)
+
+        <span class="com"># Prefix with document metadata for richer embedding</span>
+        <span class="kw">if</span> doc_title:
+            chunk_text = <span class="str">f"[</span>{doc_title}<span class="str">] </span>{chunk_text}<span class="str">"</span>
+
+        chunks.<span class="fn">append</span>(chunk_text)
+
+        <span class="com"># Advance by (max_tokens - overlap) to create overlap</span>
+        start += max_tokens - overlap_tokens
+
+    <span class="fn">print</span>(<span class="str">f"Document: </span>{<span class="fn">len</span>(tokens)}<span class="str"> tokens -> </span>{<span class="fn">len</span>(chunks)}<span class="str"> chunks"</span>)
+    <span class="kw">return</span> chunks</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Should you store parent document metadata with each chunk?</summary>
+      <div class="fq-a">Yes. Store the <strong>document ID, title, section heading, and chunk position</strong> as metadata alongside each chunk embedding. This enables post-retrieval grouping (showing all chunks from the same document together) and contextual re-ranking. Many vector databases support metadata filtering, which lets you combine semantic search with structured filters.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is hypothetical document embedding (HyDE)?</summary>
+      <div class="fq-a"><strong>HyDE</strong> generates a hypothetical answer to the query using an LLM, then embeds that answer and searches for similar real documents. The intuition is that the hypothetical answer is closer in embedding space to the actual relevant documents than the short query is. It improves recall on short or ambiguous queries but adds latency from the LLM generation step.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does late interaction (ColBERT) differ from standard chunk retrieval?</summary>
+      <div class="fq-a"><strong>ColBERT</strong> stores per-token embeddings rather than a single vector per chunk. At query time, it computes maximum similarity between each query token and all document tokens. This preserves more granular matching information and often outperforms single-vector retrieval, but requires significantly more storage and compute.</div>
+    </details>
+  </div>
+</section>
+
+    <div class="group-divider"><span>Operations</span></div>
+    <p class="group-intro">Deploying, monitoring, and evolving retrieval systems in production &mdash; multilingual considerations, compression trade-offs, and model migration.</p>
+
+<!-- ============ TOPIC 6 ============ -->
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Multilingual Embedding Systems</h2></div>
+
+  <div class="quick-take">Multilingual systems need representations that align related meaning across languages while preserving language-specific distinctions. Strong English performance does not guarantee strong cross-lingual retrieval &mdash; you must evaluate in each target language.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A multilingual embedding is like a universal translator: it should place "heart attack" (English), "Herzinfarkt" (German), and "crise cardiaque" (French) near each other while keeping unrelated terms apart.</div>
+
+  <div class="visual-container" id="c12t06-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;">
+        <div style="font-size:0.82rem;font-weight:600;color:#38bdf8;margin-bottom:8px;">Same-Language Retrieval</div>
+        <div style="font-size:0.78rem;color:#94a3b8;line-height:1.5;">Query in English retrieves English docs. Query in German retrieves German docs. Each language is a separate silo.</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:6px;font-style:italic;">Simpler to evaluate; language-specific quality is paramount.</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;">
+        <div style="font-size:0.82rem;font-weight:600;color:#a78bfa;margin-bottom:8px;">Cross-Language Retrieval</div>
+        <div style="font-size:0.78rem;color:#94a3b8;line-height:1.5;">Query in English retrieves relevant docs in any language. Requires strong cross-lingual alignment in embedding space.</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:6px;font-style:italic;">Harder; alignment quality varies across language pairs.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Key Considerations</h3>
+    <ul>
+      <li><strong>Language coverage:</strong> Does the embedding model support all your target languages? Some models have strong coverage for European languages but weak coverage for low-resource languages (Thai, Swahili, Tagalog).</li>
+      <li><strong>Script normalization:</strong> Different Unicode representations of the "same" character (e.g., full-width vs. half-width CJK) can produce different embeddings. Normalize before embedding.</li>
+      <li><strong>Same-language vs. cross-language:</strong> These are different tasks with different failure modes. A model may excel at same-language French retrieval but poorly align French queries with English documents.</li>
+      <li><strong>Evaluation per language:</strong> Build evaluation sets for each target language. A model reporting 95% recall in English may only achieve 70% recall in Korean.</li>
+    </ul>
+
+    <h3>Multilingual Embedding Models</h3>
+    <table>
+      <thead><tr><th>Model</th><th>Languages</th><th>Strengths</th></tr></thead>
+      <tbody>
+        <tr><td>multilingual-e5-large</td><td>100+</td><td>Strong cross-lingual retrieval, instruction-tuned</td></tr>
+        <tr><td>Cohere embed-multilingual</td><td>100+</td><td>Production API, good coverage</td></tr>
+        <tr><td>BGE-M3</td><td>100+</td><td>Multi-granularity (dense + sparse + ColBERT)</td></tr>
+        <tr><td>OpenAI text-embedding-3</td><td>Broad</td><td>Convenient API, adjustable dimensions</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-2" class="xref">Topic 2: Domain Adaptation</a> for how to fine-tune multilingual models on domain-specific data in multiple languages.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Multilingual retrieval requires evaluation in each target language &mdash; never assume English performance transfers to other languages.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Cross-Lingual Retrieval Test</summary>
+    <pre><code><span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+model = SentenceTransformer(<span class="str">"intfloat/multilingual-e5-large"</span>)
+
+<span class="com"># Test cross-lingual alignment:</span>
+<span class="com"># Query in English, documents in multiple languages</span>
+query = <span class="str">"query: What are the side effects of aspirin?"</span>
+
+docs = [
+    <span class="str">"passage: Aspirin side effects include stomach bleeding."</span>,  <span class="com"># EN</span>
+    <span class="str">"passage: Nebenwirkungen von Aspirin sind Magenblutungen."</span>,  <span class="com"># DE</span>
+    <span class="str">"passage: Les effets secondaires de l'aspirine incluent..."</span>,  <span class="com"># FR</span>
+    <span class="str">"passage: The history of bicycle manufacturing."</span>,  <span class="com"># EN irrelevant</span>
+]
+
+<span class="com"># Encode with instruction prefix (required for E5)</span>
+q_emb = model.<span class="fn">encode</span>([query], normalize_embeddings=<span class="kw">True</span>)
+d_emb = model.<span class="fn">encode</span>(docs, normalize_embeddings=<span class="kw">True</span>)
+
+<span class="com"># Cosine similarities</span>
+sims = (q_emb @ d_emb.T)[<span class="num">0</span>]
+<span class="kw">for</span> doc, sim <span class="kw">in</span> <span class="fn">sorted</span>(<span class="fn">zip</span>(docs, sims), key=<span class="kw">lambda</span> x: -x[<span class="num">1</span>]):
+    <span class="fn">print</span>(<span class="str">f"  </span>{sim:.3f}<span class="str">  </span>{doc[:60]}<span class="str">..."</span>)
+<span class="com"># Expected: all three aspirin docs rank above the bicycle doc</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you handle mixed-language documents?</summary>
+      <div class="fq-a">Documents that mix languages (e.g., English with Japanese product names) are challenging. <strong>Embed the document as-is</strong> rather than splitting by language, so the model captures the natural language mixing. Ensure your embedding model was trained on multilingual data that includes code-switching. Test retrieval quality specifically on mixed-language content.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should you use separate indexes per language?</summary>
+      <div class="fq-a">For <strong>same-language retrieval</strong>, separate indexes can improve precision by eliminating cross-language noise. For <strong>cross-language retrieval</strong>, a single unified index is necessary. A hybrid approach maintains per-language indexes but also a unified index for cross-language queries, routing based on detected query intent.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 7 ============ -->
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Compression &amp; Quantization</h2></div>
+
+  <div class="quick-take">Compression and quantization reduce memory and improve speed, but they can slightly distort vector distances. In many systems the trade-off is worthwhile, especially when the recall loss is small compared with the operational gain.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Quantization is like reducing a high-resolution photo to a thumbnail. You lose some fine detail, but it loads 10x faster, and for most purposes you can still tell what is in the picture.</div>
+
+  <div class="visual-container" id="c12t07-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Memory and recall trade-offs at different precision levels</div>
+    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;">
+      <div style="background:#0f172a;border-radius:8px;padding:12px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#f472b6;">FP32</div>
+        <div style="font-size:1.3rem;font-weight:700;color:#f472b6;margin:6px 0;">4 bytes</div>
+        <div style="font-size:0.75rem;color:#94a3b8;">per dimension</div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:4px;">Baseline quality</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:12px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#a78bfa;">FP16</div>
+        <div style="font-size:1.3rem;font-weight:700;color:#a78bfa;margin:6px 0;">2 bytes</div>
+        <div style="font-size:0.75rem;color:#94a3b8;">per dimension</div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:4px;">Negligible loss</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:12px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#38bdf8;">INT8</div>
+        <div style="font-size:1.3rem;font-weight:700;color:#38bdf8;margin:6px 0;">1 byte</div>
+        <div style="font-size:0.75rem;color:#94a3b8;">per dimension</div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:4px;">~1% recall loss</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:12px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#34d399;">Binary</div>
+        <div style="font-size:1.3rem;font-weight:700;color:#34d399;margin:6px 0;">1 bit</div>
+        <div style="font-size:0.75rem;color:#94a3b8;">per dimension</div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:4px;">~5&ndash;10% recall loss</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Engineering Economics</h3>
+    <p>The interview-safe answer is to frame this as <strong>engineering economics</strong>. You test whether a cheaper representation still preserves enough of the ranking signal to meet product goals. For a 1-billion-vector index:</p>
+    <table>
+      <thead><tr><th>Precision</th><th>Memory per 768-dim vector</th><th>Total for 1B vectors</th></tr></thead>
+      <tbody>
+        <tr><td>FP32</td><td>3,072 bytes</td><td>~2.9 TB</td></tr>
+        <tr><td>FP16</td><td>1,536 bytes</td><td>~1.4 TB</td></tr>
+        <tr><td>INT8</td><td>768 bytes</td><td>~715 GB</td></tr>
+        <tr><td>Binary</td><td>96 bytes</td><td>~89 GB</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Product Quantization (PQ)</h3>
+    <p>Product quantization divides each vector into subvectors and quantizes each subvector independently using a learned codebook. This achieves higher compression ratios (32x&ndash;64x) than simple scalar quantization while preserving more ranking quality. It is the standard compression technique in FAISS and most production vector databases.</p>
+
+    <h3>When to Compress</h3>
+    <ul>
+      <li><strong>Always use FP16:</strong> The loss is negligible and the savings are free.</li>
+      <li><strong>Use INT8 for large indexes:</strong> When memory is the bottleneck and 1% recall loss is acceptable.</li>
+      <li><strong>Use binary for candidate generation:</strong> Fast approximate search to get top-1000, then re-rank with full-precision vectors.</li>
+    </ul>
+    <p>See <a href="#topic-8" class="xref">Topic 8: Similarity Thresholds</a> for why thresholds must be recalibrated after changing precision.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Quantization is an engineering trade-off, not a quality question &mdash; test whether the cheaper representation preserves enough ranking signal for your product goals.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; FAISS Index with Product Quantization</summary>
+    <pre><code><span class="kw">import</span> faiss
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+dim = <span class="num">768</span>
+n_vectors = <span class="num">1_000_000</span>
+
+<span class="com"># Generate sample embeddings (replace with real embeddings)</span>
+vectors = np.random.<span class="fn">randn</span>(n_vectors, dim).<span class="fn">astype</span>(<span class="str">"float32"</span>)
+faiss.<span class="fn">normalize_L2</span>(vectors)  <span class="com"># normalize for cosine similarity</span>
+
+<span class="com"># Option 1: Flat index (exact, but uses full memory)</span>
+index_flat = faiss.<span class="fn">IndexFlatIP</span>(dim)
+index_flat.<span class="fn">add</span>(vectors)
+<span class="fn">print</span>(<span class="str">f"Flat: </span>{index_flat.ntotal * dim * <span class="num">4</span> / <span class="num">1e9</span>:.2f}<span class="str"> GB"</span>)
+
+<span class="com"># Option 2: IVF + PQ (compressed, approximate)</span>
+n_lists = <span class="num">1024</span>   <span class="com"># number of Voronoi cells</span>
+m = <span class="num">48</span>            <span class="com"># number of subquantizers</span>
+n_bits = <span class="num">8</span>        <span class="com"># bits per subquantizer</span>
+quantizer = faiss.<span class="fn">IndexFlatIP</span>(dim)
+index_pq = faiss.<span class="fn">IndexIVFPQ</span>(quantizer, dim, n_lists, m, n_bits)
+index_pq.<span class="fn">train</span>(vectors)
+index_pq.<span class="fn">add</span>(vectors)
+index_pq.nprobe = <span class="num">32</span>  <span class="com"># search 32 of 1024 cells</span>
+
+<span class="com"># Compare recall: search both indexes for same queries</span>
+queries = np.random.<span class="fn">randn</span>(<span class="num">100</span>, dim).<span class="fn">astype</span>(<span class="str">"float32"</span>)
+faiss.<span class="fn">normalize_L2</span>(queries)
+_, exact = index_flat.<span class="fn">search</span>(queries, <span class="num">10</span>)
+_, approx = index_pq.<span class="fn">search</span>(queries, <span class="num">10</span>)
+
+<span class="com"># Recall@10: fraction of true top-10 found by PQ</span>
+recall = np.<span class="fn">mean</span>([
+    <span class="fn">len</span>(np.<span class="fn">intersect1d</span>(e, a)) / <span class="num">10</span>
+    <span class="kw">for</span> e, a <span class="kw">in</span> <span class="fn">zip</span>(exact, approx)
+])
+<span class="fn">print</span>(<span class="str">f"PQ Recall@10: </span>{recall:.1%}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is Matryoshka embedding and how does it help compression?</summary>
+      <div class="fq-a"><strong>Matryoshka Representation Learning</strong> trains embeddings where the first N dimensions form a useful embedding at any truncation point. You can use 256 dimensions instead of 768 with minimal quality loss, achieving ~3x compression by simply truncating. OpenAI's text-embedding-3 models support this via the <code>dimensions</code> parameter.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you combine quantization with dimensionality reduction?</summary>
+      <div class="fq-a">Yes. A common pipeline is: <strong>Matryoshka truncation</strong> (768 -> 256 dims) followed by <strong>INT8 quantization</strong> (4 bytes -> 1 byte per dim). This gives ~12x total compression. You can even add <strong>PQ</strong> on top for extreme compression, though at that point recall testing is essential.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 8 ============ -->
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Similarity Thresholds</h2></div>
+
+  <div class="quick-take">Thresholds should be chosen from validation data, not intuition. The right threshold depends on the embedding model, the corpus, and what happens downstream when retrieval is too broad or too narrow.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A similarity threshold is like a bouncer at a club. Too strict and you turn away good guests. Too loose and the room fills with people who should not be there. The right strictness depends on what is happening inside.</div>
+
+  <div class="visual-container" id="c12t08-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#f87171;">Threshold Too Low</div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">Many irrelevant results pass through. LLM gets flooded with weak context.</div>
+        <div style="font-size:0.72rem;color:#f87171;margin-top:6px;">Risk: hallucination from noise</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid rgba(52,211,153,0.3);text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#34d399;">Threshold Just Right</div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">Relevant results pass; marginal results are filtered. LLM gets focused context.</div>
+        <div style="font-size:0.72rem;color:#34d399;margin-top:6px;">Optimal: precision + recall balanced</div>
+      </div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px;border:1px solid #334155;text-align:center;">
+        <div style="font-size:0.82rem;font-weight:600;color:#fb923c;">Threshold Too High</div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">Many relevant results rejected. LLM lacks sufficient context to answer.</div>
+        <div style="font-size:0.72rem;color:#fb923c;margin-top:6px;">Risk: "I don't have enough info"</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Thresholds Are Pipeline Policy</h3>
+    <p>Thresholds should be tuned jointly with reranking, answer generation, and abstention behavior. A threshold that maximizes offline recall may still hurt answer quality if it floods the model with weak context. The right threshold is the one that produces the best <em>end-to-end</em> answer quality, not the best retrieval metrics in isolation.</p>
+
+    <h3>How to Set Thresholds</h3>
+    <ol>
+      <li><strong>Collect validation data:</strong> Get query-document pairs with relevance labels (relevant / not relevant).</li>
+      <li><strong>Compute similarity scores:</strong> Embed all queries and documents, compute cosine similarity for each pair.</li>
+      <li><strong>Plot precision-recall curve:</strong> Vary the threshold and measure precision and recall at each point.</li>
+      <li><strong>Choose based on downstream impact:</strong> A threshold that maximizes F1 may not be ideal if false positives (noise context) are much more harmful than false negatives (missing context).</li>
+    </ol>
+
+    <h3>What Invalidates a Threshold</h3>
+    <table>
+      <thead><tr><th>Change</th><th>Why Threshold Needs Recalibration</th></tr></thead>
+      <tbody>
+        <tr><td>New embedding model</td><td>Different models produce different similarity distributions</td></tr>
+        <tr><td>Corpus changes</td><td>Adding documents shifts the similarity landscape</td></tr>
+        <tr><td>Query pattern shifts</td><td>Users asking different types of questions</td></tr>
+        <tr><td>Quantization/compression</td><td>Compression distorts distances, changing effective thresholds</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-9" class="xref">Topic 9: Monitoring Retrieval Drift</a> for how to detect when thresholds need adjustment, and <a href="#topic-7" class="xref">Topic 7: Compression &amp; Quantization</a> for compression-induced threshold shifts.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Thresholds are part of the pipeline policy &mdash; tune them on validation data jointly with reranking, generation, and abstention behavior, and recalibrate after any component changes.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Finding the Optimal Threshold</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> precision_recall_curve
+
+<span class="kw">def</span> <span class="fn">find_optimal_threshold</span>(
+    similarities: np.ndarray,
+    labels: np.ndarray,
+    beta: float = <span class="num">1.0</span>
+) -> dict:
+    <span class="str">"""Find the threshold that maximizes F-beta score.
+
+    Args:
+        similarities: cosine similarities for each (query, doc) pair
+        labels: 1 = relevant, 0 = not relevant
+        beta: F-beta weight (beta > 1 favors recall,
+              beta < 1 favors precision)
+    """</span>
+    precisions, recalls, thresholds = <span class="fn">precision_recall_curve</span>(
+        labels, similarities
+    )
+
+    <span class="com"># Compute F-beta at each threshold</span>
+    f_scores = (
+        (<span class="num">1</span> + beta**<span class="num">2</span>) * precisions * recalls /
+        (beta**<span class="num">2</span> * precisions + recalls + <span class="num">1e-8</span>)
+    )
+
+    best_idx = np.<span class="fn">argmax</span>(f_scores)
+    <span class="kw">return</span> {
+        <span class="str">"threshold"</span>: <span class="fn">float</span>(thresholds[best_idx]),
+        <span class="str">"precision"</span>: <span class="fn">float</span>(precisions[best_idx]),
+        <span class="str">"recall"</span>: <span class="fn">float</span>(recalls[best_idx]),
+        <span class="str">"f_score"</span>: <span class="fn">float</span>(f_scores[best_idx]),
+    }</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Should you use a fixed threshold or a dynamic one?</summary>
+      <div class="fq-a">For most systems, a <strong>fixed threshold per model/corpus</strong> is simpler and more predictable. Dynamic thresholds (e.g., "take any result within 90% of the best match") can handle score variation better but add complexity. Some teams use a fixed minimum threshold combined with a dynamic "relative-to-best" filter for robustness.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What happens when retrieval returns zero results above the threshold?</summary>
+      <div class="fq-a">Design for this case explicitly. Options include: <strong>falling back to keyword search</strong>, <strong>lowering the threshold temporarily</strong>, <strong>generating a response acknowledging insufficient context</strong>, or <strong>asking the user to rephrase</strong>. The worst option is silently returning nothing and leaving the LLM to generate an answer without any retrieved context.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 9 ============ -->
+<style>
+.c12t09-signals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.c12t09-signal { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+.c12t09-signal-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+.c12t09-signal-desc { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; }
+</style>
+
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Monitoring Retrieval Drift</h2></div>
+
+  <div class="quick-take">Monitor query distributions, nearest-neighbor patterns, recall on canary sets, click/acceptance behavior, and the rate of irrelevant contexts reaching the generator. Retrieval systems need ongoing observation because their environment changes even when the model does not.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A retrieval system is like a map. The map does not change, but the territory does &mdash; new roads, new buildings, closed paths. Without regular updates to check the map against reality, you will send people to the wrong places.</div>
+
+  <div class="visual-container" id="c12t09-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Drift signals to monitor in production retrieval systems</div>
+    <div class="c12t09-signals">
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#38bdf8;">Query Distribution</div>
+        <div class="c12t09-signal-desc">Are users asking different types of questions than when the system was built?</div>
+      </div>
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#a78bfa;">Nearest-Neighbor Patterns</div>
+        <div class="c12t09-signal-desc">Are average similarity scores for top-k results declining?</div>
+      </div>
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#34d399;">Canary Set Recall</div>
+        <div class="c12t09-signal-desc">Do known good query-document pairs still retrieve correctly?</div>
+      </div>
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#fb923c;">Click/Acceptance Rate</div>
+        <div class="c12t09-signal-desc">Are users clicking on, using, or accepting retrieved results less often?</div>
+      </div>
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#f472b6;">Irrelevant Context Rate</div>
+        <div class="c12t09-signal-desc">How often does the LLM receive and try to use irrelevant retrieved context?</div>
+      </div>
+      <div class="c12t09-signal">
+        <div class="c12t09-signal-name" style="color:#facc15;">New Term Frequency</div>
+        <div class="c12t09-signal-desc">Are queries using terms that did not exist when the model was trained?</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Sources of Drift</h3>
+    <p>Drift can come from changes in user language, data ingestion, new product terms, or updated business processes. The embedding model remains frozen, but the world it represents keeps changing:</p>
+    <ul>
+      <li><strong>User language shifts:</strong> New jargon, trending terms, or changes in how users phrase queries.</li>
+      <li><strong>Corpus evolution:</strong> New documents added, old documents removed or updated. The embedding index may not reflect current reality.</li>
+      <li><strong>Business process changes:</strong> A reorganization or product rename means old queries no longer map to the right documents.</li>
+      <li><strong>Seasonal patterns:</strong> Query patterns shift with business cycles (tax season, product launches, regulatory deadlines).</li>
+    </ul>
+
+    <h3>Building a Monitoring Pipeline</h3>
+    <table>
+      <thead><tr><th>Component</th><th>What to Track</th><th>Alert When</th></tr></thead>
+      <tbody>
+        <tr><td>Canary queries</td><td>Recall on a fixed set of known-good pairs</td><td>Recall drops below baseline</td></tr>
+        <tr><td>Score distribution</td><td>Mean/median/p95 of top-k similarity scores</td><td>Distribution shifts significantly</td></tr>
+        <tr><td>User feedback</td><td>Thumbs up/down, click-through, answer acceptance</td><td>Satisfaction trends downward</td></tr>
+        <tr><td>LLM abstention rate</td><td>How often the LLM says "I don't have enough info"</td><td>Rate increases (may indicate retrieval gaps)</td></tr>
+        <tr><td>Empty result rate</td><td>Queries returning zero results above threshold</td><td>Rate increases</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="#topic-8" class="xref">Topic 8: Similarity Thresholds</a> for when to recalibrate thresholds as drift is detected.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Representation quality is not a one-time achievement &mdash; retrieval systems need ongoing observation because their environment changes even when the model does not.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Canary Set Monitoring</summary>
+    <pre><code><span class="kw">import</span> json, time
+<span class="kw">from</span> typing <span class="kw">import</span> List, Dict
+
+<span class="kw">def</span> <span class="fn">run_canary_check</span>(
+    search_fn,
+    canary_set: List[Dict],
+    k: int = <span class="num">10</span>,
+) -> Dict:
+    <span class="str">"""Check retrieval quality against known-good pairs.
+
+    Args:
+        search_fn: function(query) -> list of doc_ids
+        canary_set: [{"query": str, "expected_doc_id": str}, ...]
+        k: number of results to check
+    """</span>
+    hits = <span class="num">0</span>
+    scores = []
+    failures = []
+
+    <span class="kw">for</span> canary <span class="kw">in</span> canary_set:
+        results = <span class="fn">search_fn</span>(canary[<span class="str">"query"</span>], top_k=k)
+        result_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="kw">in</span> results]
+
+        <span class="kw">if</span> canary[<span class="str">"expected_doc_id"</span>] <span class="kw">in</span> result_ids:
+            hits += <span class="num">1</span>
+            rank = result_ids.<span class="fn">index</span>(canary[<span class="str">"expected_doc_id"</span>]) + <span class="num">1</span>
+            scores.<span class="fn">append</span>(<span class="num">1.0</span> / rank)  <span class="com"># reciprocal rank</span>
+        <span class="kw">else</span>:
+            failures.<span class="fn">append</span>(canary[<span class="str">"query"</span>])
+            scores.<span class="fn">append</span>(<span class="num">0.0</span>)
+
+    result = {
+        <span class="str">"timestamp"</span>: time.<span class="fn">time</span>(),
+        <span class="str">"recall_at_k"</span>: hits / <span class="fn">len</span>(canary_set),
+        <span class="str">"mrr"</span>: <span class="fn">sum</span>(scores) / <span class="fn">len</span>(scores),
+        <span class="str">"failures"</span>: failures,
+    }
+
+    <span class="com"># Alert if recall drops below threshold</span>
+    <span class="kw">if</span> result[<span class="str">"recall_at_k"</span>] < <span class="num">0.9</span>:
+        <span class="fn">print</span>(<span class="str">f"ALERT: Canary recall dropped to "</span>
+              <span class="str">f"</span>{result[<span class="str">'recall_at_k'</span>]:.1%}<span class="str">"</span>)
+    <span class="kw">return</span> result</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How often should you run canary checks?</summary>
+      <div class="fq-a">Run canary checks <strong>at least daily</strong> for production systems and after every corpus update. Some teams run them hourly or as part of their CI/CD pipeline. The checks are cheap (a few dozen queries against the index) and provide early warning of degradation before users notice.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you distinguish drift from a bug?</summary>
+      <div class="fq-a"><strong>Drift</strong> is gradual and affects many queries. A <strong>bug</strong> is sudden and may affect specific query patterns. If canary recall drops sharply after a deployment, suspect a bug (wrong model loaded, index corruption, config change). If it drifts slowly over weeks, suspect genuine query or corpus drift. Check deployment logs alongside monitoring data.</div>
+    </details>
+    <details class="fq-item">
+      <summary>When should drift trigger re-training vs. re-indexing?</summary>
+      <div class="fq-a"><strong>Re-indexing</strong> (re-embedding new/changed documents) is needed when the corpus changes. <strong>Re-training</strong> the embedding model is needed when the types of queries or the domain language itself have shifted. Re-indexing is cheaper and more common. Re-training is a bigger investment and should be driven by clear benchmark evidence.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ TOPIC 10 ============ -->
+<style>
+.c12t10-phases { display: flex; flex-direction: column; gap: 2px; }
+.c12t10-phase { display: flex; align-items: stretch; gap: 0; padding: 12px 16px; border-radius: 8px; }
+.c12t10-phase-num { width: 36px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+.c12t10-phase-body { flex: 1; }
+.c12t10-phase-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+.c12t10-phase-desc { font-size: 0.78rem; color: #94a3b8; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Embedding Model Migration</h2></div>
+
+  <div class="quick-take">Model migration usually requires re-embedding the corpus, validating new retrieval behavior, and potentially recalibrating thresholds and rerankers. During the transition, many teams dual-run both indexes so they can compare results and de-risk rollout.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Changing the embedding model is not like swapping a battery. It is like changing the coordinate system on a map &mdash; every point must be recalculated, and the scale may have shifted.</div>
+
+  <div class="visual-container" id="c12t10-visual">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;text-align:center;">Migration phases &mdash; think operationally, not just technically</div>
+    <div class="c12t10-phases">
+      <div class="c12t10-phase" style="background:rgba(52,211,153,0.08);">
+        <div class="c12t10-phase-num" style="color:#34d399;">1</div>
+        <div class="c12t10-phase-body">
+          <div class="c12t10-phase-title" style="color:#34d399;">Benchmark on Current System</div>
+          <div class="c12t10-phase-desc">Measure baseline retrieval quality with the existing model. This is your comparison point.</div>
+        </div>
+      </div>
+      <div class="c12t10-phase" style="background:rgba(56,189,248,0.08);">
+        <div class="c12t10-phase-num" style="color:#38bdf8;">2</div>
+        <div class="c12t10-phase-body">
+          <div class="c12t10-phase-title" style="color:#38bdf8;">Re-Embed the Corpus</div>
+          <div class="c12t10-phase-desc">Embed all documents with the new model. For large corpora, this can take hours to days and significant compute.</div>
+        </div>
+      </div>
+      <div class="c12t10-phase" style="background:rgba(167,139,250,0.08);">
+        <div class="c12t10-phase-num" style="color:#a78bfa;">3</div>
+        <div class="c12t10-phase-body">
+          <div class="c12t10-phase-title" style="color:#a78bfa;">Validate Retrieval Quality</div>
+          <div class="c12t10-phase-desc">Run the full benchmark suite against the new index. Compare recall, precision, MRR, and end-to-end answer quality.</div>
+        </div>
+      </div>
+      <div class="c12t10-phase" style="background:rgba(250,204,21,0.08);">
+        <div class="c12t10-phase-num" style="color:#facc15;">4</div>
+        <div class="c12t10-phase-body">
+          <div class="c12t10-phase-title" style="color:#facc15;">Recalibrate Thresholds &amp; Rerankers</div>
+          <div class="c12t10-phase-desc">Similarity distributions differ between models. Old thresholds will not work correctly.</div>
+        </div>
+      </div>
+      <div class="c12t10-phase" style="background:rgba(244,114,182,0.08);">
+        <div class="c12t10-phase-num" style="color:#f472b6;">5</div>
+        <div class="c12t10-phase-body">
+          <div class="c12t10-phase-title" style="color:#f472b6;">Dual-Run &amp; Gradual Rollout</div>
+          <div class="c12t10-phase-desc">Run both old and new indexes in parallel. Route a percentage of traffic to the new index and compare results before full cutover.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Not Just Swapping an API Call</h3>
+    <p>Changing the embedding model is not just swapping one API call. It is a <strong>data migration and quality management exercise</strong>. Vectors from different models live in incompatible spaces &mdash; you cannot search a new-model query against an old-model index. Every document must be re-embedded.</p>
+
+    <h3>Migration Checklist</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Details</th><th>Common Pitfall</th></tr></thead>
+      <tbody>
+        <tr><td>Baseline benchmark</td><td>Measure current recall, MRR, NDCG on eval set</td><td>Migrating without a baseline to compare against</td></tr>
+        <tr><td>Corpus re-embedding</td><td>Embed all documents; budget compute and time</td><td>Underestimating re-embedding time for large corpora</td></tr>
+        <tr><td>Threshold recalibration</td><td>Find new optimal thresholds on validation data</td><td>Reusing old thresholds (different score distributions)</td></tr>
+        <tr><td>Reranker compatibility</td><td>Test if existing reranker works with new embeddings</td><td>Assuming reranker is model-agnostic when it is not</td></tr>
+        <tr><td>A/B testing</td><td>Route 5&ndash;10% of traffic to new index, measure user impact</td><td>Big-bang cutover without shadow comparison</td></tr>
+        <tr><td>Rollback plan</td><td>Keep old index available for quick revert</td><td>Deleting old index before verifying new one</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Dual-Run Strategy</h3>
+    <p>The safest migration pattern is to <strong>dual-run</strong> both indexes during transition:</p>
+    <ol>
+      <li>Query both indexes for every request.</li>
+      <li>Serve results from the old index (no user impact).</li>
+      <li>Log and compare results from both indexes offline.</li>
+      <li>When the new index consistently matches or exceeds the old one, switch traffic gradually.</li>
+      <li>Keep the old index available for rollback for 1&ndash;2 weeks after full cutover.</li>
+    </ol>
+    <p>See <a href="#topic-8" class="xref">Topic 8: Similarity Thresholds</a> and <a href="#topic-9" class="xref">Topic 9: Monitoring Retrieval Drift</a> for the calibration and monitoring that must accompany migration.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Embedding model migration is a data migration and quality management exercise &mdash; plan for re-embedding, recalibration, dual-running, and rollback.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example &mdash; Dual-Index Comparison</summary>
+    <pre><code><span class="kw">from</span> typing <span class="kw">import</span> List, Dict, Callable
+<span class="kw">import</span> json
+
+<span class="kw">def</span> <span class="fn">compare_indexes</span>(
+    query: str,
+    old_search: Callable,
+    new_search: Callable,
+    k: int = <span class="num">10</span>,
+) -> Dict:
+    <span class="str">"""Compare retrieval results from old and new embedding indexes.
+
+    Returns overlap metrics and both result sets for analysis.
+    """</span>
+    old_results = <span class="fn">old_search</span>(query, top_k=k)
+    new_results = <span class="fn">new_search</span>(query, top_k=k)
+
+    old_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="kw">in</span> old_results]
+    new_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="kw">in</span> new_results]
+
+    <span class="com"># Measure overlap between result sets</span>
+    overlap = <span class="fn">len</span>(<span class="fn">set</span>(old_ids) & <span class="fn">set</span>(new_ids))
+
+    <span class="com"># Rank correlation (Jaccard similarity of top-k)</span>
+    jaccard = overlap / <span class="fn">len</span>(<span class="fn">set</span>(old_ids) | <span class="fn">set</span>(new_ids))
+
+    <span class="com"># Top-1 agreement</span>
+    top1_match = old_ids[<span class="num">0</span>] == new_ids[<span class="num">0</span>] <span class="kw">if</span> old_ids <span class="kw">and</span> new_ids <span class="kw">else</span> <span class="kw">False</span>
+
+    <span class="kw">return</span> {
+        <span class="str">"query"</span>: query,
+        <span class="str">"overlap_at_k"</span>: overlap / k,
+        <span class="str">"jaccard"</span>: jaccard,
+        <span class="str">"top1_match"</span>: top1_match,
+        <span class="str">"old_top3"</span>: old_ids[:3],
+        <span class="str">"new_top3"</span>: new_ids[:3],
+    }
+
+<span class="com"># Run over benchmark queries and log for analysis</span>
+<span class="com"># Look for patterns in disagreements to understand</span>
+<span class="com"># where the new model differs from the old one</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How long does re-embedding a large corpus typically take?</summary>
+      <div class="fq-a">For a corpus of <strong>1 million documents</strong> at ~500 tokens each, re-embedding takes roughly 2&ndash;8 hours on a single GPU, or 30&ndash;60 minutes with an API (depending on rate limits). For 100M+ documents, plan for days of compute or significant API cost. Budget this into your migration timeline and consider parallelizing across multiple GPUs or API keys.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What if the new model is a different dimensionality?</summary>
+      <div class="fq-a">Different dimensionalities require a new index entirely &mdash; you cannot mix 768-dim and 1536-dim vectors in the same FAISS index. Some models (OpenAI text-embedding-3) support <strong>Matryoshka truncation</strong> to match the old dimensionality, but this should be tested for quality impact. Plan for a full index rebuild.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle migration for real-time systems with zero downtime?</summary>
+      <div class="fq-a">The dual-index pattern handles this naturally. <strong>Build the new index offline</strong> while the old index serves production traffic. Once the new index is ready and validated, add it as a secondary search target. Route traffic gradually (5% -> 25% -> 100%). The old index stays live until you are confident in the new one. This requires sufficient infrastructure to run both indexes simultaneously.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

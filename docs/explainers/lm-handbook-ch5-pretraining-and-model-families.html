@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 5: Pretraining Objectives, Model Families &amp; Classical Comparisons</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 5 &middot; 10 Topics</div>
+  <h1>Pretraining Objectives, Model Families &amp; Classical Comparisons</h1>
+  <p>Why the training objective determines what a model becomes good at &mdash; and how to compare model families by design, not brand name.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Modern language models did not appear fully formed. They emerged from a sequence of design shifts: from n-gram statistics to distributed representations, from recurrent models to transformers, and from narrow task models to broadly pretrained foundations. This chapter explains the pretraining objectives that define each model family, the architectural choices that accompany them, and how to reason about their downstream strengths in an interview setting.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Foundations &amp; Objectives</div>
+      <a href="#topic-1"><span class="toc-num">1</span> What Is a Language Model?</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Autoregressive vs Masked</a>
+      <a href="#topic-3"><span class="toc-num">3</span> Masked Language Modeling</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Next Sentence Prediction</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Subword OOV Handling</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Architectures &amp; Comparisons</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Sequence-to-Sequence Models</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Transformers vs RNNs</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Foundation vs Task-Specific</a>
+      <a href="#topic-9"><span class="toc-num">9</span> Generative vs Discriminative</a>
+      <a href="#topic-10"><span class="toc-num">10</span> LLMs vs Classical Models</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Foundations &amp; Objectives</span></div>
+    <p class="group-intro">What language models are, how pretraining objectives differ, and the vocabulary strategies that let them handle any text.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c05t01-family-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; cursor: pointer; transition: all 0.2s; }
+.c05t01-family-card:hover { border-color: #38bdf8; }
+.c05t01-family-card.active { border-color: #38bdf8; background: rgba(56,189,248,0.05); }
+.c05t01-family-label { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+.c05t01-family-detail { font-size: 0.78rem; color: #64748b; }
+.c05t01-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.c05t01-info { padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.c05t01-info-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 6px; }
+.c05t01-info-text { font-size: 0.84rem; color: #cbd5e1; line-height: 1.5; }
+.c05t01-meter { height: 6px; background: #334155; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.c05t01-meter-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>What Is a Language Model?</h2></div>
+
+  <div class="quick-take">A language model estimates the probability of token sequences. It is called "large" because modern versions use massive parameter counts, datasets, and compute &mdash; enabling broad statistical learning but also introducing new costs and failure modes like hallucination.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Think of a language model as a probability engine: feed it a partial sequence, and it estimates what comes next (or what is missing). "Large" means the engine is powerful enough to internalize language-wide patterns, not just local statistics.</div>
+
+  <div class="visual-container" id="c05t01-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-view="overview">Family Overview</button>
+      <button class="vis-btn" data-view="scale">Scale Dimensions</button>
+    </div>
+    <div id="c05t01-overview" style="display:block;">
+      <div class="c05t01-grid">
+        <div class="c05t01-family-card active" data-family="auto">
+          <div class="c05t01-family-label">Autoregressive LM</div>
+          <div class="c05t01-family-detail">Predict next token left-to-right</div>
+        </div>
+        <div class="c05t01-family-card" data-family="masked">
+          <div class="c05t01-family-label">Masked LM</div>
+          <div class="c05t01-family-detail">Recover hidden tokens from context</div>
+        </div>
+        <div class="c05t01-family-card" data-family="seq2seq">
+          <div class="c05t01-family-label">Seq2Seq Model</div>
+          <div class="c05t01-family-detail">Map input sequence to output sequence</div>
+        </div>
+        <div class="c05t01-family-card" data-family="foundation">
+          <div class="c05t01-family-label">Foundation Model</div>
+          <div class="c05t01-family-detail">Broad pretraining, then adaptation</div>
+        </div>
+      </div>
+      <div class="c05t01-info" id="c05t01-detail">
+        <div class="c05t01-info-title">Selected Family</div>
+        <div class="c05t01-info-text" id="c05t01-detail-text">Autoregressive LMs predict the next token given all prior tokens. They excel at free-form generation, dialogue, code completion, and any task framed as continuation. Examples: GPT series, LLaMA, Claude.</div>
+      </div>
+    </div>
+    <div id="c05t01-scale" style="display:none;">
+      <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">What makes a model "large" &mdash; it is not only parameters.</div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;"><span>Parameters</span><span style="color:#38bdf8; font-weight:600;">~405B</span></div>
+        <div class="c05t01-meter"><div class="c05t01-meter-fill" style="width:90%; background:linear-gradient(90deg,#38bdf8,#818cf8);"></div></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;"><span>Training Tokens</span><span style="color:#a78bfa; font-weight:600;">~15T</span></div>
+        <div class="c05t01-meter"><div class="c05t01-meter-fill" style="width:85%; background:linear-gradient(90deg,#a78bfa,#f472b6);"></div></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;"><span>Compute (GPU-hours)</span><span style="color:#34d399; font-weight:600;">~millions</span></div>
+        <div class="c05t01-meter"><div class="c05t01-meter-fill" style="width:80%; background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;"><span>Context Window</span><span style="color:#fb923c; font-weight:600;">128K&ndash;1M</span></div>
+        <div class="c05t01-meter"><div class="c05t01-meter-fill" style="width:70%; background:linear-gradient(90deg,#fb923c,#facc15);"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Core Idea</h3>
+    <p>At its most basic, a language model learns a probability distribution over sequences of tokens. Given a partial sequence, it can estimate which token is most likely to appear next, or which token best fills a gap in context. Every modern LLM is, at its core, this probability estimator &mdash; scaled up with deep architectures and enormous training sets.</p>
+
+    <h3>Why "Large" Matters</h3>
+    <p>"Large" does not only mean more parameters. It also implies:</p>
+    <ul>
+      <li><strong>Longer training runs</strong> over more diverse data, enabling broader generalization.</li>
+      <li><strong>More sophisticated infrastructure</strong> &mdash; distributed training across hundreds or thousands of GPUs.</li>
+      <li><strong>Bigger context windows</strong> that let the model consider more information at once.</li>
+      <li><strong>New failure modes</strong> such as hallucination, distribution shift, and high deployment cost.</li>
+    </ul>
+    <p>Scale brings capability but also cost and complexity. A strong interview answer connects both sides: why size enables broad statistical learning and why it introduces engineering challenges that did not exist with smaller models.</p>
+
+    <h3>Model Family Landscape</h3>
+    <p>The major model families differ in their pretraining objective, not just their brand name. Understanding this table is the fastest way to compare them:</p>
+    <table>
+      <thead><tr><th>Family</th><th>Objective</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>Autoregressive LM</td><td>Predict next token</td><td>Generation, dialogue, coding</td></tr>
+        <tr><td>Masked LM</td><td>Recover hidden tokens</td><td>Representation, classification, retrieval</td></tr>
+        <tr><td>Seq2Seq</td><td>Map input to output sequence</td><td>Translation, summarization</td></tr>
+        <tr><td>Foundation Model</td><td>Broad pretraining + adaptation</td><td>Multi-task reuse across products</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>A language model is a probability engine over token sequences. "Large" means it has internalized enough data to generalize broadly &mdash; but that power comes with cost, infrastructure, and failure-mode trade-offs.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Exploring Token Probabilities</summary>
+    <pre><code><span class="kw">import</span> torch
+<span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM, AutoTokenizer
+
+<span class="com"># Load a small autoregressive language model</span>
+model_name = <span class="str">"gpt2"</span>
+tokenizer = AutoTokenizer.<span class="fn">from_pretrained</span>(model_name)
+model = AutoModelForCausalLM.<span class="fn">from_pretrained</span>(model_name)
+
+<span class="com"># Encode a prompt and get next-token probabilities</span>
+prompt = <span class="str">"The capital of France is"</span>
+inputs = tokenizer(prompt, <span class="dec">return_tensors</span>=<span class="str">"pt"</span>)
+
+<span class="kw">with</span> torch.<span class="fn">no_grad</span>():
+    outputs = model(**inputs)
+    <span class="com"># logits shape: (batch, seq_len, vocab_size)</span>
+    logits = outputs.logits[:, -<span class="num">1</span>, :]
+    probs = torch.nn.functional.<span class="fn">softmax</span>(logits, <span class="dec">dim</span>=-<span class="num">1</span>)
+
+<span class="com"># Show the top 5 most likely next tokens</span>
+top5 = torch.<span class="fn">topk</span>(probs, <span class="num">5</span>)
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>):
+    token_id = top5.indices[<span class="num">0</span>][i].<span class="fn">item</span>()
+    prob = top5.values[<span class="num">0</span>][i].<span class="fn">item</span>()
+    token_str = tokenizer.<span class="fn">decode</span>([token_id])
+    <span class="fn">print</span>(<span class="str">f"  </span>{token_str!r:<span class="num">12</span>}<span class="str"> p=</span>{prob:.4f}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is the difference between a model and a model family?</summary>
+      <div class="fq-a">A <strong>model family</strong> refers to a group of models that share the same pretraining objective and architectural pattern (e.g., autoregressive transformers). A specific <strong>model</strong> is a particular trained instance within that family (e.g., GPT-4, LLaMA 3). Comparing families by objective is more useful in interviews than comparing individual models by benchmark score.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does "large" have a formal threshold?</summary>
+      <div class="fq-a">No. There is no agreed-upon parameter count that makes a model "large." The term reflects a regime where scale itself creates emergent capabilities &mdash; behaviors that smaller models do not exhibit. In practice, models above roughly 1 billion parameters often qualify, but the boundary is fuzzy and shifts as the field advances.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can a language model do things beyond language?</summary>
+      <div class="fq-a">Yes. Because LLMs learn general sequence-to-sequence mappings, they can process structured data (JSON, SQL), code, mathematical notation, and even multimodal inputs when paired with vision encoders. The "language" in LLM is increasingly a misnomer &mdash; they are <strong>general sequence models</strong> that happen to be trained primarily on text.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  /* --- Topic 1: Family selector & scale view toggle --- */
+  var familyData = {
+    auto: 'Autoregressive LMs predict the next token given all prior tokens. They excel at free-form generation, dialogue, code completion, and any task framed as continuation. Examples: GPT series, LLaMA, Claude.',
+    masked: 'Masked LMs hide a subset of tokens and predict them from surrounding context. They build rich bidirectional representations, making them ideal for classification, search, and ranking. Examples: BERT, RoBERTa, DeBERTa.',
+    seq2seq: 'Seq2Seq models map an input sequence to an output sequence with potentially different lengths. They are naturally suited for translation, summarization, and structured transformations. Examples: T5, BART, mBART.',
+    foundation: 'Foundation models are pretrained broadly so they can be adapted to many downstream tasks via prompting, fine-tuning, or retrieval augmentation. The key insight is training once and reusing many times. Examples: GPT-4, Claude, Gemini.'
+  };
+  document.querySelectorAll('.c05t01-family-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      document.querySelectorAll('.c05t01-family-card').forEach(function(c) { c.classList.remove('active'); });
+      card.classList.add('active');
+      document.getElementById('c05t01-detail-text').textContent = familyData[card.getAttribute('data-family')];
+    });
+  });
+  document.querySelectorAll('#c05t01-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c05t01-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var view = btn.getAttribute('data-view');
+      document.getElementById('c05t01-overview').style.display = view === 'overview' ? 'block' : 'none';
+      document.getElementById('c05t01-scale').style.display = view === 'scale' ? 'block' : 'none';
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c05t02-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.c05t02-panel { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; transition: border-color 0.2s; }
+.c05t02-panel.highlight { border-color: #38bdf8; }
+.c05t02-panel-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 8px; }
+.c05t02-flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.c05t02-token { padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; }
+.c05t02-arrow { color: #475569; font-size: 0.8rem; }
+.c05t02-mask { background: rgba(244,114,182,0.2); color: #f472b6; border: 1px dashed rgba(244,114,182,0.4); padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; }
+.c05t02-legend { display: flex; gap: 16px; font-size: 0.76rem; color: #64748b; margin-top: 8px; }
+.c05t02-legend-item { display: flex; align-items: center; gap: 5px; }
+.c05t02-legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Autoregressive vs Masked Models</h2></div>
+
+  <div class="quick-take">Autoregressive models predict the next token from left context only, making them natural generators. Masked models predict hidden tokens from both directions, making them strong representation learners. Neither is universally better &mdash; they prepare the model for different default strengths.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Autoregressive = reading a story and guessing what happens next. Masked = doing a crossword puzzle where you see the surrounding clues and fill in the blanks.</div>
+
+  <div class="visual-container" id="c05t02-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-mode="auto">Autoregressive</button>
+      <button class="vis-btn" data-mode="masked">Masked</button>
+    </div>
+    <div class="c05t02-compare">
+      <div class="c05t02-panel highlight" id="c05t02-auto-panel">
+        <div class="c05t02-panel-title" style="color:#38bdf8;">Autoregressive (GPT-style)</div>
+        <div class="c05t02-flow" id="c05t02-auto-flow"></div>
+        <div style="font-size:0.78rem; color:#64748b;">Each token only sees what came before it. Generation flows left to right.</div>
+      </div>
+      <div class="c05t02-panel" id="c05t02-masked-panel">
+        <div class="c05t02-panel-title" style="color:#a78bfa;">Masked (BERT-style)</div>
+        <div class="c05t02-flow" id="c05t02-masked-flow"></div>
+        <div style="font-size:0.78rem; color:#64748b;">Hidden tokens are predicted using both left and right context.</div>
+      </div>
+    </div>
+    <div class="c05t02-legend">
+      <div class="c05t02-legend-item"><div class="c05t02-legend-dot" style="background:#38bdf8;"></div> Visible token</div>
+      <div class="c05t02-legend-item"><div class="c05t02-legend-dot" style="background:#475569;"></div> Future (hidden)</div>
+      <div class="c05t02-legend-item"><div class="c05t02-legend-dot" style="background:#f472b6;"></div> [MASK] target</div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Objective Shapes Behavior</h3>
+    <p>The pretraining objective is the single most important design decision for a language model, because it determines the default behavior the model develops. Autoregressive objectives train the model to <strong>continue sequences</strong>, which makes them natural at generation, dialogue, and open-ended tasks. Masked objectives train the model to <strong>build rich internal representations</strong> of context, which makes them strong at classification, retrieval, and understanding tasks.</p>
+
+    <h3>Detailed Comparison</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>Autoregressive</th><th>Masked</th></tr></thead>
+      <tbody>
+        <tr><td>Direction</td><td>Left-to-right only</td><td>Bidirectional</td></tr>
+        <tr><td>Primary strength</td><td>Generation, continuation</td><td>Representation, understanding</td></tr>
+        <tr><td>Inference mode</td><td>Token-by-token generation</td><td>Encode full input at once</td></tr>
+        <tr><td>Adaptation</td><td>Prompting, RLHF, fine-tuning</td><td>Fine-tuning with classification head</td></tr>
+        <tr><td>Examples</td><td>GPT, LLaMA, Claude</td><td>BERT, RoBERTa, DeBERTa</td></tr>
+      </tbody>
+    </table>
+    <p>A common interview mistake is to rank these as better or worse in the abstract. The right approach is to connect them to task fit: if you need generation, autoregressive is the natural choice. If you need embedding-based retrieval or classification, a masked model may give better representations per compute dollar. See <a href="#topic-9" class="xref">Topic 9: Generative vs Discriminative</a> for the broader framing.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Separate generation from representation: autoregressive objectives train continuation, masked objectives train context understanding. Choose by task fit, not by brand.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Autoregressive vs Masked Prediction</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="com"># --- Autoregressive: complete the sequence ---</span>
+gen = pipeline(<span class="str">"text-generation"</span>, <span class="dec">model</span>=<span class="str">"gpt2"</span>, <span class="dec">max_new_tokens</span>=<span class="num">10</span>)
+result = gen(<span class="str">"The capital of France is"</span>)
+<span class="fn">print</span>(<span class="str">"GPT-2 continuation:"</span>, result[<span class="num">0</span>][<span class="str">"generated_text"</span>])
+
+<span class="com"># --- Masked: fill in the blank ---</span>
+fill = pipeline(<span class="str">"fill-mask"</span>, <span class="dec">model</span>=<span class="str">"bert-base-uncased"</span>)
+result = fill(<span class="str">"The capital of France is [MASK]."</span>)
+<span class="fn">print</span>(<span class="str">"BERT fill-mask:"</span>)
+<span class="kw">for</span> r <span class="kw">in</span> result[:<span class="num">3</span>]:
+    <span class="fn">print</span>(<span class="str">f"  </span>{r[<span class="str">'token_str'</span>]:<span class="num">12</span>}<span class="str"> score=</span>{r[<span class="str">'score'</span>]:.4f}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can autoregressive models also do classification?</summary>
+      <div class="fq-a">Yes. Through <strong>prompting</strong>, an autoregressive model can be asked to output a label. However, it generates the label as text, which requires parsing and validation. Masked models can more naturally produce embeddings for a classification head. The trade-off is flexibility (autoregressive) versus efficiency and calibration (masked). See <a href="#topic-9" class="xref">Topic 9: Generative vs Discriminative</a>.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Why did autoregressive models win for general-purpose AI assistants?</summary>
+      <div class="fq-a">Because most user-facing tasks require <strong>open-ended generation</strong>: answering questions, writing code, summarizing documents. The autoregressive objective is a natural fit for these. Masked models cannot generate fluently in the same way because they were not trained to produce sequences token by token.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is there a model that combines both objectives?</summary>
+      <div class="fq-a">Yes. Models like <strong>T5</strong> use an encoder-decoder architecture where the encoder processes bidirectional context and the decoder generates autoregressively. <strong>XLNet</strong> used a permutation-based objective to capture bidirectional context within an autoregressive framework. These hybrids try to get the best of both worlds.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var tokens = ['The','capital','of','France','is','Paris'];
+  function renderFlows(mode) {
+    var autoFlow = document.getElementById('c05t02-auto-flow');
+    var maskedFlow = document.getElementById('c05t02-masked-flow');
+    autoFlow.innerHTML = ''; maskedFlow.innerHTML = '';
+    var autoPanel = document.getElementById('c05t02-auto-panel');
+    var maskedPanel = document.getElementById('c05t02-masked-panel');
+    autoPanel.classList.toggle('highlight', mode === 'auto');
+    maskedPanel.classList.toggle('highlight', mode === 'masked');
+    var step = mode === 'auto' ? 4 : -1;
+    tokens.forEach(function(t, i) {
+      var chip = document.createElement('span');
+      chip.className = 'c05t02-token';
+      if (mode === 'auto') {
+        if (i <= step) {
+          chip.style.background = hexToRgba('#38bdf8', 0.18); chip.style.color = '#38bdf8';
+          chip.style.border = '1px solid ' + hexToRgba('#38bdf8', 0.3);
+        } else {
+          chip.style.background = hexToRgba('#475569', 0.2); chip.style.color = '#475569';
+          chip.style.border = '1px solid ' + hexToRgba('#475569', 0.3);
+        }
+        chip.textContent = i <= step ? t : '?';
+      } else {
+        chip.style.background = hexToRgba('#38bdf8', 0.18); chip.style.color = '#38bdf8';
+        chip.style.border = '1px solid ' + hexToRgba('#38bdf8', 0.3);
+        chip.textContent = t;
+      }
+      autoFlow.appendChild(chip);
+      if (i < tokens.length - 1) { var arrow = document.createElement('span'); arrow.className = 'c05t02-arrow'; arrow.textContent = '→'; autoFlow.appendChild(arrow); }
+    });
+    tokens.forEach(function(t, i) {
+      if (i === 3) {
+        var mask = document.createElement('span');
+        mask.className = 'c05t02-mask';
+        mask.textContent = mode === 'masked' ? '[MASK]' : t;
+        if (mode !== 'masked') { mask.className = 'c05t02-token'; mask.style.background = hexToRgba('#38bdf8',0.18); mask.style.color = '#38bdf8'; mask.style.border = '1px solid '+hexToRgba('#38bdf8',0.3); }
+        maskedFlow.appendChild(mask);
+      } else {
+        var chip2 = document.createElement('span');
+        chip2.className = 'c05t02-token';
+        chip2.style.background = hexToRgba('#a78bfa', 0.18); chip2.style.color = '#a78bfa';
+        chip2.style.border = '1px solid ' + hexToRgba('#a78bfa', 0.3);
+        chip2.textContent = t;
+        maskedFlow.appendChild(chip2);
+      }
+      if (i < tokens.length - 1) { var arrow2 = document.createElement('span'); arrow2.className = 'c05t02-arrow'; arrow2.textContent = '→'; maskedFlow.appendChild(arrow2); }
+    });
+  }
+  renderFlows('auto');
+  document.querySelectorAll('#c05t02-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c05t02-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      renderFlows(btn.getAttribute('data-mode'));
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<style>
+.c05t03-step { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; margin-bottom: 8px; transition: border-color 0.2s; }
+.c05t03-step.active { border-color: #a78bfa; }
+.c05t03-step-num { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; background: rgba(167,139,250,0.15); color: #a78bfa; flex-shrink: 0; }
+.c05t03-step-text { font-size: 0.82rem; color: #cbd5e1; }
+.c05t03-demo-tokens { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; margin-top: 8px; min-height: 40px; }
+.c05t03-demo-chip { padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>Masked Language Modeling</h2></div>
+
+  <div class="quick-take">Masked language modeling (MLM) randomly hides a subset of tokens and asks the model to predict them from surrounding context. Because prediction depends on both left and right neighbors, the model learns bidirectional contextual representations &mdash; the foundation of BERT-style models.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> MLM is like a cloze test: the teacher removes words from a passage and the student must fill them in by understanding the whole sentence, not just the preceding words.</div>
+
+  <div class="visual-container" id="c05t03-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Click a token to mask it and see how surrounding context predicts the hidden word.</div>
+    <div class="c05t03-demo-tokens" id="c05t03-sentence"></div>
+    <div style="margin-top:10px;">
+      <div class="c05t03-step active">
+        <div class="c05t03-step-num">1</div>
+        <div class="c05t03-step-text"><strong style="color:#a78bfa;">Random masking:</strong> ~15% of tokens are replaced with [MASK], random tokens, or left unchanged.</div>
+      </div>
+      <div class="c05t03-step">
+        <div class="c05t03-step-num">2</div>
+        <div class="c05t03-step-text"><strong style="color:#a78bfa;">Bidirectional encoding:</strong> The transformer sees all unmasked tokens and their positions simultaneously.</div>
+      </div>
+      <div class="c05t03-step">
+        <div class="c05t03-step-num">3</div>
+        <div class="c05t03-step-text"><strong style="color:#a78bfa;">Prediction:</strong> The model outputs a probability distribution over the vocabulary for each masked position.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How MLM Works</h3>
+    <p>During pretraining, roughly 15% of tokens are selected for masking. Of those, 80% are replaced with a special <code>[MASK]</code> token, 10% are replaced with a random token, and 10% are left unchanged. This mix prevents the model from only learning to recognize the <code>[MASK]</code> symbol and forces it to build robust representations for all positions.</p>
+
+    <h3>Why Bidirectionality Matters</h3>
+    <p>Because the masked token can depend on words appearing both before and after it, the model must learn to integrate context from all directions. This produces richer contextual embeddings than a left-to-right autoregressive model, which only ever looks backward. These embeddings are why BERT-style models proved so effective for:</p>
+    <ul>
+      <li><strong>Search ranking</strong> &mdash; understanding whether a document matches a query</li>
+      <li><strong>Classification</strong> &mdash; sentiment analysis, toxicity detection, topic assignment</li>
+      <li><strong>Sentence-pair tasks</strong> &mdash; natural language inference, paraphrase detection</li>
+      <li><strong>Token-level tasks</strong> &mdash; named entity recognition, part-of-speech tagging</li>
+    </ul>
+    <p>Compare this with the autoregressive objective described in <a href="#topic-2" class="xref">Topic 2: Autoregressive vs Masked Models</a>, which focuses on generation rather than representation.</p>
+
+    <h3>Limitations</h3>
+    <p>MLM does not train the model to generate text. A BERT-style model cannot produce a coherent paragraph the way GPT can, because it was never trained to predict sequences token by token. It excels at <strong>encoding</strong> input for downstream tasks, not at <strong>producing</strong> new output.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>MLM teaches contextual understanding, not generation. That is why BERT-family models dominate search, classification, and embedding tasks where rich bidirectional representations matter most.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Masked Language Modeling with BERT</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="com"># Create a fill-mask pipeline using BERT</span>
+fill_mask = pipeline(<span class="str">"fill-mask"</span>, <span class="dec">model</span>=<span class="str">"bert-base-uncased"</span>)
+
+<span class="com"># The model predicts what word best fills the [MASK] position</span>
+<span class="com"># using BOTH left and right context (bidirectional)</span>
+sentence = <span class="str">"The [MASK] sat on the mat and purred loudly."</span>
+
+predictions = fill_mask(sentence)
+<span class="fn">print</span>(<span class="str">f"Input: </span>{sentence}<span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">"Top predictions:"</span>)
+<span class="kw">for</span> p <span class="kw">in</span> predictions[:<span class="num">5</span>]:
+    <span class="com"># Each prediction uses context from "The" AND "sat on the mat..."</span>
+    <span class="fn">print</span>(<span class="str">f"  </span>{p[<span class="str">'token_str'</span>]:<span class="num">12</span>}<span class="str"> confidence=</span>{p[<span class="str">'score'</span>]:.4f}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Why mask only 15% of tokens instead of more?</summary>
+      <div class="fq-a">The 15% rate balances two concerns. Masking too many tokens makes prediction too hard and deprives the model of context it needs to learn. Masking too few slows training because each example provides less supervision signal. The 15% rate was found empirically in the original BERT paper (Devlin et al., 2019) to be a good trade-off.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What improvements did RoBERTa make over BERT's MLM?</summary>
+      <div class="fq-a"><strong>RoBERTa</strong> (Liu et al., 2019) kept the MLM objective but made several training improvements: it removed the <a href="#topic-4" class="xref">Topic 4: Next Sentence Prediction</a> task, used dynamic masking (different masks each epoch), trained on more data with larger batches, and trained for longer. These changes produced significantly better downstream results without changing the core objective.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use MLM for data augmentation?</summary>
+      <div class="fq-a">Yes. A technique called <strong>masked augmentation</strong> uses MLM to generate plausible substitutions for tokens in training data. This can increase training set diversity for downstream classifiers. However, the quality depends on the masked model's domain knowledge &mdash; a general-purpose BERT may produce poor substitutions for highly specialized domains.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var words = ['The','quick','brown','fox','jumps','over','the','lazy','dog'];
+  var masked = -1;
+  function render() {
+    var container = document.getElementById('c05t03-sentence');
+    container.innerHTML = '';
+    words.forEach(function(w, i) {
+      var chip = document.createElement('span');
+      chip.className = 'c05t03-demo-chip';
+      chip.style.cursor = 'pointer';
+      if (i === masked) {
+        chip.style.background = hexToRgba('#f472b6', 0.2);
+        chip.style.color = '#f472b6';
+        chip.style.border = '1px dashed ' + hexToRgba('#f472b6', 0.4);
+        chip.textContent = '[MASK]';
+      } else {
+        chip.style.background = hexToRgba('#a78bfa', 0.15);
+        chip.style.color = '#a78bfa';
+        chip.style.border = '1px solid ' + hexToRgba('#a78bfa', 0.3);
+        chip.textContent = w;
+      }
+      chip.addEventListener('click', function() { masked = (masked === i) ? -1 : i; render(); });
+      container.appendChild(chip);
+    });
+  }
+  render();
+})();
+</script>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Next Sentence Prediction</h2></div>
+
+  <div class="quick-take">Next sentence prediction (NSP) is a pretraining task where the model decides whether one sentence naturally follows another. It helped early BERT learn coarse discourse relationships, but later work showed it is not always necessary &mdash; making it more of a historical milestone than a universal recipe.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> NSP is like a reading comprehension check: "Does sentence B logically follow sentence A?" It teaches paragraph-level coherence, not just word-level prediction.</div>
+
+  <div class="visual-container" id="c05t04-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Toggle between real and random next-sentence pairs to see how NSP training works.</div>
+    <div class="vis-btns" id="c05t04-btns">
+      <button class="vis-btn active" data-pair="real">IsNext (real pair)</button>
+      <button class="vis-btn" data-pair="random">NotNext (random pair)</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;">
+      <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px;">
+        <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:6px;">Sentence A</div>
+        <div style="font-size:0.85rem; color:#e2e8f0;" id="c05t04-sentA">The cat sat on the warm windowsill.</div>
+      </div>
+      <div style="font-size:1.2rem; color:#475569;" id="c05t04-arrow">&#x2192;</div>
+      <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px;">
+        <div style="font-size:0.72rem; text-transform:uppercase; color:#64748b; margin-bottom:6px;">Sentence B</div>
+        <div style="font-size:0.85rem; color:#e2e8f0;" id="c05t04-sentB">It stretched lazily in the afternoon sun.</div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:12px; padding:8px; border-radius:8px;" id="c05t04-label">
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Original Design</h3>
+    <p>In the original BERT paper (Devlin et al., 2019), NSP was paired with <a href="#topic-3" class="xref">Topic 3: Masked Language Modeling</a> as a joint pretraining objective. The model received two segments: 50% of the time, sentence B actually followed sentence A in the corpus (<em>IsNext</em>), and 50% of the time, sentence B was a random sentence (<em>NotNext</em>). The model had to classify which case it was seeing.</p>
+
+    <h3>Why It Mattered</h3>
+    <p>NSP was designed to teach cross-sentence reasoning, which is essential for tasks like:</p>
+    <ul>
+      <li><strong>Natural language inference (NLI)</strong> &mdash; Does premise entail hypothesis?</li>
+      <li><strong>Question answering</strong> &mdash; Does this passage contain the answer?</li>
+      <li><strong>Paraphrase detection</strong> &mdash; Do these two sentences mean the same thing?</li>
+    </ul>
+
+    <h3>Why It Fell Out of Favor</h3>
+    <p>Later models like <strong>RoBERTa</strong>, <strong>ALBERT</strong>, and <strong>SpanBERT</strong> found that removing NSP or replacing it with alternative objectives (like sentence order prediction) produced equal or better results. The consensus is that MLM alone, when combined with enough data and training time, captures sufficient discourse-level signal. NSP remains historically important as an illustration of how pretraining objectives shape downstream behavior.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>NSP taught BERT paragraph-level coherence, but later research showed MLM alone can capture similar signal. It is a historical milestone that illustrates how objective design shapes model capabilities.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; NSP with BERT</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> BertTokenizer, BertForNextSentencePrediction
+<span class="kw">import</span> torch
+
+<span class="com"># Load BERT with its NSP head</span>
+tokenizer = BertTokenizer.<span class="fn">from_pretrained</span>(<span class="str">"bert-base-uncased"</span>)
+model = BertForNextSentencePrediction.<span class="fn">from_pretrained</span>(<span class="str">"bert-base-uncased"</span>)
+
+<span class="com"># Real pair: sentence B follows sentence A</span>
+sent_a = <span class="str">"The cat sat on the warm windowsill."</span>
+sent_b = <span class="str">"It stretched lazily in the afternoon sun."</span>
+
+<span class="com"># Tokenize as a sentence pair ([CLS] A [SEP] B [SEP])</span>
+inputs = tokenizer(sent_a, sent_b, <span class="dec">return_tensors</span>=<span class="str">"pt"</span>)
+
+<span class="kw">with</span> torch.<span class="fn">no_grad</span>():
+    outputs = model(**inputs)
+    <span class="com"># logits[0] = IsNext score, logits[1] = NotNext score</span>
+    prediction = torch.<span class="fn">argmax</span>(outputs.logits, <span class="dec">dim</span>=<span class="num">1</span>).<span class="fn">item</span>()
+
+<span class="fn">print</span>(<span class="str">f"Prediction: </span>{<span class="str">'IsNext'</span> <span class="kw">if</span> prediction == <span class="num">0</span> <span class="kw">else</span> <span class="str">'NotNext'</span>}<span class="str">"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What replaced NSP in later models?</summary>
+      <div class="fq-a"><strong>RoBERTa</strong> simply dropped NSP entirely. <strong>ALBERT</strong> replaced it with sentence-order prediction (SOP), where the model must determine if two consecutive sentences appear in the correct order or are swapped. <strong>SpanBERT</strong> replaced it with span boundary objective (SBO). All found comparable or better downstream performance.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is NSP still relevant for modern LLMs?</summary>
+      <div class="fq-a">Not directly. Modern autoregressive LLMs like GPT-4 and Claude do not use NSP at all &mdash; their next-token prediction objective naturally learns discourse coherence from long-context training data. NSP is primarily relevant when discussing the <strong>historical evolution</strong> of pretraining objectives and BERT-family design choices.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Could NSP help with retrieval or reranking tasks?</summary>
+      <div class="fq-a">In principle, an NSP-like objective teaches the model about passage coherence, which is related to relevance. However, modern retrieval models typically use contrastive learning objectives instead, which directly optimize for query-document similarity. NSP is too coarse a signal for high-quality retrieval.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var pairs = {
+    real: { a: 'The cat sat on the warm windowsill.', b: 'It stretched lazily in the afternoon sun.', label: 'IsNext', color: '#4ade80' },
+    random: { a: 'The cat sat on the warm windowsill.', b: 'Stock prices rose sharply in early trading.', label: 'NotNext', color: '#f472b6' }
+  };
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  document.querySelectorAll('#c05t04-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c05t04-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var pair = pairs[btn.getAttribute('data-pair')];
+      document.getElementById('c05t04-sentA').textContent = pair.a;
+      document.getElementById('c05t04-sentB').textContent = pair.b;
+      var lbl = document.getElementById('c05t04-label');
+      lbl.textContent = 'Prediction: ' + pair.label;
+      lbl.style.background = hexToRgba(pair.color, 0.1);
+      lbl.style.color = pair.color;
+      lbl.style.border = '1px solid ' + hexToRgba(pair.color, 0.3);
+    });
+  });
+  /* Initialize label */
+  var initLbl = document.getElementById('c05t04-label');
+  initLbl.textContent = 'Prediction: IsNext';
+  initLbl.style.background = 'rgba(74,222,128,0.1)'; initLbl.style.color = '#4ade80';
+  initLbl.style.border = '1px solid rgba(74,222,128,0.3)';
+})();
+</script>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<style>
+.c05t05-word { padding: 8px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; font-family: monospace; font-size: 0.9rem; color: #e2e8f0; text-align: center; }
+.c05t05-subwords { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.c05t05-sub { padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; }
+</style>
+
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Subword OOV Handling</h2></div>
+
+  <div class="quick-take">Modern language models avoid the out-of-vocabulary problem by using subword tokenization. Instead of requiring every full word to exist in the vocabulary, they break unfamiliar words into smaller known pieces &mdash; so any text can be processed, even if the specific word has never been seen before.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Subword tokenization is like a modular alphabet: even if you have never seen the word "unbelievable," you can still read it because you know "un," "believ," and "able."</div>
+
+  <div class="visual-container" id="c05t05-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Click a word to see how subword tokenization decomposes it into known fragments.</div>
+    <div class="vis-btns" id="c05t05-words">
+      <button class="vis-btn active" data-word="electroencephalography" data-parts="electro,ence,phal,ography">electroencephalography</button>
+      <button class="vis-btn" data-word="transformerization" data-parts="transform,er,ization">transformerization</button>
+      <button class="vis-btn" data-word="ChatGPT" data-parts="Chat,G,PT">ChatGPT</button>
+      <button class="vis-btn" data-word="COVID-19" data-parts="CO,VID,-,19">COVID-19</button>
+      <button class="vis-btn" data-word="running" data-parts="running">running</button>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px;">
+      <div class="c05t05-word" id="c05t05-original">electroencephalography</div>
+      <div style="color:#475569; font-size:1rem;">&#x2193;</div>
+      <div class="c05t05-subwords" id="c05t05-parts"></div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Old Problem</h3>
+    <p>Earlier NLP systems used fixed word-level vocabularies. Any word not in the vocabulary was replaced with a special <code>[UNK]</code> token, destroying information. This was especially problematic for proper nouns, technical terms, typos, and morphologically rich languages.</p>
+
+    <h3>The Subword Solution</h3>
+    <p>Subword tokenization algorithms like <strong>BPE</strong> (Byte Pair Encoding), <strong>WordPiece</strong>, and <strong>SentencePiece</strong> build vocabularies of frequent character sequences. Common words become single tokens; rare words decompose into recognizable pieces. This means:</p>
+    <ul>
+      <li><strong>No hard OOV</strong> &mdash; Every string can be decomposed, down to individual bytes if necessary.</li>
+      <li><strong>Morphological sharing</strong> &mdash; "running," "runner," and "runs" share the stem "run," helping the model generalize.</li>
+      <li><strong>Cross-lingual reuse</strong> &mdash; Shared subwords across languages enable multilingual models.</li>
+    </ul>
+
+    <h3>The Practical Lesson</h3>
+    <p>OOV handling moved from <strong>dictionary design</strong> to <strong>tokenization design</strong>. The model may not know the semantics of a brand-new term, but it can ingest and process the text because the tokenizer decomposes it into known fragments. The model then relies on context and subword patterns to infer meaning.</p>
+    <table>
+      <thead><tr><th>Strategy</th><th>Era</th><th>OOV Handling</th></tr></thead>
+      <tbody>
+        <tr><td>Word-level vocab</td><td>Pre-2016</td><td>Replace unknown words with [UNK]</td></tr>
+        <tr><td>Character-level</td><td>~2015</td><td>No OOV, but very long sequences</td></tr>
+        <tr><td>Subword (BPE/WordPiece)</td><td>2016+</td><td>Decompose into known subword units</td></tr>
+        <tr><td>Byte-level BPE</td><td>2019+</td><td>Decompose to raw bytes as fallback</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Subword tokenization eliminated the hard OOV problem. Modern models can process any text by decomposing it into known fragments &mdash; the tokenizer handles representation, and the model infers meaning from context.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Subword Decomposition</summary>
+    <pre><code><span class="kw">import</span> tiktoken
+
+<span class="com"># Load GPT-4's tokenizer</span>
+enc = tiktoken.<span class="fn">get_encoding</span>(<span class="str">"cl100k_base"</span>)
+
+<span class="com"># Show how unfamiliar words are decomposed into subwords</span>
+test_words = [
+    <span class="str">"electroencephalography"</span>,
+    <span class="str">"transformerization"</span>,
+    <span class="str">"ChatGPT"</span>,
+    <span class="str">"COVID-19"</span>,
+    <span class="str">"running"</span>,
+]
+
+<span class="kw">for</span> word <span class="kw">in</span> test_words:
+    tokens = enc.<span class="fn">encode</span>(word)
+    <span class="com"># Decode each token individually to see the subword pieces</span>
+    pieces = [enc.<span class="fn">decode</span>([t]) <span class="kw">for</span> t <span class="kw">in</span> tokens]
+    <span class="fn">print</span>(<span class="str">f"  </span>{word:<span class="num">28</span>}<span class="str"> -> </span>{pieces}<span class="str"> (</span>{<span class="fn">len</span>(tokens)}<span class="str"> tokens)"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Does the model actually understand a word it has never seen?</summary>
+      <div class="fq-a">Not necessarily. The tokenizer can <strong>ingest</strong> the word by splitting it into known pieces, but the model's understanding depends on whether the subword fragments carry useful semantic signal and whether the surrounding context provides enough clues. A completely novel abbreviation with no morphological hints may be processed but poorly understood.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does subword tokenization affect non-English languages?</summary>
+      <div class="fq-a">Languages underrepresented in the training data tend to fragment more heavily, producing <strong>higher fertility</strong> (more tokens per word). This increases both cost and latency for those languages. Multilingual tokenizers try to balance vocabulary allocation across languages, but English-centric models still have a bias toward efficient English tokenization.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is byte-level BPE and how does it relate to OOV handling?</summary>
+      <div class="fq-a">Byte-level BPE operates on raw UTF-8 bytes rather than Unicode characters. This guarantees that <strong>any</strong> byte sequence can be tokenized, providing a true zero-OOV guarantee. GPT-2 and later OpenAI models use byte-level BPE. The downside is slightly longer sequences for common text, but the universality benefit is significant.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) { var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  var COLORS = ['#38bdf8','#a78bfa','#34d399','#fb923c','#f472b6','#facc15','#2dd4bf','#818cf8'];
+  function renderParts(parts) {
+    var container = document.getElementById('c05t05-parts');
+    container.innerHTML = '';
+    parts.forEach(function(p, i) {
+      var chip = document.createElement('span');
+      chip.className = 'c05t05-sub';
+      var c = COLORS[i % COLORS.length];
+      chip.style.background = hexToRgba(c, 0.18);
+      chip.style.color = c;
+      chip.style.border = '1px solid ' + hexToRgba(c, 0.3);
+      chip.textContent = p;
+      container.appendChild(chip);
+    });
+  }
+  renderParts(['electro','ence','phal','ography']);
+  document.querySelectorAll('#c05t05-words .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c05t05-words .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('c05t05-original').textContent = btn.getAttribute('data-word');
+      renderParts(btn.getAttribute('data-parts').split(','));
+    });
+  });
+})();
+</script>
+
+    <div class="group-divider"><span>Architectures &amp; Comparisons</span></div>
+    <p class="group-intro">From sequence-to-sequence framing to the transformer revolution, and how to compare model paradigms in interviews.</p>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<style>
+.c05t06-arch { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 12px; }
+.c05t06-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.c05t06-box-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; }
+.c05t06-box-content { font-size: 0.85rem; color: #e2e8f0; font-family: monospace; }
+.c05t06-middle { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; color: #475569; font-size: 0.8rem; }
+</style>
+
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Sequence-to-Sequence Models</h2></div>
+
+  <div class="quick-take">A sequence-to-sequence (Seq2Seq) model maps one sequence into another, often with different lengths and surface forms. It is a task framing, not a single architecture &mdash; older Seq2Seq used RNNs with attention, modern versions use encoder-decoder transformers.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Seq2Seq is like a translator at a conference: listen to the full input in one language (encoder), then produce the output in another language (decoder), word by word.</div>
+
+  <div class="visual-container" id="c05t06-visual">
+    <div class="vis-btns" id="c05t06-btns">
+      <button class="vis-btn active" data-task="translate">Translation</button>
+      <button class="vis-btn" data-task="summarize">Summarization</button>
+      <button class="vis-btn" data-task="transform">Data Transform</button>
+    </div>
+    <div class="c05t06-arch">
+      <div class="c05t06-box">
+        <div class="c05t06-box-title">Encoder (Input)</div>
+        <div class="c05t06-box-content" id="c05t06-input">The cat is on the mat.</div>
+      </div>
+      <div class="c05t06-middle">
+        <div>&#x2192;</div>
+        <div style="font-size:0.65rem; writing-mode:vertical-rl; letter-spacing:0.1em;">ENCODE&rarr;DECODE</div>
+        <div>&#x2192;</div>
+      </div>
+      <div class="c05t06-box">
+        <div class="c05t06-box-title">Decoder (Output)</div>
+        <div class="c05t06-box-content" id="c05t06-output">Le chat est sur le tapis.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Core Architecture Pattern</h3>
+    <p>Seq2Seq models have two main components: an <strong>encoder</strong> that reads the input sequence and produces a representation, and a <strong>decoder</strong> that generates the output sequence token by token, conditioned on the encoder's representation. The encoder and decoder can be any sequence model &mdash; RNNs, LSTMs, or transformers.</p>
+
+    <h3>Classic Use Cases</h3>
+    <p>Seq2Seq shines when input and output have clearly distinct roles:</p>
+    <ul>
+      <li><strong>Machine translation</strong> &mdash; English to French, source to target</li>
+      <li><strong>Summarization</strong> &mdash; Long document to short abstract</li>
+      <li><strong>Text normalization</strong> &mdash; Messy input to clean output</li>
+      <li><strong>Code generation</strong> &mdash; Natural language description to code</li>
+    </ul>
+
+    <h3>T5 and the Text-to-Text Framing</h3>
+    <p>The T5 model (Raffel et al., 2020) pushed Seq2Seq to its logical extreme by framing <em>every</em> NLP task as a text-to-text problem. Classification becomes "classify: [input]" &rarr; "positive." Summarization becomes "summarize: [input]" &rarr; "[summary]." This unification simplified multi-task training and showed that the Seq2Seq framing is more general than it first appears. Compare this with the <a href="#topic-8" class="xref">Topic 8: Foundation vs Task-Specific</a> discussion.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Seq2Seq is a task framing (input sequence to output sequence), not a single architecture. It is most natural when input and output have clearly different roles, lengths, or surface forms.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; T5 Seq2Seq Summarization</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="com"># T5 treats every task as text-to-text (seq2seq)</span>
+summarizer = pipeline(<span class="str">"summarization"</span>, <span class="dec">model</span>=<span class="str">"t5-small"</span>)
+
+article = <span class="str">"""
+Transformers replaced recurrent models by using self-attention
+to process all tokens in parallel. This made training faster
+and enabled models to capture long-range dependencies more
+effectively. The architecture has become the standard for
+both natural language processing and computer vision tasks.
+"""</span>
+
+<span class="com"># The encoder reads the full article,</span>
+<span class="com"># the decoder generates the summary token by token</span>
+result = summarizer(article, <span class="dec">max_length</span>=<span class="num">50</span>, <span class="dec">min_length</span>=<span class="num">10</span>)
+<span class="fn">print</span>(<span class="str">"Summary:"</span>, result[<span class="num">0</span>][<span class="str">"summary_text"</span>])</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How does a Seq2Seq encoder-decoder differ from a decoder-only model?</summary>
+      <div class="fq-a">An encoder-decoder has two distinct components: the encoder processes the full input bidirectionally, then the decoder generates output autoregressively while attending to the encoder's representations. A <strong>decoder-only</strong> model (like GPT) does everything in one pass &mdash; the "input" is simply prepended to the sequence and both input processing and output generation share the same left-to-right architecture.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Are modern LLM chat systems actually Seq2Seq?</summary>
+      <div class="fq-a">Functionally yes, conceptually no. Chat models like GPT-4 and Claude are <strong>decoder-only</strong> autoregressive models, but they behave like Seq2Seq systems: user message goes in, assistant response comes out. The difference is architectural &mdash; there is no separate encoder. The "encoding" happens implicitly in the early layers of the same decoder that produces the output.</div>
+    </details>
+    <details class="fq-item">
+      <summary>When would you choose an encoder-decoder over a decoder-only model today?</summary>
+      <div class="fq-a">Encoder-decoders can be more parameter-efficient for tasks with <strong>clear input/output asymmetry</strong>, like translation or structured extraction, because the encoder can build a rich bidirectional representation of the input. For general-purpose generation and open-ended tasks, decoder-only models have become dominant due to simpler scaling and training dynamics.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var tasks = {
+    translate: { input: 'The cat is on the mat.', output: 'Le chat est sur le tapis.' },
+    summarize: { input: 'Transformers use self-attention to process all tokens in parallel, enabling faster training and better long-range dependency capture than recurrent models.', output: 'Transformers use parallel self-attention for faster training and better long-range modeling.' },
+    transform: { input: 'John Smith, 42, New York', output: '{"name":"John Smith","age":42,"city":"New York"}' }
+  };
+  document.querySelectorAll('#c05t06-btns .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c05t06-btns .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var t = tasks[btn.getAttribute('data-task')];
+      document.getElementById('c05t06-input').textContent = t.input;
+      document.getElementById('c05t06-output').textContent = t.output;
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c05t07-timeline { position: relative; padding-left: 24px; }
+.c05t07-timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #334155; }
+.c05t07-event { position: relative; margin-bottom: 16px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; cursor: pointer; transition: border-color 0.2s; }
+.c05t07-event:hover { border-color: #38bdf8; }
+.c05t07-event.active { border-color: #38bdf8; }
+.c05t07-event::before { content: ''; position: absolute; left: -20px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: #334155; border: 2px solid #0f172a; }
+.c05t07-event.active::before { background: #38bdf8; }
+.c05t07-event-year { font-size: 0.72rem; color: #38bdf8; font-weight: 600; }
+.c05t07-event-title { font-size: 0.85rem; color: #e2e8f0; font-weight: 500; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Transformers vs RNNs</h2></div>
+
+  <div class="quick-take">Transformers replaced RNN-based Seq2Seq models because self-attention handles long-range dependencies better and enables massive parallelization during training. RNNs process tokens sequentially, which creates a bottleneck for both speed and signal propagation over long sequences.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> An RNN is like reading a book one word at a time and trying to remember everything. A transformer is like spreading the entire book on a table and looking at any passage whenever you need it.</div>
+
+  <div class="visual-container" id="c05t07-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Key milestones in the transition from recurrent to attention-based architectures.</div>
+    <div class="c05t07-timeline" id="c05t07-timeline">
+      <div class="c05t07-event active" data-detail="RNN Seq2Seq models with attention (Bahdanau et al.) enabled machine translation breakthroughs but were limited by sequential processing.">
+        <div class="c05t07-event-year">2014</div>
+        <div class="c05t07-event-title">RNN + Attention</div>
+      </div>
+      <div class="c05t07-event" data-detail="'Attention Is All You Need' (Vaswani et al.) introduced the Transformer, removing recurrence entirely in favor of self-attention and positional encodings.">
+        <div class="c05t07-event-year">2017</div>
+        <div class="c05t07-event-title">Transformer Architecture</div>
+      </div>
+      <div class="c05t07-event" data-detail="BERT showed transformers could produce state-of-the-art representations for understanding tasks. GPT showed they could generate fluent text.">
+        <div class="c05t07-event-year">2018</div>
+        <div class="c05t07-event-title">BERT &amp; GPT</div>
+      </div>
+      <div class="c05t07-event" data-detail="GPT-3 proved that scaling transformers to 175B parameters produced emergent few-shot capabilities, launching the foundation model era.">
+        <div class="c05t07-event-year">2020</div>
+        <div class="c05t07-event-title">GPT-3 &amp; Scaling Laws</div>
+      </div>
+      <div class="c05t07-event" data-detail="State-space models (Mamba, etc.) explore alternatives to attention for very long sequences, but transformers remain the dominant architecture for LLMs.">
+        <div class="c05t07-event-year">2023+</div>
+        <div class="c05t07-event-title">SSMs &amp; Hybrids</div>
+      </div>
+    </div>
+    <div id="c05t07-detail" style="padding:10px 14px; background:#0f172a; border:1px solid #334155; border-radius:8px; font-size:0.82rem; color:#cbd5e1; margin-top:8px;">RNN Seq2Seq models with attention (Bahdanau et al.) enabled machine translation breakthroughs but were limited by sequential processing.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why RNNs Struggled at Scale</h3>
+    <p>Recurrent neural networks process tokens <strong>sequentially</strong>: the hidden state at position <em>t</em> depends on the hidden state at position <em>t-1</em>. This creates two problems:</p>
+    <ul>
+      <li><strong>Training bottleneck</strong> &mdash; Sequential processing prevents parallelization, making training on large datasets extremely slow.</li>
+      <li><strong>Vanishing gradients</strong> &mdash; Information from early tokens fades as it propagates through many time steps, making it hard to capture long-range dependencies even with LSTM/GRU gates.</li>
+    </ul>
+
+    <h3>How Transformers Fixed It</h3>
+    <p>The transformer architecture (Vaswani et al., 2017) replaced recurrence with <strong>self-attention</strong>, allowing every token to attend to every other token in a single layer. This provides:</p>
+    <ul>
+      <li><strong>Full parallelism</strong> &mdash; All positions are computed simultaneously during training.</li>
+      <li><strong>Direct signal paths</strong> &mdash; Token 1 can directly attend to token 1000 without passing through 999 intermediate states.</li>
+      <li><strong>Scalability</strong> &mdash; Parallel training enabled models to grow from millions to hundreds of billions of parameters.</li>
+    </ul>
+
+    <h3>The Cost of Attention</h3>
+    <p>Self-attention has quadratic complexity in sequence length (<em>O(n&sup2;)</em>), which becomes expensive for very long contexts. This has driven research into efficient attention variants and state-space models, but standard transformers remain dominant for most production LLMs. See <a href="#topic-10" class="xref">Topic 10: LLMs vs Classical Models</a> for the broader historical arc.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Transformers displaced RNNs by enabling parallel training and direct long-range attention. This scalability unlocked the foundation model era &mdash; without it, billion-parameter models would have been impractical.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Attention vs Recurrence Complexity</summary>
+    <pre><code><span class="kw">import</span> math
+
+<span class="kw">def</span> <span class="fn">compare_complexity</span>(seq_lengths):
+    <span class="str">"""Compare theoretical compute for RNN vs Transformer."""</span>
+    <span class="fn">print</span>(<span class="str">f"{'Seq Len':>10} {'RNN (O(n))':>14} {'Attn (O(n^2))':>16} {'Ratio':>8}"</span>)
+    <span class="fn">print</span>(<span class="str">"-"</span> * <span class="num">52</span>)
+    <span class="kw">for</span> n <span class="kw">in</span> seq_lengths:
+        rnn_ops = n            <span class="com"># Sequential: O(n) steps</span>
+        attn_ops = n * n       <span class="com"># Self-attention: O(n^2) comparisons</span>
+        <span class="com"># But RNN cannot parallelize, transformer can</span>
+        rnn_wall = n           <span class="com"># Wall-clock ~ n (sequential)</span>
+        attn_wall = n          <span class="com"># Wall-clock ~ n with parallel hardware</span>
+        <span class="fn">print</span>(<span class="str">f"</span>{n:><span class="num">10</span>,}<span class="str"> </span>{rnn_ops:><span class="num">14</span>,}<span class="str"> </span>{attn_ops:><span class="num">16</span>,}<span class="str">  </span>{attn_ops/rnn_ops:><span class="num">6</span>.1f}<span class="str">x"</span>)
+
+<span class="fn">compare_complexity</span>([<span class="num">128</span>, <span class="num">512</span>, <span class="num">2048</span>, <span class="num">8192</span>, <span class="num">32768</span>])</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Are RNNs completely dead in modern NLP?</summary>
+      <div class="fq-a">Not entirely. RNN variants appear in some <strong>edge deployment</strong> scenarios where model size must be very small, and new architectures like <strong>Mamba</strong> (a state-space model) borrow ideas from recurrence for linear-complexity sequence processing. However, for mainstream LLM development, transformers dominate overwhelmingly.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What are state-space models and could they replace transformers?</summary>
+      <div class="fq-a">State-space models (SSMs) like <strong>Mamba</strong> and <strong>S4</strong> process sequences with linear complexity by maintaining a compressed state rather than computing full attention. They show promising results on long-context tasks. However, transformers have a massive ecosystem advantage (tooling, optimization, proven scaling), so replacement is unlikely in the near term. Hybrids that combine attention with SSM layers are more probable.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does positional encoding substitute for the implicit ordering RNNs provide?</summary>
+      <div class="fq-a">RNNs encode position implicitly through their sequential processing order. Transformers, which process all positions in parallel, need explicit <strong>positional encodings</strong> (sinusoidal, learned, or rotary) added to token embeddings so the model knows where each token sits in the sequence. Without positional encodings, a transformer would treat the input as a bag of tokens.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  document.querySelectorAll('.c05t07-event').forEach(function(ev) {
+    ev.addEventListener('click', function() {
+      document.querySelectorAll('.c05t07-event').forEach(function(e) { e.classList.remove('active'); });
+      ev.classList.add('active');
+      document.getElementById('c05t07-detail').textContent = ev.getAttribute('data-detail');
+    });
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<style>
+.c05t08-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.c05t08-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.c05t08-card-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; }
+.c05t08-trait { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid rgba(30,41,59,0.6); }
+.c05t08-trait:last-child { border-bottom: none; }
+.c05t08-trait-label { color: #94a3b8; }
+.c05t08-trait-value { font-weight: 500; }
+</style>
+
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Foundation vs Task-Specific Models</h2></div>
+
+  <div class="quick-take">A foundation model is pretrained broadly on large, diverse corpora so it can later be adapted to many tasks. A task-specific model is trained or fine-tuned for a narrow job. The trade-off is breadth versus specialization: foundation models shift effort from repeated training toward adaptation, prompting, or lightweight tuning.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A foundation model is like a Swiss Army knife &mdash; versatile and ready for many jobs. A task-specific model is like a surgeon's scalpel &mdash; highly specialized and more precise for one task.</div>
+
+  <div class="visual-container" id="c05t08-visual">
+    <div class="c05t08-comparison">
+      <div class="c05t08-card">
+        <div class="c05t08-card-title" style="color:#38bdf8;">Foundation Model</div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Training data</span><span class="c05t08-trait-value" style="color:#38bdf8;">Broad, diverse</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Task coverage</span><span class="c05t08-trait-value" style="color:#38bdf8;">Many tasks</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Adaptation</span><span class="c05t08-trait-value" style="color:#38bdf8;">Prompting, LoRA, RLHF</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Deployment cost</span><span class="c05t08-trait-value" style="color:#fb923c;">High</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Update cycle</span><span class="c05t08-trait-value" style="color:#38bdf8;">Provider-driven</span></div>
+      </div>
+      <div class="c05t08-card">
+        <div class="c05t08-card-title" style="color:#a78bfa;">Task-Specific Model</div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Training data</span><span class="c05t08-trait-value" style="color:#a78bfa;">Domain-focused</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Task coverage</span><span class="c05t08-trait-value" style="color:#a78bfa;">Single task</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Adaptation</span><span class="c05t08-trait-value" style="color:#a78bfa;">Full fine-tuning</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Deployment cost</span><span class="c05t08-trait-value" style="color:#4ade80;">Low</span></div>
+        <div class="c05t08-trait"><span class="c05t08-trait-label">Update cycle</span><span class="c05t08-trait-value" style="color:#a78bfa;">Team-driven</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Foundation Model Paradigm</h3>
+    <p>Foundation models (Bommasani et al., 2021) represent a shift in how ML teams build products. Instead of training a separate model for each task, teams start from a broadly pretrained base and adapt it. This provides:</p>
+    <ul>
+      <li><strong>Amortized training cost</strong> &mdash; One expensive pretraining run supports many downstream applications.</li>
+      <li><strong>Fast iteration</strong> &mdash; Prompting or light fine-tuning is cheaper and faster than training from scratch.</li>
+      <li><strong>Emergent capabilities</strong> &mdash; Foundation models exhibit behaviors not explicitly trained for, such as few-shot learning and chain-of-thought reasoning.</li>
+    </ul>
+
+    <h3>When Task-Specific Still Wins</h3>
+    <p>Foundation models are not always the right choice:</p>
+    <table>
+      <thead><tr><th>Factor</th><th>Foundation Model</th><th>Task-Specific Model</th></tr></thead>
+      <tbody>
+        <tr><td>Label set stability</td><td>Handles evolving labels well</td><td>Better for fixed taxonomies</td></tr>
+        <tr><td>Inference cost</td><td>Higher (large model, API fees)</td><td>Lower (small, self-hosted)</td></tr>
+        <tr><td>Latency</td><td>Higher</td><td>Lower</td></tr>
+        <tr><td>Control &amp; safety</td><td>Harder to control precisely</td><td>Easier to audit and constrain</td></tr>
+        <tr><td>Data requirements</td><td>Minimal (few-shot or zero-shot)</td><td>Needs labeled training data</td></tr>
+      </tbody>
+    </table>
+    <p>The best interview answer connects both: one base model can support many products, but that breadth also creates challenges in control, safety, and cost. See <a href="#topic-9" class="xref">Topic 9: Generative vs Discriminative</a> for the related modeling trade-off.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Foundation models shift ML effort from repeated task-by-task training toward adaptation. They are powerful because one model supports many products, but that breadth creates real trade-offs in cost, control, and safety.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Foundation Model Adaptation Strategies</summary>
+    <pre><code><span class="com"># Three ways to adapt a foundation model for a specific task</span>
+
+<span class="com"># 1. Zero-shot prompting (no training data needed)</span>
+prompt_zeroshot = <span class="str">"""Classify the following review as positive or negative.
+Review: "This product exceeded all my expectations!"
+Classification:"""</span>
+
+<span class="com"># 2. Few-shot prompting (a few examples in-context)</span>
+prompt_fewshot = <span class="str">"""Classify reviews as positive or negative.
+
+Review: "Absolutely love it!" -> positive
+Review: "Terrible quality." -> negative
+Review: "This product exceeded all my expectations!"
+Classification:"""</span>
+
+<span class="com"># 3. LoRA fine-tuning (lightweight parameter adaptation)</span>
+<span class="kw">from</span> peft <span class="kw">import</span> LoraConfig, get_peft_model
+
+config = LoraConfig(
+    <span class="dec">r</span>=<span class="num">16</span>,                  <span class="com"># Low-rank dimension</span>
+    <span class="dec">lora_alpha</span>=<span class="num">32</span>,          <span class="com"># Scaling factor</span>
+    <span class="dec">target_modules</span>=[<span class="str">"q_proj"</span>, <span class="str">"v_proj"</span>],  <span class="com"># Which layers to adapt</span>
+    <span class="dec">lora_dropout</span>=<span class="num">0.05</span>,
+)
+<span class="com"># peft_model = get_peft_model(base_model, config)</span>
+<span class="com"># Trains only ~0.1% of parameters, keeps base model frozen</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What are the main risks of depending on a third-party foundation model?</summary>
+      <div class="fq-a">Key risks include <strong>API deprecation</strong> (the provider retires the model version), <strong>pricing changes</strong>, <strong>behavior drift</strong> between model updates, <strong>data privacy concerns</strong> (sending sensitive data to an external API), and <strong>vendor lock-in</strong>. Production teams mitigate these with abstraction layers, fallback models, and regular evaluation against held-out test sets.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is fine-tuning a foundation model the same as building a task-specific model?</summary>
+      <div class="fq-a">Partially. Fine-tuning starts from the foundation model's broad knowledge and specializes it, which is faster and requires less data than training from scratch. But a heavily fine-tuned model may lose some of its general capabilities (<strong>catastrophic forgetting</strong>). Lightweight techniques like LoRA preserve more generality than full fine-tuning.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you decide between prompting and fine-tuning?</summary>
+      <div class="fq-a">Start with <strong>prompting</strong> for rapid prototyping and small-scale use. Move to <strong>fine-tuning</strong> when you need consistent behavior at scale, lower latency, or tighter cost control. The decision matrix: if your labeled data is small and labels change often, prompt. If data is large, labels are stable, and volume is high, fine-tune.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<style>
+.c05t09-spectrum { position: relative; height: 60px; background: linear-gradient(90deg, rgba(56,189,248,0.15), rgba(167,139,250,0.15)); border-radius: 8px; margin: 12px 0; border: 1px solid #334155; }
+.c05t09-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; cursor: default; }
+.c05t09-labels { display: flex; justify-content: space-between; font-size: 0.76rem; color: #64748b; margin-top: 4px; }
+</style>
+
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>Generative vs Discriminative Models</h2></div>
+
+  <div class="quick-take">Generative models learn to model how data is produced, enabling them to create new samples like text continuations. Discriminative models focus on mapping inputs to labels. The line is not absolute &mdash; powerful generative models can perform discriminative tasks through prompting, but dedicated discriminative models are often more efficient for narrow prediction tasks.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> A generative model is like a novelist who can write new stories. A discriminative model is like a literary critic who can tell you whether a story is good or bad. The novelist can also critique, but the dedicated critic is faster at it.</div>
+
+  <div class="visual-container" id="c05t09-visual">
+    <div style="font-size:0.78rem; color:#64748b; margin-bottom:10px;">Where different models fall on the generative-discriminative spectrum.</div>
+    <div class="c05t09-spectrum">
+      <div class="c05t09-marker" style="left:15%; background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">Logistic Regression</div>
+      <div class="c05t09-marker" style="left:35%; background:rgba(129,140,248,0.2); color:#a78bfa; border:1px solid rgba(129,140,248,0.3);">BERT + Head</div>
+      <div class="c05t09-marker" style="left:60%; background:rgba(52,211,153,0.2); color:#34d399; border:1px solid rgba(52,211,153,0.3);">T5</div>
+      <div class="c05t09-marker" style="left:85%; background:rgba(244,114,182,0.2); color:#f472b6; border:1px solid rgba(244,114,182,0.3);">GPT / Claude</div>
+    </div>
+    <div class="c05t09-labels">
+      <span>Purely Discriminative</span>
+      <span>Purely Generative</span>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Core Distinction</h3>
+    <p><strong>Generative models</strong> learn P(X) or P(X|context) &mdash; the probability distribution over data. This lets them sample new data points (generate text, images, etc.). <strong>Discriminative models</strong> learn P(Y|X) &mdash; the probability of a label given an input. They focus on decision boundaries rather than data generation.</p>
+
+    <h3>Practical Comparison</h3>
+    <table>
+      <thead><tr><th>Aspect</th><th>Generative</th><th>Discriminative</th></tr></thead>
+      <tbody>
+        <tr><td>Flexibility</td><td>Can handle many tasks via prompting</td><td>Specialized to one task</td></tr>
+        <tr><td>Efficiency</td><td>Higher cost per prediction</td><td>Lower cost, faster inference</td></tr>
+        <tr><td>Calibration</td><td>Harder to calibrate confidence</td><td>Easier to calibrate</td></tr>
+        <tr><td>Data needs</td><td>Can work zero/few-shot</td><td>Needs labeled training data</td></tr>
+        <tr><td>Output control</td><td>May produce unexpected formats</td><td>Structured by design</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Blurring Line</h3>
+    <p>Modern generative LLMs can perform discriminative tasks (classification, scoring, decision-making) through prompting. This has blurred the traditional boundary. A prompted GPT-4 can classify sentiment, but a fine-tuned BERT classifier will do it faster, cheaper, and with better-calibrated confidence scores for the same task. The right choice depends on whether the product needs <strong>open-ended generation</strong> or <strong>tightly controlled prediction</strong>. See <a href="#topic-8" class="xref">Topic 8: Foundation vs Task-Specific</a> for the related deployment trade-off.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Generative models are more flexible; discriminative models are more efficient for narrow tasks. The best choice depends on whether you need open-ended generation or tightly controlled, cost-effective prediction.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; Generative vs Discriminative Classification</summary>
+    <pre><code><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="com"># --- Discriminative approach: dedicated sentiment classifier ---</span>
+<span class="com"># Fast, cheap, well-calibrated confidence scores</span>
+classifier = pipeline(<span class="str">"sentiment-analysis"</span>)
+result = classifier(<span class="str">"This movie was absolutely fantastic!"</span>)
+<span class="fn">print</span>(<span class="str">"Discriminative:"</span>, result)
+<span class="com"># [{'label': 'POSITIVE', 'score': 0.9998}]</span>
+
+<span class="com"># --- Generative approach: prompt an LLM to classify ---</span>
+<span class="com"># Flexible, can explain reasoning, but slower and pricier</span>
+generator = pipeline(<span class="str">"text-generation"</span>, <span class="dec">model</span>=<span class="str">"gpt2"</span>, <span class="dec">max_new_tokens</span>=<span class="num">5</span>)
+prompt = <span class="str">"""Classify as positive or negative:
+"This movie was absolutely fantastic!"
+Sentiment:"""</span>
+result = generator(prompt)
+<span class="fn">print</span>(<span class="str">"Generative:"</span>, result[<span class="num">0</span>][<span class="str">"generated_text"</span>])</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>When would you use a generative model for classification instead of a discriminative one?</summary>
+      <div class="fq-a">When the <strong>label taxonomy changes frequently</strong>, when you need <strong>explanations</strong> alongside labels, when labeled training data is scarce, or when you are in an <strong>early exploration phase</strong> and want to iterate quickly. Once the task stabilizes, switching to a discriminative model often saves significant cost.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you use both in a single pipeline?</summary>
+      <div class="fq-a">Yes. A common <strong>hybrid pattern</strong> uses a fast discriminative model for high-confidence cases and falls back to a generative model for ambiguous or novel inputs. This balances cost efficiency with flexibility. The discriminative model handles the bulk of traffic, and the generative model handles the long tail.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What does "calibration" mean in this context?</summary>
+      <div class="fq-a"><strong>Calibration</strong> means that when the model says it is 90% confident, it should be correct about 90% of the time. Discriminative models trained with proper loss functions tend to be better calibrated. Generative models often produce overconfident or poorly calibrated verbal confidence statements, requiring external calibration techniques.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<style>
+.c05t10-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.c05t10-era { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.c05t10-era-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; }
+.c05t10-feature { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.8rem; }
+.c05t10-feature-icon { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; flex-shrink: 0; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>LLMs vs Classical Statistical Models</h2></div>
+
+  <div class="quick-take">Classical statistical language models like n-grams estimate probabilities from local token counts and short fixed histories. LLMs use deep architectures with distributed representations to capture long-range context, enabling them to generalize beyond memorized counts and transfer across tasks &mdash; but at vastly higher cost.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> An n-gram model is like a lookup table that checks the last few words. An LLM is like a reader who has absorbed millions of books and can reason about meaning, context, and intent.</div>
+
+  <div class="visual-container" id="c05t10-visual">
+    <div class="c05t10-compare-grid">
+      <div class="c05t10-era">
+        <div class="c05t10-era-title" style="color:#fb923c;">Classical (n-gram)</div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(251,146,60,0.15); color:#fb923c;">&#x2713;</div>
+          <span style="color:#cbd5e1;">Fast, interpretable</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(251,146,60,0.15); color:#fb923c;">&#x2713;</div>
+          <span style="color:#cbd5e1;">Low resource requirements</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">&#x2717;</div>
+          <span style="color:#94a3b8;">Fixed short context window</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">&#x2717;</div>
+          <span style="color:#94a3b8;">No transfer learning</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">&#x2717;</div>
+          <span style="color:#94a3b8;">Struggles with rare patterns</span>
+        </div>
+      </div>
+      <div class="c05t10-era">
+        <div class="c05t10-era-title" style="color:#38bdf8;">Modern (LLM)</div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(56,189,248,0.15); color:#38bdf8;">&#x2713;</div>
+          <span style="color:#cbd5e1;">Rich contextual understanding</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(56,189,248,0.15); color:#38bdf8;">&#x2713;</div>
+          <span style="color:#cbd5e1;">Cross-task transfer</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(56,189,248,0.15); color:#38bdf8;">&#x2713;</div>
+          <span style="color:#cbd5e1;">Handles long dependencies</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">&#x2717;</div>
+          <span style="color:#94a3b8;">Expensive to train &amp; deploy</span>
+        </div>
+        <div class="c05t10-feature">
+          <div class="c05t10-feature-icon" style="background:rgba(244,114,182,0.15); color:#f472b6;">&#x2717;</div>
+          <span style="color:#94a3b8;">Less interpretable</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>How Classical Models Work</h3>
+    <p>An n-gram model estimates the probability of a word based on the previous <em>n-1</em> words. A trigram model looks at two previous words: P("cat" | "the", "fat"). These probabilities come from counting occurrences in a corpus and applying smoothing techniques to handle unseen combinations.</p>
+    <p>The fundamental limitation is <strong>fixed context</strong>. A 5-gram model cannot consider anything beyond the last 4 words, no matter how relevant earlier context might be.</p>
+
+    <h3>What LLMs Changed</h3>
+    <p>LLMs introduced three paradigm shifts:</p>
+    <ol>
+      <li><strong>Distributed representations</strong> &mdash; Instead of discrete counts, words become dense vectors that capture semantic similarity. "King" and "queen" are nearby in embedding space, unlike in a count-based model.</li>
+      <li><strong>Deep architectures</strong> &mdash; Multiple layers of computation allow the model to build hierarchical representations, capturing syntax, semantics, and even reasoning patterns.</li>
+      <li><strong>Transfer learning</strong> &mdash; A model pretrained on general text can be adapted to new tasks without starting from scratch, which was impossible with n-gram models.</li>
+    </ol>
+
+    <h3>When Classical Models Still Win</h3>
+    <p>Classical models remain useful in specific scenarios:</p>
+    <ul>
+      <li><strong>Interpretability</strong> &mdash; You can inspect exact n-gram counts and probabilities.</li>
+      <li><strong>Low-resource deployment</strong> &mdash; An n-gram model fits in kilobytes; an LLM needs gigabytes.</li>
+      <li><strong>Spelling correction and keyboard prediction</strong> &mdash; Fast, local, no API call needed.</li>
+      <li><strong>Baseline evaluation</strong> &mdash; N-gram perplexity is a standard benchmark comparison.</li>
+    </ul>
+    <p>The historical arc connects directly to the pretraining objectives covered in <a href="#topic-1" class="xref">Topic 1: What Is a Language Model?</a> and the architectural shifts in <a href="#topic-7" class="xref">Topic 7: Transformers vs RNNs</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Classical models are lookup-based with smoothing; LLMs are representation learners. Classical systems remain interpretable and cheap, but cannot match the contextual flexibility, reasoning, and transfer capacity of transformer-based LLMs.</strong></div>
+
+  <details class="code-block">
+    <summary>Python &mdash; N-gram vs Neural Language Model</summary>
+    <pre><code><span class="kw">from</span> collections <span class="kw">import</span> Counter, defaultdict
+
+<span class="com"># === Simple bigram language model (classical approach) ===</span>
+corpus = <span class="str">"the cat sat on the mat the cat ate the food"</span>
+words = corpus.<span class="fn">split</span>()
+
+<span class="com"># Count bigram frequencies</span>
+bigrams = defaultdict(Counter)
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(words) - <span class="num">1</span>):
+    bigrams[words[i]][words[i + <span class="num">1</span>]] += <span class="num">1</span>
+
+<span class="com"># Predict next word given "the"</span>
+context = <span class="str">"the"</span>
+total = <span class="fn">sum</span>(bigrams[context].<span class="fn">values</span>())
+<span class="fn">print</span>(<span class="str">f"Bigram predictions after '{context}':"</span>)
+<span class="kw">for</span> word, count <span class="kw">in</span> bigrams[context].<span class="fn">most_common</span>():
+    <span class="fn">print</span>(<span class="str">f"  </span>{word:<span class="num">8</span>}<span class="str"> p=</span>{count / total:.3f}<span class="str">"</span>)
+
+<span class="com"># Limitation: bigram only sees 1 previous word</span>
+<span class="com"># An LLM sees the entire context window (thousands of tokens)</span>
+<span class="com"># and encodes meaning, not just surface-level co-occurrence</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What is smoothing and why do n-gram models need it?</summary>
+      <div class="fq-a"><strong>Smoothing</strong> (e.g., Laplace, Kneser-Ney) assigns small non-zero probabilities to unseen n-grams so the model does not assign zero probability to valid sequences. This is necessary because any finite corpus cannot contain all possible word combinations. LLMs do not need explicit smoothing because their distributed representations naturally generalize to unseen combinations.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Could you combine n-gram features with neural models?</summary>
+      <div class="fq-a">Yes. <strong>Hybrid approaches</strong> have been explored where n-gram statistics serve as features for neural models, or where n-gram models handle high-frequency patterns while neural models handle the long tail. In practice, modern LLMs have made this unnecessary for most applications because they learn n-gram-like patterns implicitly in their lower layers.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Is perplexity still a useful metric for evaluating LLMs?</summary>
+      <div class="fq-a"><strong>Perplexity</strong> measures how well a model predicts a held-out text corpus and is inversely related to the model's probability assignment. It is still useful for comparing language models on the same data, but it does not capture important qualities like instruction following, safety, or factuality. Modern LLM evaluation combines perplexity with task-specific benchmarks and human evaluation.</div>
+    </details>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+/* --- Global: progress bar, TOC highlighting, fade-in, copy buttons --- */
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>

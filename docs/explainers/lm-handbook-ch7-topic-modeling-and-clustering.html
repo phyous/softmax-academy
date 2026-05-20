@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 7: Topic Modeling, Clustering &amp; Theme Discovery at Scale</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem; line-height: 1.65;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar { position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6); z-index: 1000; transition: width 0.1s linear; }
+
+  /* --- Header --- */
+  .doc-header { text-align: center; padding: 2.5rem 1.5rem 1.5rem; border-bottom: 1px solid #1e293b; }
+  .doc-badge { display: inline-block; padding: 0.2rem 0.8rem; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 100px; font-size: 0.72rem; color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .doc-header p { font-size: 0.92rem; color: #94a3b8; max-width: 560px; margin: 0 auto; }
+
+  /* --- Chapter intro --- */
+  .chapter-intro { max-width: 700px; margin: 0 auto; padding: 1.5rem 2rem; text-align: center; }
+  .chapter-intro p { color: #94a3b8; font-size: 0.88rem; line-height: 1.7; }
+
+  /* --- Layout --- */
+  .layout { display: flex; max-width: 1100px; margin: 0 auto; }
+
+  /* --- TOC sidebar --- */
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 240px; min-width: 240px; height: 100vh; overflow-y: auto; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; font-size: 0.78rem; }
+  .toc h3 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+  .toc-group { margin-bottom: 1rem; }
+  .toc-group-label { color: #475569; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; padding-left: 0.5rem; }
+  .toc a { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; color: #94a3b8; text-decoration: none; transition: all 0.15s ease; line-height: 1.35; }
+  .toc a:hover { color: #e2e8f0; background: rgba(56,189,248,0.06); }
+  .toc a.active { color: #38bdf8; background: rgba(56,189,248,0.1); font-weight: 500; }
+  .toc a .toc-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; background: rgba(56,189,248,0.1); color: #38bdf8; }
+  .toc a.active .toc-num { background: #38bdf8; color: #0f172a; }
+
+  /* --- Main content --- */
+  .content { flex: 1; min-width: 0; padding: 1.5rem 2rem 4rem; }
+
+  .group-divider { display: flex; align-items: center; gap: 0.75rem; margin: 2rem 0 0.5rem; padding-top: 1rem; }
+  .group-divider span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; white-space: nowrap; }
+  .group-divider::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+  .group-intro { color: #64748b; font-size: 0.82rem; margin-bottom: 1.5rem; font-style: italic; }
+
+  /* --- Topic sections --- */
+  .topic { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #1e293b; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+  .topic.visible { opacity: 1; transform: translateY(0); }
+  .topic:last-child { border-bottom: none; }
+
+  .topic-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .topic-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .topic-header h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+
+  /* --- Quick Take + copy --- */
+  .quick-take { background: #1e293b; border-left: 3px solid #38bdf8; border-radius: 0 8px 8px 0; padding: 0.7rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem; color: #cbd5e1; position: relative; }
+  .quick-take .qt-copy { position: absolute; top: 8px; right: 8px; background: transparent; border: 1px solid #334155; border-radius: 5px; color: #475569; padding: 3px 7px; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; opacity: 0; }
+  .quick-take:hover .qt-copy { opacity: 1; }
+  .quick-take .qt-copy:hover { border-color: #38bdf8; color: #38bdf8; }
+  .quick-take .qt-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+  /* === MENTAL MODEL === */
+  .mental-model { display: flex; align-items: flex-start; gap: 0.6rem; background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.15); border-radius: 8px; padding: 0.55rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; color: #a5b4fc; }
+  .mental-model .mm-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+  /* --- Visual container --- */
+  .visual-container { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; overflow: hidden; }
+  .visual-container canvas { display: block; }
+
+  /* === DARK THEME FORM CONTROLS === */
+  .visual-container input[type="text"], .visual-container input[type="number"], .visual-container textarea, .visual-container select { background: #0f172a; border: 1px solid #334155; border-radius: 7px; color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s ease; }
+  .visual-container input::placeholder, .visual-container textarea::placeholder { color: #475569; }
+  .visual-container input:focus, .visual-container textarea:focus, .visual-container select:focus { border-color: #38bdf8; }
+  .visual-container input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+  .visual-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; border: 2px solid #0f172a; }
+
+  /* --- Deep dive --- */
+  .deep-dive { margin-bottom: 1rem; }
+  .deep-dive h3 { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #1e293b; }
+  .deep-dive h3:first-child { margin-top: 0; }
+  .deep-dive h4 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin: 0.9rem 0 0.35rem; }
+  .deep-dive p { margin-bottom: 0.6rem; color: #cbd5e1; }
+  .deep-dive ul, .deep-dive ol { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  .deep-dive li { margin-bottom: 0.4rem; color: #cbd5e1; }
+  .deep-dive li strong { color: #e2e8f0; }
+  .deep-dive code { background: rgba(56,189,248,0.08); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.82rem; color: #38bdf8; }
+  .deep-dive .key-box { background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.2); border-radius: 8px; padding: 0.65rem 0.9rem; margin: 0.75rem 0; font-size: 0.84rem; }
+  .deep-dive .key-box strong { color: #818cf8; }
+  .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
+  .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
+
+  /* --- Tables --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
+
+  /* === KEY TAKEAWAY === */
+  .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
+  .key-takeaway .kt-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+  .key-takeaway strong { color: #4ade80; }
+
+  /* --- Code block details --- */
+  details.code-block { margin-bottom: 0.6rem; }
+  details.code-block summary { cursor: pointer; padding: 0.45rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; transition: all 0.15s ease; list-style: none; }
+  details.code-block summary::-webkit-details-marker { display: none; }
+  details.code-block summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s ease; font-size: 0.7rem; }
+  details.code-block[open] summary::before { transform: rotate(90deg); }
+  details.code-block[open] summary { border-radius: 7px 7px 0 0; color: #e2e8f0; border-color: #475569; }
+  details.code-block summary:hover { color: #e2e8f0; border-color: #475569; }
+  .code-block pre { background: #0f172a; border: 1px solid #334155; border-top: none; border-radius: 0 0 7px 7px; padding: 1rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 0.78rem; line-height: 1.55; color: #e2e8f0; }
+  .code-block .kw { color: #c084fc; }
+  .code-block .fn { color: #38bdf8; }
+  .code-block .str { color: #4ade80; }
+  .code-block .num { color: #f472b6; }
+  .code-block .com { color: #64748b; font-style: italic; }
+  .code-block .dec { color: #fb923c; }
+
+  /* === FOLLOW-UP QUESTIONS === */
+  .followup-section { margin: 0.6rem 0; }
+  .followup-heading { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.2rem; }
+  details.fq-item { margin-bottom: 0.25rem; }
+  details.fq-item summary { cursor: pointer; padding: 0.5rem 0.75rem; background: transparent; border: none; border-radius: 6px; color: #a5b4fc; font-size: 0.84rem; font-weight: 600; list-style: none; transition: all 0.15s; border-left: 2px solid transparent; }
+  details.fq-item summary::-webkit-details-marker { display: none; }
+  details.fq-item summary::before { content: '\25b8'; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.65rem; color: #475569; }
+  details.fq-item[open] summary::before { transform: rotate(90deg); color: #a5b4fc; }
+  details.fq-item summary:hover { color: #c7d2fe; border-left-color: #818cf8; }
+  details.fq-item[open] summary { color: #c7d2fe; border-left-color: #818cf8; }
+  .fq-a { padding: 0.3rem 0.75rem 0.6rem 1.7rem; color: #7f8ea3; font-size: 0.8rem; line-height: 1.6; }
+  .fq-a strong { color: #94a3b8; font-weight: 600; }
+
+  /* --- Shared visual buttons --- */
+  .vis-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #94a3b8; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .vis-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
+  .vis-btn.active { background: rgba(56,189,248,0.15); border-color: #38bdf8; color: #38bdf8; }
+  .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<div class="doc-header">
+  <div class="doc-badge">Chapter 7 &middot; 10 Topics</div>
+  <h1>Topic Modeling, Clustering &amp; Theme Discovery at Scale</h1>
+  <p>How to move from raw text to interpretable themes &mdash; and why cluster discovery is only the beginning.</p>
+</div>
+
+<div class="chapter-intro">
+  <p>Classification maps data into known buckets; topic modeling and clustering reveal patterns you did not define in advance. This chapter walks through the full pipeline from embeddings through clustering to validated labels, showing how modern LLM systems combine representation, grouping, and summarization to discover themes at scale. The hardest part is never the algorithm &mdash; it is naming, validating, monitoring, and making clusters useful to downstream teams.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <h3>Contents</h3>
+    <div class="toc-group">
+      <div class="toc-group-label">Foundations</div>
+      <a href="#topic-1"><span class="toc-num">1</span> Topic Modeling vs Classification</a>
+      <a href="#topic-2"><span class="toc-num">2</span> Embedding-Based Clustering</a>
+      <a href="#topic-3"><span class="toc-num">3</span> The Discovery Pipeline</a>
+      <a href="#topic-4"><span class="toc-num">4</span> Dimensionality Reduction</a>
+      <a href="#topic-5"><span class="toc-num">5</span> Choosing a Clustering Algorithm</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">Production &amp; Evaluation</div>
+      <a href="#topic-6"><span class="toc-num">6</span> Naming Clusters</a>
+      <a href="#topic-7"><span class="toc-num">7</span> Evolving Topics Over Time</a>
+      <a href="#topic-8"><span class="toc-num">8</span> Evaluating Topic Quality</a>
+      <a href="#topic-9"><span class="toc-num">9</span> LLMs in Topic Workflows</a>
+      <a href="#topic-10"><span class="toc-num">10</span> Common Mistakes at Scale</a>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="group-divider"><span>Foundations</span></div>
+    <p class="group-intro">What topic modeling is, how embeddings enable semantic clustering, and the end-to-end pipeline from raw text to grouped vectors.</p>
+
+<!-- ==================== TOPIC 1 ==================== -->
+<style>
+.c07t01-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+.c07t01-panel { background: #0f172a; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
+.c07t01-panel-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 10px; }
+.c07t01-panel-title.cls { color: #fb923c; }
+.c07t01-panel-title.topic { color: #a78bfa; }
+.c07t01-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; }
+.c07t01-arrow { color: #475569; font-size: 1rem; flex-shrink: 0; }
+</style>
+
+<section id="topic-1" class="topic">
+  <div class="topic-header"><span class="topic-num">1</span><h2>Topic Modeling vs Classification</h2></div>
+
+  <div class="quick-take">Classification starts with predefined labels and assigns data to known buckets. Topic modeling is exploratory &mdash; it discovers latent themes from the data itself before any taxonomy exists.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Classification is sorting mail into labeled bins; topic modeling is dumping all mail on a table and discovering what the recurring themes actually are.</div>
+
+  <div class="visual-container" id="c07t01-visual">
+    <div class="c07t01-compare">
+      <div class="c07t01-panel">
+        <div class="c07t01-panel-title cls">Classification (Supervised)</div>
+        <div id="c07t01-cls-items"></div>
+      </div>
+      <div class="c07t01-panel">
+        <div class="c07t01-panel-title topic">Topic Modeling (Unsupervised)</div>
+        <div id="c07t01-topic-items"></div>
+      </div>
+    </div>
+    <div class="vis-btns">
+      <button class="vis-btn active" data-scenario="support">Support Tickets</button>
+      <button class="vis-btn" data-scenario="reviews">Product Reviews</button>
+      <button class="vis-btn" data-scenario="research">Research Papers</button>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When to Use Which</h3>
+    <p>Classification is the right tool when you have a stable, well-defined label set and enough labeled training data. Topic modeling is the right tool when you do not know what the categories should be, or when you suspect the existing taxonomy is missing important themes.</p>
+    <p>In practice, teams often use topic discovery <strong>before</strong> building a formal taxonomy. It helps reveal recurring issues, hidden subpopulations, and language patterns used by real users. Once themes stabilize, they can be codified into a classification system. See <a href="#topic-3" class="xref">Topic 3: The Discovery Pipeline</a> for how this handoff works.</p>
+
+    <h3>Key Differences</h3>
+    <table>
+      <thead><tr><th>Dimension</th><th>Classification</th><th>Topic Modeling</th></tr></thead>
+      <tbody>
+        <tr><td>Labels</td><td>Predefined by humans</td><td>Discovered from data</td></tr>
+        <tr><td>Supervision</td><td>Supervised (needs labeled data)</td><td>Unsupervised or semi-supervised</td></tr>
+        <tr><td>Goal</td><td>Decision assignment</td><td>Pattern discovery</td></tr>
+        <tr><td>Output</td><td>Hard label per item</td><td>Cluster membership or topic distribution</td></tr>
+        <tr><td>Evaluation</td><td>Accuracy, F1, precision/recall</td><td>Coherence, human judgment, utility</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Interview Framing</h3>
+    <p>In interviews, say that topic modeling is about <strong>pattern discovery</strong>, while classification is about <strong>decision assignment</strong>. Strong candidates explain that the two are complementary: topic discovery informs taxonomy design, and classification operationalizes it. See <a href="#topic-8" class="xref">Topic 8: Evaluating Topic Quality</a> for how to measure whether discovered topics are actually useful.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Topic modeling discovers structure; classification applies it. The best pipelines use discovery to inform the taxonomy that classification then enforces.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># Contrast: classification assigns to known labels,</span>
+<span class="com"># topic modeling discovers groups from embeddings</span>
+
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> LogisticRegression
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="com"># --- Classification: labels are predefined ---</span>
+X_train = np.<span class="fn">random.randn</span>(<span class="num">100</span>, <span class="num">384</span>)   <span class="com"># embedding vectors</span>
+y_train = np.<span class="fn">random.randint</span>(<span class="num">0</span>, <span class="num">5</span>, <span class="num">100</span>)  <span class="com"># known labels: 0-4</span>
+clf = LogisticRegression().<span class="fn">fit</span>(X_train, y_train)
+predictions = clf.<span class="fn">predict</span>(X_train)  <span class="com"># assigns to existing buckets</span>
+
+<span class="com"># --- Topic modeling: labels emerge from data ---</span>
+X_unlabeled = np.<span class="fn">random.randn</span>(<span class="num">500</span>, <span class="num">384</span>)  <span class="com"># no labels at all</span>
+km = KMeans(n_clusters=<span class="num">8</span>, random_state=<span class="num">42</span>)
+clusters = km.<span class="fn">fit_predict</span>(X_unlabeled)   <span class="com"># discovers groupings</span>
+<span class="com"># clusters are numbers (0-7), NOT meaningful names</span>
+<span class="com"># human review or LLM labeling is needed next</span>
+<span class="fn">print</span>(<span class="str">f"Found </span>{<span class="fn">len</span>(<span class="fn">set</span>(clusters))}<span class="str"> clusters to review"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can you do topic modeling on already-classified data?</summary>
+      <div class="fq-a">Yes, and it is often valuable. Running topic discovery on data that was already classified can reveal <strong>sub-themes within categories</strong> or show that existing labels are too coarse. For example, a "billing" category might contain distinct sub-clusters for refund requests, pricing confusion, and payment failures.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How does topic modeling relate to traditional methods like LDA?</summary>
+      <div class="fq-a"><strong>Latent Dirichlet Allocation (LDA)</strong> was the dominant approach for years. It models documents as mixtures of topics, where each topic is a distribution over words. Modern embedding-based approaches have largely replaced LDA in production because they capture semantic similarity rather than just word co-occurrence, and they scale better with LLM-based labeling.</div>
+    </details>
+    <details class="fq-item">
+      <summary>When should you skip topic modeling and go straight to classification?</summary>
+      <div class="fq-a">Skip discovery when you have a <strong>stable, well-validated taxonomy</strong> and enough labeled examples. If the label set has been validated by domain experts and has not changed in months, building a classifier directly is more efficient. Topic modeling adds value when the domain is new, the taxonomy is stale, or you suspect hidden patterns.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var scenarios = {
+    support: {
+      cls: [
+        { text: '"Can\'t log in" ', label: 'Authentication', color: '#38bdf8' },
+        { text: '"Charged twice" ', label: 'Billing', color: '#fb923c' },
+        { text: '"App crashes on iOS" ', label: 'Bug Report', color: '#f472b6' }
+      ],
+      topic: [
+        { text: '"Can\'t log in, password reset broken"', cluster: 'Cluster A', color: '#a78bfa' },
+        { text: '"Charged twice, refund not processed"', cluster: 'Cluster B', color: '#34d399' },
+        { text: '"App slow + crashes on old phones"', cluster: 'Cluster C', color: '#facc15' },
+        { text: '"New feature request for dark mode"', cluster: 'Cluster D (new!)', color: '#2dd4bf' }
+      ]
+    },
+    reviews: {
+      cls: [
+        { text: '"Great battery life" ', label: 'Positive', color: '#4ade80' },
+        { text: '"Broke after 2 weeks" ', label: 'Negative', color: '#f87171' },
+        { text: '"It is okay for the price" ', label: 'Neutral', color: '#94a3b8' }
+      ],
+      topic: [
+        { text: '"Battery lasts all day, charges fast"', cluster: 'Cluster A', color: '#38bdf8' },
+        { text: '"Screen cracked, poor build quality"', cluster: 'Cluster B', color: '#fb923c' },
+        { text: '"Camera is amazing in low light"', cluster: 'Cluster C', color: '#a78bfa' },
+        { text: '"Overheats during gaming"', cluster: 'Cluster D (new!)', color: '#f472b6' }
+      ]
+    },
+    research: {
+      cls: [
+        { text: '"Transformer attention mechanisms" ', label: 'NLP', color: '#38bdf8' },
+        { text: '"Diffusion model for images" ', label: 'Computer Vision', color: '#fb923c' },
+        { text: '"Reinforcement learning in robotics" ', label: 'RL', color: '#34d399' }
+      ],
+      topic: [
+        { text: '"Efficient attention, long context"', cluster: 'Cluster A', color: '#a78bfa' },
+        { text: '"Multimodal fusion architectures"', cluster: 'Cluster B', color: '#facc15' },
+        { text: '"Alignment and RLHF methods"', cluster: 'Cluster C', color: '#2dd4bf' },
+        { text: '"Synthetic data generation"', cluster: 'Cluster D (new!)', color: '#f472b6' }
+      ]
+    }
+  };
+
+  function render(key) {
+    var s = scenarios[key];
+    var clsEl = document.getElementById('c07t01-cls-items');
+    var topicEl = document.getElementById('c07t01-topic-items');
+    clsEl.innerHTML = '';
+    topicEl.innerHTML = '';
+
+    s.cls.forEach(function(item) {
+      var div = document.createElement('div');
+      div.className = 'c07t01-item';
+      div.style.background = hexToRgba(item.color, 0.1);
+      div.style.border = '1px solid ' + hexToRgba(item.color, 0.25);
+      div.innerHTML = '<span style="color:#94a3b8;font-size:0.82rem;">' + item.text + '</span><span class="c07t01-arrow">&#x2192;</span><span style="color:' + item.color + ';font-weight:600;font-size:0.82rem;">' + item.label + '</span>';
+      clsEl.appendChild(div);
+    });
+
+    s.topic.forEach(function(item) {
+      var div = document.createElement('div');
+      div.className = 'c07t01-item';
+      div.style.background = hexToRgba(item.color, 0.1);
+      div.style.border = '1px solid ' + hexToRgba(item.color, 0.25);
+      div.innerHTML = '<span style="color:#94a3b8;font-size:0.82rem;">' + item.text + '</span><span class="c07t01-arrow">&#x2192;</span><span style="color:' + item.color + ';font-weight:600;font-size:0.82rem;">' + item.cluster + '</span>';
+      topicEl.appendChild(div);
+    });
+  }
+
+  document.querySelectorAll('#c07t01-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t01-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-scenario'));
+    });
+  });
+  render('support');
+})();
+</script>
+
+<!-- ==================== TOPIC 2 ==================== -->
+<style>
+.c07t02-scatter { position: relative; width: 100%; height: 320px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; margin-bottom: 12px; }
+.c07t02-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s ease; cursor: default; }
+.c07t02-dot:hover { transform: scale(1.6); z-index: 2; }
+.c07t02-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.8rem; }
+.c07t02-legend-item { display: flex; align-items: center; gap: 6px; }
+.c07t02-swatch { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+
+<section id="topic-2" class="topic">
+  <div class="topic-header"><span class="topic-num">2</span><h2>Embedding-Based Clustering</h2></div>
+
+  <div class="quick-take">Embedding-based methods represent each text unit in a semantic vector space, so clustering can group items that are conceptually related even when they share no exact keywords. This is why modern topic discovery relies on embeddings rather than word counts.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Embeddings are like GPS coordinates for meaning &mdash; texts about the same topic end up near each other on the semantic map, regardless of the words they use.</div>
+
+  <div class="visual-container" id="c07t02-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-mode="keyword">Keyword Matching</button>
+      <button class="vis-btn" data-mode="embedding">Embedding Clusters</button>
+    </div>
+    <div class="c07t02-scatter" id="c07t02-scatter"></div>
+    <div class="c07t02-legend" id="c07t02-legend"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Keywords Fall Short</h3>
+    <p>Traditional bag-of-words or TF-IDF approaches group documents that share surface-level tokens. But real users describe the same issue in many different ways: "my order never arrived," "delivery missing," and "package lost" all mean the same thing but share almost no keywords. Embedding models capture this semantic equivalence because they are trained on massive corpora of contextual language.</p>
+
+    <h3>The Embedding Advantage</h3>
+    <p>Embeddings give you better semantic grouping, and LLMs can then summarize or name the discovered clusters. That combination is often more useful to product teams than traditional topic-word lists alone. See <a href="#topic-9" class="xref">Topic 9: LLMs in Topic Workflows</a> for how language models enhance the labeling step.</p>
+    <ul>
+      <li><strong>Semantic recall:</strong> Groups items by meaning, not surface form</li>
+      <li><strong>Multilingual capability:</strong> Multilingual embedding models cluster across languages</li>
+      <li><strong>Composability:</strong> Embeddings integrate with vector databases, rerankers, and downstream classifiers</li>
+    </ul>
+
+    <h3>Practical Considerations</h3>
+    <p>The quality of clustering is bounded by the quality of the embedding model. A general-purpose model may group medical texts differently than a domain-tuned one. Choose your embedding model with the same care you would choose a classifier &mdash; test on representative samples and verify with <a href="#topic-8" class="xref">Topic 8: Evaluating Topic Quality</a>.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Embeddings capture semantic similarity where keyword methods fail &mdash; making them the foundation for modern topic discovery.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+
+<span class="com"># 1. Load an embedding model</span>
+model = SentenceTransformer(<span class="str">"all-MiniLM-L6-v2"</span>)
+
+<span class="com"># 2. Encode a batch of support tickets</span>
+tickets = [
+    <span class="str">"My package never arrived"</span>,
+    <span class="str">"Delivery is missing from my doorstep"</span>,
+    <span class="str">"Order lost in transit"</span>,
+    <span class="str">"App keeps crashing on Android"</span>,
+    <span class="str">"The mobile app freezes constantly"</span>,
+    <span class="str">"Cannot open the app after update"</span>,
+]
+embeddings = model.<span class="fn">encode</span>(tickets)
+
+<span class="com"># 3. Cluster: semantically similar tickets group together</span>
+km = KMeans(n_clusters=<span class="num">2</span>, random_state=<span class="num">42</span>)
+labels = km.<span class="fn">fit_predict</span>(embeddings)
+
+<span class="kw">for</span> ticket, label <span class="kw">in</span> <span class="fn">zip</span>(tickets, labels):
+    <span class="fn">print</span>(<span class="str">f"  Cluster </span>{label}<span class="str">: </span>{ticket}<span class="str">"</span>)
+<span class="com"># Tickets about delivery group together,</span>
+<span class="com"># tickets about app crashes group together,</span>
+<span class="com"># even though they share no keywords</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Which embedding models work best for topic discovery?</summary>
+      <div class="fq-a">General-purpose models like <strong>all-MiniLM-L6-v2</strong> or <strong>BGE-large</strong> work well for broad corpora. For domain-specific data (medical, legal, financial), fine-tuned or domain-adapted models often produce tighter, more meaningful clusters. Always validate embedding quality by inspecting nearest-neighbor lists on representative samples.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Does embedding dimensionality affect clustering quality?</summary>
+      <div class="fq-a">Higher-dimensional embeddings (768, 1024) capture more nuance but can make clustering harder due to the <strong>curse of dimensionality</strong>. This is why dimensionality reduction (see <a href="#topic-4" class="xref">Topic 4: Dimensionality Reduction</a>) is commonly applied before clustering. The sweet spot depends on the diversity of your corpus.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you mix embeddings from different models?</summary>
+      <div class="fq-a">No. Embeddings from different models live in <strong>different vector spaces</strong> and are not directly comparable. Mixing them will produce meaningless clusters. If you need to combine data embedded at different times, use the same model version and keep track of model upgrades that require re-embedding.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+
+  var CLUSTERS = [
+    { label: 'Shipping Issues', color: '#38bdf8' },
+    { label: 'App Bugs', color: '#a78bfa' },
+    { label: 'Billing Problems', color: '#34d399' },
+    { label: 'Feature Requests', color: '#fb923c' }
+  ];
+
+  function seededRandom(seed) {
+    var x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function genPoints(mode) {
+    var points = [];
+    var centers = mode === 'embedding'
+      ? [{x:20,y:25},{x:75,y:20},{x:25,y:75},{x:75,y:75}]
+      : [{x:50,y:50},{x:50,y:50},{x:50,y:50},{x:50,y:50}];
+    var spread = mode === 'embedding' ? 12 : 30;
+
+    for (var c = 0; c < 4; c++) {
+      for (var i = 0; i < 15; i++) {
+        var seed = c * 100 + i;
+        points.push({
+          x: centers[c].x + (seededRandom(seed) - 0.5) * spread * 2,
+          y: centers[c].y + (seededRandom(seed + 999) - 0.5) * spread * 2,
+          cluster: c
+        });
+      }
+    }
+    return points;
+  }
+
+  function render(mode) {
+    var container = document.getElementById('c07t02-scatter');
+    container.innerHTML = '';
+    var points = genPoints(mode);
+    points.forEach(function(p) {
+      var dot = document.createElement('div');
+      dot.className = 'c07t02-dot';
+      dot.style.left = Math.max(2, Math.min(95, p.x)) + '%';
+      dot.style.top = Math.max(2, Math.min(95, p.y)) + '%';
+      dot.style.background = CLUSTERS[p.cluster].color;
+      dot.style.boxShadow = '0 0 6px ' + hexToRgba(CLUSTERS[p.cluster].color, 0.4);
+      dot.title = CLUSTERS[p.cluster].label;
+      container.appendChild(dot);
+    });
+
+    var legend = document.getElementById('c07t02-legend');
+    legend.innerHTML = '';
+    CLUSTERS.forEach(function(cl) {
+      var item = document.createElement('div');
+      item.className = 'c07t02-legend-item';
+      item.innerHTML = '<span class="c07t02-swatch" style="background:' + cl.color + ';"></span><span style="color:#94a3b8;">' + cl.label + '</span>';
+      legend.appendChild(item);
+    });
+  }
+
+  document.querySelectorAll('#c07t02-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t02-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-mode'));
+    });
+  });
+  render('keyword');
+})();
+</script>
+
+<!-- ==================== TOPIC 3 ==================== -->
+<style>
+.c07t03-pipeline { display: flex; gap: 4px; align-items: stretch; margin-bottom: 16px; flex-wrap: wrap; }
+.c07t03-stage { flex: 1; min-width: 90px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px 8px; text-align: center; position: relative; transition: all 0.3s ease; cursor: pointer; }
+.c07t03-stage:hover { border-color: #38bdf8; }
+.c07t03-stage.active { border-color: #38bdf8; background: rgba(56,189,248,0.08); }
+.c07t03-stage-num { font-size: 0.7rem; font-weight: 700; color: #38bdf8; margin-bottom: 4px; }
+.c07t03-stage-name { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; }
+.c07t03-arrow-sep { display: flex; align-items: center; color: #475569; font-size: 1.1rem; padding: 0 2px; }
+.c07t03-detail { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; font-size: 0.84rem; color: #cbd5e1; min-height: 80px; }
+.c07t03-detail strong { color: #38bdf8; }
+</style>
+
+<section id="topic-3" class="topic">
+  <div class="topic-header"><span class="topic-num">3</span><h2>The Discovery Pipeline</h2></div>
+
+  <div class="quick-take">A practical topic discovery pipeline follows a fixed sequence: clean the text, choose the unit of analysis, embed the data, optionally reduce dimensionality, cluster the vectors, extract representatives, and finally label the clusters with human or LLM review.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Think of the pipeline as a funnel: raw messy text at the top, validated themes at the bottom. Each stage filters noise and adds structure.</div>
+
+  <div class="visual-container" id="c07t03-visual">
+    <div class="c07t03-pipeline" id="c07t03-pipeline"></div>
+    <div class="c07t03-detail" id="c07t03-detail">Click a stage above to see details.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Stage-by-Stage Breakdown</h3>
+    <ol>
+      <li><strong>Clean the text:</strong> Remove boilerplate, signatures, duplicates, and irrelevant metadata. Garbage in, garbage out applies strongly to clustering.</li>
+      <li><strong>Choose the unit:</strong> Decide whether to embed entire documents, paragraphs, sentences, or ticket-level units. The unit shapes what clusters can represent.</li>
+      <li><strong>Embed:</strong> Convert text units into dense vectors using an embedding model appropriate for the domain.</li>
+      <li><strong>Reduce dimensions (optional):</strong> Apply UMAP or PCA to make clustering more effective in lower dimensions. See <a href="#topic-4" class="xref">Topic 4: Dimensionality Reduction</a>.</li>
+      <li><strong>Cluster:</strong> Apply a clustering algorithm suited to the data shape and scale. See <a href="#topic-5" class="xref">Topic 5: Choosing a Clustering Algorithm</a>.</li>
+      <li><strong>Extract representatives:</strong> Pull the items closest to each cluster centroid as evidence for labeling.</li>
+      <li><strong>Label and validate:</strong> Use LLMs, human reviewers, or both to name each cluster. See <a href="#topic-6" class="xref">Topic 6: Naming Clusters</a>.</li>
+    </ol>
+
+    <h3>Scalability Considerations</h3>
+    <p>In interviews, note that scalability depends on batching, approximate indexing, incremental updates, and sampling strategies for review. A topic modeling system must be designed like a <strong>data product</strong>, not just a notebook experiment. The difference between a demo and a production system is often the last three stages.</p>
+
+    <h3>Anti-patterns</h3>
+    <p>Skipping text cleaning is the most common pipeline failure. Boilerplate signatures, auto-replies, and templated text create spurious clusters that waste review time. Another anti-pattern is choosing the wrong unit of analysis &mdash; embedding entire multi-topic documents when paragraph-level units would produce cleaner clusters.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The pipeline matters more than the algorithm. Raw clusters do not explain themselves &mdash; the last stages (labeling, validation) are where value is created.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="com"># End-to-end topic discovery pipeline</span>
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+<span class="kw">import</span> umap
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">topic_discovery_pipeline</span>(texts, n_topics=<span class="num">8</span>):
+    <span class="com"># Step 1: Clean (simplified)</span>
+    cleaned = [t.<span class="fn">strip</span>() <span class="kw">for</span> t <span class="kw">in</span> texts <span class="kw">if</span> <span class="fn">len</span>(t.<span class="fn">strip</span>()) > <span class="num">20</span>]
+
+    <span class="com"># Step 2: Embed</span>
+    model = SentenceTransformer(<span class="str">"all-MiniLM-L6-v2"</span>)
+    embeddings = model.<span class="fn">encode</span>(cleaned, show_progress_bar=<span class="kw">True</span>)
+
+    <span class="com"># Step 3: Reduce dimensionality</span>
+    reducer = umap.<span class="fn">UMAP</span>(n_components=<span class="num">10</span>, random_state=<span class="num">42</span>)
+    reduced = reducer.<span class="fn">fit_transform</span>(embeddings)
+
+    <span class="com"># Step 4: Cluster</span>
+    km = KMeans(n_clusters=n_topics, random_state=<span class="num">42</span>)
+    labels = km.<span class="fn">fit_predict</span>(reduced)
+
+    <span class="com"># Step 5: Extract representatives (nearest to centroid)</span>
+    representatives = {}
+    <span class="kw">for</span> c <span class="kw">in</span> <span class="fn">range</span>(n_topics):
+        mask = labels == c
+        dists = np.<span class="fn">linalg.norm</span>(reduced[mask] - km.cluster_centers_[c], axis=<span class="num">1</span>)
+        idxs = np.<span class="fn">where</span>(mask)[<span class="num">0</span>][np.<span class="fn">argsort</span>(dists)[:<span class="num">3</span>]]
+        representatives[c] = [cleaned[i] <span class="kw">for</span> i <span class="kw">in</span> idxs]
+
+    <span class="kw">return</span> labels, representatives
+
+<span class="com"># Step 6: Send representatives to LLM for naming</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you choose the right unit of analysis?</summary>
+      <div class="fq-a">The unit should match the granularity of the themes you want to find. <strong>Sentence-level</strong> clustering captures fine-grained topics but can be noisy. <strong>Document-level</strong> clustering captures broader themes but misses multi-topic documents. <strong>Paragraph-level</strong> is often a practical middle ground for support tickets and reviews.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle duplicate or near-duplicate texts?</summary>
+      <div class="fq-a">Deduplicate aggressively before clustering. Near-duplicates (auto-replies, templates, copy-pasted complaints) will dominate cluster centroids and obscure real themes. Use <strong>MinHash</strong> or embedding cosine similarity to flag near-duplicates, then keep only one representative from each group.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What batch sizes work for embedding at scale?</summary>
+      <div class="fq-a">Most embedding models process batches of <strong>32-256 texts</strong> efficiently on a GPU. For millions of documents, use batched inference with progress tracking and checkpointing. Approximate nearest-neighbor indexes (FAISS, ScaNN) can then cluster the embeddings without loading everything into memory at once.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var stages = [
+    { num: '1', name: 'Clean Text', detail: '<strong>Clean the text:</strong> Remove boilerplate, auto-replies, signatures, and HTML artifacts. Deduplicate near-identical items. This stage prevents garbage from dominating your clusters.' },
+    { num: '2', name: 'Choose Unit', detail: '<strong>Choose the unit of analysis:</strong> Decide whether to embed sentences, paragraphs, or whole documents. The unit determines the granularity of your discovered themes.' },
+    { num: '3', name: 'Embed', detail: '<strong>Embed the data:</strong> Convert each text unit into a dense vector using a sentence-level embedding model. The embedding model determines the semantic space your clusters live in.' },
+    { num: '4', name: 'Reduce Dims', detail: '<strong>Reduce dimensionality (optional):</strong> Apply UMAP or PCA to compress 384-1024 dimensional vectors into 10-50 dimensions. This can improve cluster separation and speed.' },
+    { num: '5', name: 'Cluster', detail: '<strong>Cluster the vectors:</strong> Apply K-Means, HDBSCAN, or another algorithm. The output is a numeric cluster ID per item &mdash; no names yet.' },
+    { num: '6', name: 'Representatives', detail: '<strong>Extract representatives:</strong> Pull 5-10 items nearest each cluster centroid. These are the evidence that human reviewers or LLMs use to understand what the cluster is about.' },
+    { num: '7', name: 'Label & Validate', detail: '<strong>Label and validate:</strong> Use an LLM or human reviewer to name each cluster based on its representatives. Validate by checking that items within a cluster truly share a theme.' }
+  ];
+
+  var pipeline = document.getElementById('c07t03-pipeline');
+  stages.forEach(function(s, i) {
+    if (i > 0) {
+      var arrow = document.createElement('div');
+      arrow.className = 'c07t03-arrow-sep';
+      arrow.innerHTML = '&#x2192;';
+      pipeline.appendChild(arrow);
+    }
+    var el = document.createElement('div');
+    el.className = 'c07t03-stage';
+    el.innerHTML = '<div class="c07t03-stage-num">Step ' + s.num + '</div><div class="c07t03-stage-name">' + s.name + '</div>';
+    el.addEventListener('click', function() {
+      document.querySelectorAll('.c07t03-stage').forEach(function(st) { st.classList.remove('active'); });
+      el.classList.add('active');
+      document.getElementById('c07t03-detail').innerHTML = s.detail;
+    });
+    pipeline.appendChild(el);
+  });
+})();
+</script>
+
+<!-- ==================== TOPIC 4 ==================== -->
+<style>
+.c07t04-controls { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.c07t04-canvas { width: 100%; height: 280px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.c07t04-info { font-size: 0.82rem; color: #94a3b8; margin-top: 8px; }
+.c07t04-info strong { color: #e2e8f0; }
+</style>
+
+<section id="topic-4" class="topic">
+  <div class="topic-header"><span class="topic-num">4</span><h2>Dimensionality Reduction</h2></div>
+
+  <div class="quick-take">High-dimensional embedding spaces can be noisy and hard for clustering algorithms to partition cleanly. Dimensionality reduction reveals local structure, denoises the space, and makes clusters easier to separate &mdash; but it can distort distances if applied carelessly.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Dimensionality reduction is like looking at a 3D sculpture from the best angle &mdash; you lose a dimension but can suddenly see the structure clearly.</div>
+
+  <div class="visual-container" id="c07t04-visual">
+    <div class="c07t04-controls">
+      <button class="vis-btn active" data-dims="high">High Dimensions (noisy)</button>
+      <button class="vis-btn" data-dims="reduced">After UMAP Reduction</button>
+    </div>
+    <canvas class="c07t04-canvas" id="c07t04-canvas"></canvas>
+    <div class="c07t04-info" id="c07t04-info">High-dimensional space: clusters overlap due to noise in many dimensions.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>When to Reduce</h3>
+    <p>Reduction is a tool, not a default law. You use it when it improves cluster structure or interpretability, then verify the result with representative examples rather than trusting a plot alone. Common scenarios where reduction helps:</p>
+    <ul>
+      <li><strong>Visualization:</strong> 2D projections with UMAP or t-SNE help teams visually inspect cluster structure</li>
+      <li><strong>Clustering performance:</strong> Some algorithms (K-Means, HDBSCAN) work better in moderate dimensions (10-50)</li>
+      <li><strong>Denoising:</strong> Removing noisy dimensions can sharpen cluster boundaries</li>
+    </ul>
+
+    <h3>UMAP vs PCA vs t-SNE</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Preserves</th><th>Speed</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td>PCA</td><td>Global variance</td><td>Fast</td><td>Initial compression, preprocessing</td></tr>
+        <tr><td>t-SNE</td><td>Local neighborhoods</td><td>Slow</td><td>2D visualization only</td></tr>
+        <tr><td>UMAP</td><td>Local + some global structure</td><td>Moderate</td><td>Clustering prep + visualization</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The Distortion Trade-off</h3>
+    <p>Every reduction method distorts some distances. PCA may compress meaningful differences into discarded components. UMAP may create artificial gaps between points that were close in high dimensions. The safest approach is to <strong>cluster in the reduced space but validate using original embeddings</strong> &mdash; check that nearest neighbors in the original space actually belong to the same cluster.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Reduce dimensions when it helps clustering, but always validate results against the original embeddings. Never trust a 2D plot as ground truth.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> umap
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> sklearn.decomposition <span class="kw">import</span> PCA
+
+<span class="com"># Original embeddings: 1000 items x 384 dimensions</span>
+embeddings = np.<span class="fn">random.randn</span>(<span class="num">1000</span>, <span class="num">384</span>)
+
+<span class="com"># Option A: PCA to 50 dims (fast, preserves global variance)</span>
+pca_reduced = PCA(n_components=<span class="num">50</span>).<span class="fn">fit_transform</span>(embeddings)
+<span class="fn">print</span>(<span class="str">f"PCA: </span>{embeddings.shape}<span class="str"> -> </span>{pca_reduced.shape}<span class="str">"</span>)
+
+<span class="com"># Option B: UMAP to 10 dims (preserves local structure)</span>
+umap_reduced = umap.<span class="fn">UMAP</span>(
+    n_components=<span class="num">10</span>,       <span class="com"># target dimensionality</span>
+    n_neighbors=<span class="num">15</span>,        <span class="com"># local neighborhood size</span>
+    min_dist=<span class="num">0.1</span>,          <span class="com"># controls cluster tightness</span>
+    random_state=<span class="num">42</span>
+).<span class="fn">fit_transform</span>(embeddings)
+<span class="fn">print</span>(<span class="str">f"UMAP: </span>{embeddings.shape}<span class="str"> -> </span>{umap_reduced.shape}<span class="str">"</span>)
+
+<span class="com"># Option C: UMAP to 2 dims for visualization only</span>
+vis_2d = umap.<span class="fn">UMAP</span>(n_components=<span class="num">2</span>).<span class="fn">fit_transform</span>(embeddings)
+<span class="com"># WARNING: do not cluster on 2D projections!</span>
+<span class="com"># Use higher dims (10-50) for clustering, 2D for plots only</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can you cluster directly in the original high-dimensional space?</summary>
+      <div class="fq-a">Yes, and sometimes it works well, especially with cosine-similarity-based methods. The question is whether reduction <strong>improves</strong> cluster quality for your specific data. Test both and compare using silhouette scores or manual inspection of representative examples.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What UMAP hyperparameters matter most?</summary>
+      <div class="fq-a">The two most important are <strong>n_neighbors</strong> (controls local vs. global focus; 15-50 is typical) and <strong>min_dist</strong> (controls how tightly points cluster; lower values create denser clusters). For clustering, use <strong>min_dist close to 0</strong>. For visualization, values around 0.1-0.5 produce more readable plots.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Should you reduce before or after clustering?</summary>
+      <div class="fq-a">Reduce <strong>before</strong> clustering if the algorithm struggles in high dimensions (e.g., K-Means with many noisy features). If using a method that handles high dimensions well (e.g., cosine-based hierarchical clustering), reduction is optional. Either way, <strong>validate</strong> cluster quality using the original embeddings afterward.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var colors = ['#38bdf8','#a78bfa','#34d399','#fb923c'];
+  var canvas = document.getElementById('c07t04-canvas');
+  var ctx = canvas.getContext('2d');
+
+  function seeded(seed) { var x = Math.sin(seed)*10000; return x - Math.floor(x); }
+
+  function draw(mode) {
+    var w = canvas.parentElement.clientWidth - 2;
+    canvas.width = w;
+    canvas.height = 280;
+    ctx.clearRect(0, 0, w, 280);
+
+    var centers = mode === 'reduced'
+      ? [{x:0.2,y:0.25},{x:0.8,y:0.2},{x:0.2,y:0.8},{x:0.8,y:0.75}]
+      : [{x:0.35,y:0.35},{x:0.65,y:0.35},{x:0.35,y:0.65},{x:0.65,y:0.65}];
+    var spread = mode === 'reduced' ? 0.08 : 0.22;
+
+    for (var c = 0; c < 4; c++) {
+      for (var i = 0; i < 30; i++) {
+        var seed = c * 200 + i;
+        var px = centers[c].x + (seeded(seed) - 0.5) * spread * 2;
+        var py = centers[c].y + (seeded(seed+777) - 0.5) * spread * 2;
+        var sx = px * (w - 20) + 10;
+        var sy = py * 260 + 10;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = hexToRgba(colors[c], 0.7);
+        ctx.fill();
+        ctx.strokeStyle = hexToRgba(colors[c], 0.3);
+        ctx.stroke();
+      }
+    }
+  }
+
+  document.querySelectorAll('#c07t04-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t04-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var mode = btn.getAttribute('data-dims');
+      draw(mode);
+      document.getElementById('c07t04-info').innerHTML = mode === 'reduced'
+        ? 'After UMAP reduction: clusters are clearly separated in lower-dimensional space.'
+        : 'High-dimensional space: clusters overlap due to noise in many dimensions.';
+    });
+  });
+  draw('high');
+})();
+</script>
+
+<!-- ==================== TOPIC 5 ==================== -->
+<section id="topic-5" class="topic">
+  <div class="topic-header"><span class="topic-num">5</span><h2>Choosing a Clustering Algorithm</h2></div>
+
+  <div class="quick-take">The right clustering algorithm depends on what you expect the data to look like. K-Means assumes spherical clusters. Density-based methods handle irregular shapes and noise. Hierarchical methods give coarse-to-fine exploration. No algorithm can rescue weak embeddings.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Choosing a clustering algorithm is like choosing a map projection &mdash; each preserves different properties, and the best choice depends on what you need to see.</div>
+
+  <div class="visual-container" id="c07t05-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-algo="kmeans">K-Means</button>
+      <button class="vis-btn" data-algo="hdbscan">HDBSCAN</button>
+      <button class="vis-btn" data-algo="hierarchical">Hierarchical</button>
+    </div>
+    <div style="background:#0f172a;border-radius:8px;padding:16px;border:1px solid #334155;">
+      <div id="c07t05-algo-info" style="font-size:0.84rem;color:#cbd5e1;min-height:110px;"></div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Algorithm Comparison</h3>
+    <table>
+      <thead><tr><th>Algorithm</th><th>Cluster Shape</th><th>Needs k?</th><th>Handles Noise?</th><th>Scale</th></tr></thead>
+      <tbody>
+        <tr><td>K-Means</td><td>Spherical</td><td>Yes</td><td>No</td><td>Very large datasets</td></tr>
+        <tr><td>HDBSCAN</td><td>Arbitrary</td><td>No</td><td>Yes (noise label)</td><td>Medium-large</td></tr>
+        <tr><td>Agglomerative</td><td>Any (via linkage)</td><td>Optional</td><td>No</td><td>Small-medium</td></tr>
+        <tr><td>Gaussian Mixture</td><td>Ellipsoidal</td><td>Yes</td><td>Partial</td><td>Medium</td></tr>
+        <tr><td>Spectral</td><td>Non-convex</td><td>Yes</td><td>No</td><td>Small-medium</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Judgment Over Brand Loyalty</h3>
+    <p>In interviews, show judgment rather than brand loyalty. The right algorithm depends on data distribution, scale, and the need for interpretability. Considerations:</p>
+    <ul>
+      <li><strong>Do you know k?</strong> If not, use HDBSCAN or elbow/silhouette analysis with K-Means</li>
+      <li><strong>Is noise expected?</strong> HDBSCAN explicitly labels outliers; K-Means forces everything into a cluster</li>
+      <li><strong>Need hierarchy?</strong> Agglomerative clustering produces dendrograms for coarse-to-fine exploration</li>
+      <li><strong>Scale?</strong> K-Means and Mini-Batch K-Means scale to millions; HDBSCAN struggles beyond ~500K without tricks</li>
+    </ul>
+
+    <h3>The Embedding Quality Floor</h3>
+    <p>No clustering method can rescue weak embeddings or ill-defined units of analysis. If your embedding model does not separate the concepts you care about, no algorithm will find clean clusters. Always verify embedding quality first (see <a href="#topic-2" class="xref">Topic 2: Embedding-Based Clustering</a>).</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Choose the algorithm that matches your data shape and scale. When in doubt, try both K-Means and HDBSCAN and compare the results with human review.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+<span class="kw">import</span> hdbscan
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> silhouette_score
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+embeddings = np.<span class="fn">random.randn</span>(<span class="num">500</span>, <span class="num">50</span>)  <span class="com"># after dim reduction</span>
+
+<span class="com"># --- K-Means: need to choose k ---</span>
+<span class="com"># Use silhouette score to find best k</span>
+best_k, best_score = <span class="num">2</span>, -<span class="num">1</span>
+<span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(<span class="num">3</span>, <span class="num">15</span>):
+    km = KMeans(n_clusters=k, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>)
+    labels = km.<span class="fn">fit_predict</span>(embeddings)
+    score = <span class="fn">silhouette_score</span>(embeddings, labels)
+    <span class="kw">if</span> score > best_score:
+        best_k, best_score = k, score
+<span class="fn">print</span>(<span class="str">f"Best k={best_k}, silhouette={best_score:.3f}"</span>)
+
+<span class="com"># --- HDBSCAN: no k needed, handles noise ---</span>
+clusterer = hdbscan.<span class="fn">HDBSCAN</span>(
+    min_cluster_size=<span class="num">10</span>,   <span class="com"># min points to form a cluster</span>
+    min_samples=<span class="num">5</span>,          <span class="com"># core point density threshold</span>
+    metric=<span class="str">'euclidean'</span>
+)
+hdb_labels = clusterer.<span class="fn">fit_predict</span>(embeddings)
+n_clusters = <span class="fn">len</span>(<span class="fn">set</span>(hdb_labels)) - (<span class="num">1</span> <span class="kw">if</span> -<span class="num">1</span> <span class="kw">in</span> hdb_labels <span class="kw">else</span> <span class="num">0</span>)
+noise_pct = (hdb_labels == -<span class="num">1</span>).<span class="fn">mean</span>() * <span class="num">100</span>
+<span class="fn">print</span>(<span class="str">f"HDBSCAN: {n_clusters} clusters, {noise_pct:.1f}% noise"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you decide k when using K-Means?</summary>
+      <div class="fq-a">Use the <strong>elbow method</strong> (plot inertia vs. k and look for a bend) or <strong>silhouette analysis</strong> (maximize average silhouette score). Neither is definitive &mdash; always validate the chosen k by inspecting cluster representatives. Domain knowledge often narrows the range before any metric is computed.</div>
+    </details>
+    <details class="fq-item">
+      <summary>When should you use HDBSCAN instead of K-Means?</summary>
+      <div class="fq-a">Use HDBSCAN when clusters have <strong>irregular shapes</strong>, when you expect <strong>noise or outliers</strong>, or when you do not want to predefine the number of clusters. HDBSCAN is especially useful for exploratory work where forcing everything into a cluster would mask the true structure.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you combine multiple clustering methods?</summary>
+      <div class="fq-a">Yes. <strong>Ensemble clustering</strong> runs multiple algorithms and merges their results. A simpler approach is to use HDBSCAN for initial discovery, then assign the noise points using a nearest-centroid classifier trained on the HDBSCAN clusters. This gives you the flexibility of density-based discovery with full coverage.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var algoInfo = {
+    kmeans: '<div style="margin-bottom:8px;"><span style="color:#38bdf8;font-weight:700;font-size:0.9rem;">K-Means</span></div>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#e2e8f0;">How it works:</strong> Assigns each point to the nearest of k centroids, then updates centroids iteratively until convergence.</p>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#4ade80;">Strengths:</strong> Fast, scales to millions, deterministic shape, easy to interpret.</p>' +
+      '<p><strong style="color:#f87171;">Weaknesses:</strong> Must choose k upfront, assumes spherical clusters, forces every point into a cluster (no noise label).</p>',
+    hdbscan: '<div style="margin-bottom:8px;"><span style="color:#a78bfa;font-weight:700;font-size:0.9rem;">HDBSCAN</span></div>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#e2e8f0;">How it works:</strong> Builds a hierarchy of density-based clusters and extracts the most persistent clusters. Points in low-density regions are labeled as noise (-1).</p>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#4ade80;">Strengths:</strong> No k needed, handles irregular shapes, explicitly separates noise from signal.</p>' +
+      '<p><strong style="color:#f87171;">Weaknesses:</strong> Slower on very large datasets, hyperparameter-sensitive (min_cluster_size, min_samples), can produce many small clusters.</p>',
+    hierarchical: '<div style="margin-bottom:8px;"><span style="color:#34d399;font-weight:700;font-size:0.9rem;">Hierarchical (Agglomerative)</span></div>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#e2e8f0;">How it works:</strong> Starts with each point as its own cluster and repeatedly merges the closest pair until one cluster remains. A dendrogram shows the merge history.</p>' +
+      '<p style="margin-bottom:6px;"><strong style="color:#4ade80;">Strengths:</strong> Produces a full hierarchy (coarse to fine), no k needed upfront, flexible linkage criteria.</p>' +
+      '<p><strong style="color:#f87171;">Weaknesses:</strong> O(n^2) memory and O(n^3) time, impractical beyond ~10K-50K items without approximation.</p>'
+  };
+
+  document.querySelectorAll('#c07t05-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t05-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('c07t05-algo-info').innerHTML = algoInfo[btn.getAttribute('data-algo')];
+    });
+  });
+  document.getElementById('c07t05-algo-info').innerHTML = algoInfo.kmeans;
+})();
+</script>
+
+
+    <div class="group-divider"><span>Production &amp; Evaluation</span></div>
+    <p class="group-intro">Once clusters exist, the real work begins: naming them for human consumption, monitoring drift, evaluating quality, and avoiding the mistakes that erode trust.</p>
+
+<!-- ==================== TOPIC 6 ==================== -->
+<section id="topic-6" class="topic">
+  <div class="topic-header"><span class="topic-num">6</span><h2>Naming Clusters</h2></div>
+
+  <div class="quick-take">A useful cluster label should summarize the theme, not simply repeat the most frequent token. Good labels come from a combination of top terms, representative examples, and an LLM or human summarizer that sees enough evidence to describe the cluster accurately.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Naming clusters is like writing newspaper headlines &mdash; the goal is to tell someone what the story is about, not to list every word in the article.</div>
+
+  <div class="visual-container" id="c07t06-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-quality="bad">Bad Labels</button>
+      <button class="vis-btn" data-quality="good">Good Labels</button>
+    </div>
+    <div id="c07t06-labels" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Naming Problem</h3>
+    <p>Raw cluster output is a number &mdash; "Cluster 3." That is useless to a product manager, operations lead, or executive. The cluster must be named in a way that enables decision-making. "Billing friction during checkout" is more useful than "payment issue words." This is a <strong>human-factors problem</strong> as much as a modeling problem.</p>
+
+    <h3>Naming Strategies</h3>
+    <ul>
+      <li><strong>Top-term extraction:</strong> Look at the most frequent or distinctive words in the cluster. Fast but often superficial.</li>
+      <li><strong>Representative example review:</strong> Read the 5-10 items closest to the centroid. Slower but more accurate.</li>
+      <li><strong>LLM summarization:</strong> Feed representative examples to an LLM and ask for a concise theme label. See <a href="#topic-9" class="xref">Topic 9: LLMs in Topic Workflows</a>.</li>
+      <li><strong>Human-in-the-loop:</strong> Domain experts review clusters and assign operational names. Most reliable but least scalable.</li>
+    </ul>
+
+    <h3>Operational Labels</h3>
+    <p>The best labels are <strong>operational</strong> &mdash; they tell someone what to do, not just what the cluster contains. Compare:</p>
+    <table>
+      <thead><tr><th>Weak Label</th><th>Strong Label</th><th>Why Better</th></tr></thead>
+      <tbody>
+        <tr><td>payment words</td><td>Billing friction during checkout</td><td>Identifies the pain point and context</td></tr>
+        <tr><td>login cluster</td><td>Password reset flow failures</td><td>Specifies the failure mode</td></tr>
+        <tr><td>misc negative</td><td>Delivery delays on international orders</td><td>Actionable for the logistics team</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Cluster naming is where data science meets communication. Labels should enable decisions, not just describe statistics.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> openai
+
+<span class="kw">def</span> <span class="fn">name_cluster</span>(representative_texts, client):
+    <span class="str">"""Use an LLM to generate an operational cluster name."""</span>
+    examples = <span class="str">"\n"</span>.<span class="fn">join</span>(
+        <span class="str">f"- {t}"</span> <span class="kw">for</span> t <span class="kw">in</span> representative_texts[:<span class="num">10</span>]
+    )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[{
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: <span class="str">f"""Below are representative examples from a cluster
+of customer support tickets. Generate a concise,
+operational label (5-8 words) that a product manager
+could use to prioritize action.
+
+Examples:
+{examples}
+
+Label:"""</span>
+        }],
+        max_tokens=<span class="num">30</span>,
+        temperature=<span class="num">0.0</span>
+    )
+    <span class="kw">return</span> response.choices[<span class="num">0</span>].message.content.<span class="fn">strip</span>()
+
+<span class="com"># Example usage</span>
+<span class="com"># label = name_cluster(representatives[cluster_id], client)</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you validate that a cluster name is accurate?</summary>
+      <div class="fq-a">Show the label and 10-20 random (not just centroid-near) examples to a domain expert. If the expert agrees that 80%+ of examples match the label, the name is adequate. If agreement drops below 60%, the cluster may need splitting or the label needs revision.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What if a cluster contains multiple themes?</summary>
+      <div class="fq-a">That cluster is likely too broad. Options include <strong>increasing k</strong>, using HDBSCAN to discover sub-structure, or applying a second round of clustering within the problematic cluster. Mixed clusters are a signal that the embedding or reduction step may also need tuning.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How often should cluster names be refreshed?</summary>
+      <div class="fq-a">Refresh names whenever the underlying data distribution shifts significantly &mdash; typically every <strong>1-3 months</strong> for fast-moving products. See <a href="#topic-7" class="xref">Topic 7: Evolving Topics Over Time</a> for monitoring strategies. Stale labels erode trust faster than stale clusters.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var data = {
+    bad: [
+      { label: 'Cluster 0: payment words', color: '#f87171' },
+      { label: 'Cluster 1: login stuff', color: '#f87171' },
+      { label: 'Cluster 2: misc negative', color: '#f87171' },
+      { label: 'Cluster 3: shipping related', color: '#f87171' }
+    ],
+    good: [
+      { label: 'Billing friction during checkout', color: '#4ade80' },
+      { label: 'Password reset flow failures', color: '#4ade80' },
+      { label: 'Delivery delays on international orders', color: '#4ade80' },
+      { label: 'Mobile app crash on Android 13+', color: '#4ade80' }
+    ]
+  };
+
+  function render(quality) {
+    var el = document.getElementById('c07t06-labels');
+    el.innerHTML = '';
+    data[quality].forEach(function(item) {
+      var div = document.createElement('div');
+      div.style.cssText = 'background:' + hexToRgba(item.color, 0.08) + ';border:1px solid ' + hexToRgba(item.color, 0.25) + ';border-radius:8px;padding:12px 16px;font-size:0.88rem;color:' + item.color + ';font-weight:600;display:flex;align-items:center;gap:8px;';
+      div.innerHTML = (quality === 'bad' ? '&#x2717; ' : '&#x2713; ') + item.label;
+      el.appendChild(div);
+    });
+  }
+
+  document.querySelectorAll('#c07t06-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t06-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(btn.getAttribute('data-quality'));
+    });
+  });
+  render('bad');
+})();
+</script>
+
+<!-- ==================== TOPIC 7 ==================== -->
+<style>
+.c07t07-timeline { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; }
+.c07t07-month { flex: 1; min-width: 80px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.c07t07-month:hover { border-color: #38bdf8; }
+.c07t07-month.active { border-color: #38bdf8; background: rgba(56,189,248,0.08); }
+.c07t07-month-name { font-size: 0.72rem; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+.c07t07-bars { display: flex; flex-direction: column; gap: 3px; }
+.c07t07-bar { height: 8px; border-radius: 4px; transition: width 0.4s ease; }
+.c07t07-detail { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; font-size: 0.84rem; color: #cbd5e1; }
+</style>
+
+<section id="topic-7" class="topic">
+  <div class="topic-header"><span class="topic-num">7</span><h2>Evolving Topics Over Time</h2></div>
+
+  <div class="quick-take">Topics drift as products change, events occur, and new language enters the corpus. A production system must support periodic re-embedding, incremental clustering, or time-sliced analysis so teams can see whether themes are growing, shrinking, splitting, or merging.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Topics are living organisms, not fossils. They grow, split, merge, and die over time &mdash; a one-time snapshot misses the story.</div>
+
+  <div class="visual-container" id="c07t07-visual">
+    <div class="c07t07-timeline" id="c07t07-timeline"></div>
+    <div class="c07t07-detail" id="c07t07-detail">Click a month to see topic evolution details.</div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Why Static Snapshots Fail</h3>
+    <p>Topic discovery is not a one-time report. Customer complaints shift with product releases. Research themes evolve with new publications. Support tickets change seasonally. A topic model trained in January may be stale by March. In interviews, show that you understand topic evolution as a <strong>temporal analytics problem</strong>, not only a static NLP task.</p>
+
+    <h3>Monitoring Strategies</h3>
+    <ul>
+      <li><strong>Time-sliced clustering:</strong> Run clustering separately on each time window (week, month) and compare cluster compositions</li>
+      <li><strong>Incremental clustering:</strong> Assign new data to existing clusters, flagging items that do not fit any cluster as potential new topics</li>
+      <li><strong>Drift detection:</strong> Track cluster centroid movement, size changes, and member turnover over time</li>
+      <li><strong>Re-embedding cycles:</strong> Periodically re-embed and re-cluster the entire corpus to catch structural shifts</li>
+    </ul>
+
+    <h3>What to Track</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>What It Means</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Cluster growing rapidly</td><td>Emerging issue or trending topic</td><td>Escalate for review</td></tr>
+        <tr><td>Cluster shrinking</td><td>Issue resolved or seasonal decline</td><td>Deprioritize or archive</td></tr>
+        <tr><td>Cluster splitting</td><td>Theme is diversifying into sub-topics</td><td>Create sub-labels</td></tr>
+        <tr><td>Two clusters merging</td><td>Previously distinct issues converging</td><td>Consolidate labels</td></tr>
+        <tr><td>New cluster appearing</td><td>Previously unseen theme</td><td>Investigate and name</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Topic monitoring is what separates an insight from a one-time report. Production systems must track how themes change, not just what they are today.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+<span class="kw">from</span> collections <span class="kw">import</span> Counter
+
+<span class="kw">def</span> <span class="fn">track_topic_drift</span>(embeddings_by_month, n_clusters=<span class="num">8</span>):
+    <span class="str">"""Compare cluster distributions across time windows."""</span>
+    results = {}
+
+    <span class="kw">for</span> month, embs <span class="kw">in</span> embeddings_by_month.<span class="fn">items</span>():
+        km = KMeans(n_clusters=n_clusters, random_state=<span class="num">42</span>)
+        labels = km.<span class="fn">fit_predict</span>(embs)
+
+        <span class="com"># Track cluster sizes as proportions</span>
+        counts = Counter(labels)
+        total = <span class="fn">len</span>(labels)
+        dist = {c: counts[c] / total <span class="kw">for</span> c <span class="kw">in</span> <span class="fn">range</span>(n_clusters)}
+        results[month] = {
+            <span class="str">"distribution"</span>: dist,
+            <span class="str">"centroids"</span>: km.cluster_centers_,
+        }
+
+    <span class="com"># Compare consecutive months</span>
+    months = <span class="fn">sorted</span>(results.<span class="fn">keys</span>())
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="fn">len</span>(months)):
+        prev, curr = results[months[i-<span class="num">1</span>]], results[months[i]]
+        <span class="kw">for</span> c <span class="kw">in</span> <span class="fn">range</span>(n_clusters):
+            delta = curr[<span class="str">"distribution"</span>][c] - prev[<span class="str">"distribution"</span>][c]
+            <span class="kw">if</span> <span class="fn">abs</span>(delta) > <span class="num">0.05</span>:  <span class="com"># 5% shift threshold</span>
+                direction = <span class="str">"growing"</span> <span class="kw">if</span> delta > <span class="num">0</span> <span class="kw">else</span> <span class="str">"shrinking"</span>
+                <span class="fn">print</span>(<span class="str">f"{months[i]}: Cluster {c} {direction} ({delta:+.1%})"</span>)</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you align clusters across different time windows?</summary>
+      <div class="fq-a">Cluster IDs are arbitrary, so you need to <strong>align</strong> them. Common approaches include matching clusters by centroid similarity (cosine distance between centroids) or by member overlap (Jaccard similarity of items that appear in both windows). Hungarian algorithm matching works well for automated alignment.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How frequently should you re-run topic discovery?</summary>
+      <div class="fq-a">It depends on the data velocity. For <strong>customer support</strong>, weekly or bi-weekly is common. For <strong>research papers</strong>, monthly or quarterly. Set up drift alerts so re-analysis is triggered when cluster distributions shift beyond a threshold, rather than on a fixed schedule.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can you do real-time topic discovery?</summary>
+      <div class="fq-a">Yes, but with trade-offs. <strong>Streaming clustering</strong> (e.g., incremental DBSCAN) can assign incoming items to existing clusters in real time. However, detecting new clusters and handling splits/merges is harder in streaming mode. Most production systems use a hybrid: real-time assignment with periodic batch re-clustering.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  function hexToRgba(hex, a) {
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  var colors = ['#38bdf8','#a78bfa','#34d399','#fb923c'];
+  var months = [
+    { name: 'Jan', sizes: [30,25,25,20], note: 'Baseline distribution. Four stable topics identified.' },
+    { name: 'Feb', sizes: [35,25,22,18], note: 'Shipping complaints (blue) growing after holiday backlog.' },
+    { name: 'Mar', sizes: [28,30,20,22], note: 'App bug reports (purple) spike after v3.2 release.' },
+    { name: 'Apr', sizes: [22,22,28,28], note: 'Billing and feature request topics growing. Shipping stabilized.' },
+    { name: 'May', sizes: [20,20,25,35], note: 'Feature requests (orange) surging &mdash; possible new product demand signal.' },
+    { name: 'Jun', sizes: [18,22,30,30], note: 'Billing topic (green) growing. Investigate pricing change impact.' }
+  ];
+
+  var timeline = document.getElementById('c07t07-timeline');
+  months.forEach(function(m, idx) {
+    var el = document.createElement('div');
+    el.className = 'c07t07-month' + (idx === 0 ? ' active' : '');
+    var barsHtml = '<div class="c07t07-bars">';
+    m.sizes.forEach(function(s, i) {
+      barsHtml += '<div class="c07t07-bar" style="width:' + s + '%;background:' + colors[i] + ';"></div>';
+    });
+    barsHtml += '</div>';
+    el.innerHTML = '<div class="c07t07-month-name">' + m.name + '</div>' + barsHtml;
+    el.addEventListener('click', function() {
+      document.querySelectorAll('.c07t07-month').forEach(function(e) { e.classList.remove('active'); });
+      el.classList.add('active');
+      document.getElementById('c07t07-detail').innerHTML = '<strong>' + m.name + ':</strong> ' + m.note;
+    });
+    timeline.appendChild(el);
+  });
+  document.getElementById('c07t07-detail').innerHTML = '<strong>Jan:</strong> ' + months[0].note;
+})();
+</script>
+
+<!-- ==================== TOPIC 8 ==================== -->
+<section id="topic-8" class="topic">
+  <div class="topic-header"><span class="topic-num">8</span><h2>Evaluating Topic Quality</h2></div>
+
+  <div class="quick-take">Good topics are coherent internally, distinct from one another, and useful to decision-makers. Automatic measures can help, but manual inspection of representative examples remains essential. The question is not only "Do the clusters exist?" but "Can a team act on them?"<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Evaluating topics is like evaluating a map: mathematical accuracy matters, but if the map does not help you navigate, it has failed its purpose.</div>
+
+  <div class="visual-container" id="c07t08-visual">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="font-size:0.78rem;text-transform:uppercase;color:#38bdf8;font-weight:600;margin-bottom:10px;">Automatic Metrics</div>
+        <div id="c07t08-auto" style="font-size:0.84rem;color:#cbd5e1;"></div>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="font-size:0.78rem;text-transform:uppercase;color:#a78bfa;font-weight:600;margin-bottom:10px;">Human Evaluation</div>
+        <div id="c07t08-human" style="font-size:0.84rem;color:#cbd5e1;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Automatic Measures</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>What It Measures</th><th>Limitation</th></tr></thead>
+      <tbody>
+        <tr><td>Silhouette Score</td><td>How well-separated clusters are</td><td>Favors spherical clusters; sensitive to dimensionality</td></tr>
+        <tr><td>Coherence (C_v)</td><td>Semantic coherence of topic words</td><td>Designed for word-based topics, less relevant for embedding clusters</td></tr>
+        <tr><td>Calinski-Harabasz</td><td>Ratio of between-cluster to within-cluster dispersion</td><td>Assumes convex clusters</td></tr>
+        <tr><td>Davies-Bouldin</td><td>Average similarity ratio of each cluster to its most similar cluster</td><td>Sensitive to noisy clusters</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Human Evaluation</h3>
+    <p>Automatic metrics tell you whether clusters are mathematically well-separated, but they cannot tell you whether the clusters are <strong>useful</strong>. Human evaluation should check:</p>
+    <ul>
+      <li><strong>Coherence:</strong> Do random examples from the same cluster feel like they belong together?</li>
+      <li><strong>Distinctness:</strong> Can a reviewer tell clusters apart without looking at labels?</li>
+      <li><strong>Completeness:</strong> Are important themes represented, or are they split across clusters?</li>
+      <li><strong>Actionability:</strong> Can a product team take different actions for different clusters?</li>
+    </ul>
+
+    <h3>Evaluation Should Combine Both</h3>
+    <p>The strongest interview answer is that evaluation should combine <strong>statistical coherence with analyst usefulness</strong>. If a cluster contains semantically mixed examples, the label is likely misleading even if a metric looks acceptable. Conversely, if humans find the clusters useful but the silhouette score is mediocre, the clusters may still be production-worthy. See <a href="#topic-6" class="xref">Topic 6: Naming Clusters</a> for how label quality affects evaluation.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>Evaluation combines math and judgment. A cluster with a great silhouette score but mixed themes is worse than one with a mediocre score but clear actionability.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> (
+    silhouette_score,
+    calinski_harabasz_score,
+    davies_bouldin_score,
+)
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">evaluate_clusters</span>(embeddings, labels):
+    <span class="str">"""Compute automatic cluster quality metrics."""</span>
+    <span class="com"># Filter out noise labels (HDBSCAN assigns -1)</span>
+    mask = labels >= <span class="num">0</span>
+    X = embeddings[mask]
+    y = labels[mask]
+
+    <span class="kw">if</span> <span class="fn">len</span>(<span class="fn">set</span>(y)) < <span class="num">2</span>:
+        <span class="kw">return</span> {<span class="str">"error"</span>: <span class="str">"Need at least 2 clusters"</span>}
+
+    <span class="kw">return</span> {
+        <span class="str">"silhouette"</span>: <span class="fn">silhouette_score</span>(X, y),       <span class="com"># [-1, 1] higher = better</span>
+        <span class="str">"calinski_harabasz"</span>: <span class="fn">calinski_harabasz_score</span>(X, y),  <span class="com"># higher = better</span>
+        <span class="str">"davies_bouldin"</span>: <span class="fn">davies_bouldin_score</span>(X, y),    <span class="com"># lower = better</span>
+        <span class="str">"n_clusters"</span>: <span class="fn">len</span>(<span class="fn">set</span>(y)),
+        <span class="str">"noise_pct"</span>: <span class="num">1.0</span> - mask.<span class="fn">mean</span>(),
+    }
+
+<span class="com"># Usage</span>
+<span class="com"># metrics = evaluate_clusters(reduced_embeddings, cluster_labels)</span>
+<span class="com"># print(f"Silhouette: {metrics['silhouette']:.3f}")</span>
+<span class="com"># Then: manually inspect 10 random items per cluster</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>What silhouette score is "good enough" for production?</summary>
+      <div class="fq-a">There is no universal threshold. For text clustering, scores above <strong>0.2</strong> are common and often sufficient if human evaluation confirms cluster utility. Scores above 0.5 are strong. The metric matters most for <strong>comparing</strong> configurations (e.g., k=8 vs k=12) rather than as an absolute quality gate.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you run human evaluation efficiently at scale?</summary>
+      <div class="fq-a">Sample <strong>10-20 random items</strong> from each cluster (not just centroid-near items). Present them to 2-3 reviewers and measure inter-annotator agreement on whether items belong to the labeled theme. A tool like Label Studio or a simple spreadsheet with randomized assignments works well for teams of 2-5 reviewers.</div>
+    </details>
+    <details class="fq-item">
+      <summary>Can LLMs replace human evaluation of clusters?</summary>
+      <div class="fq-a">LLMs can <strong>supplement</strong> but not fully replace human evaluation. An LLM can quickly check whether representative examples match a proposed label, but it cannot judge whether the label is <strong>operationally useful</strong> for a specific team. Use LLMs for the first pass and humans for final validation.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var autoMetrics = [
+    { name: 'Silhouette Score', value: '0.34', status: 'Moderate separation', color: '#facc15' },
+    { name: 'Calinski-Harabasz', value: '287', status: 'Reasonable compactness', color: '#34d399' },
+    { name: 'Davies-Bouldin', value: '1.42', status: 'Some cluster overlap', color: '#fb923c' },
+    { name: 'Noise Points', value: '8.2%', status: 'Acceptable outlier rate', color: '#38bdf8' }
+  ];
+  var humanMetrics = [
+    { name: 'Coherence', value: '82%', status: 'Reviewers agree items fit cluster', color: '#4ade80' },
+    { name: 'Distinctness', value: '76%', status: 'Most clusters clearly different', color: '#34d399' },
+    { name: 'Completeness', value: '70%', status: 'Some themes split across clusters', color: '#facc15' },
+    { name: 'Actionability', value: '88%', status: 'Teams can act on most clusters', color: '#4ade80' }
+  ];
+
+  function renderMetrics(el, metrics) {
+    el.innerHTML = '';
+    metrics.forEach(function(m) {
+      el.innerHTML += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b;">' +
+        '<div><strong style="color:#e2e8f0;">' + m.name + '</strong><br><span style="font-size:0.78rem;color:#64748b;">' + m.status + '</span></div>' +
+        '<span style="color:' + m.color + ';font-weight:700;font-size:1rem;">' + m.value + '</span></div>';
+    });
+  }
+
+  renderMetrics(document.getElementById('c07t08-auto'), autoMetrics);
+  renderMetrics(document.getElementById('c07t08-human'), humanMetrics);
+})();
+</script>
+
+<!-- ==================== TOPIC 9 ==================== -->
+<section id="topic-9" class="topic">
+  <div class="topic-header"><span class="topic-num">9</span><h2>LLMs in Topic Workflows</h2></div>
+
+  <div class="quick-take">LLMs are especially useful after clustering. They can label themes, summarize representative examples, compare adjacent clusters, and generate human-readable insights from a large corpus. But LLM-generated summaries can sound crisp even when the underlying cluster is messy.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> The LLM is a skilled reporter, not a fact-checker. It can write a compelling headline for any cluster &mdash; your job is to verify the headline is true.</div>
+
+  <div class="visual-container" id="c07t09-visual">
+    <div class="vis-btns">
+      <button class="vis-btn active" data-use="labeling">Cluster Labeling</button>
+      <button class="vis-btn" data-use="summarization">Theme Summarization</button>
+      <button class="vis-btn" data-use="comparison">Cluster Comparison</button>
+      <button class="vis-btn" data-use="taxonomy">Taxonomy Bootstrap</button>
+    </div>
+    <div id="c07t09-use-detail" style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;font-size:0.84rem;color:#cbd5e1;min-height:100px;"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>Where LLMs Add Value</h3>
+    <ul>
+      <li><strong>Labeling:</strong> Generate concise, operational names for clusters based on representative examples (see <a href="#topic-6" class="xref">Topic 6: Naming Clusters</a>)</li>
+      <li><strong>Summarization:</strong> Produce paragraph-length summaries of each theme for executive reports</li>
+      <li><strong>Comparison:</strong> Describe how adjacent or overlapping clusters differ, helping decide whether to merge or keep separate</li>
+      <li><strong>Taxonomy bootstrapping:</strong> Once latent topics are discovered, an LLM can propose a hierarchical taxonomy structure that organizes themes into categories and sub-categories</li>
+    </ul>
+
+    <h3>The Crispness Trap</h3>
+    <p>LLM-generated summaries can sound crisp even when the underlying cluster is messy. A cluster containing a mix of billing complaints, shipping issues, and random noise will still receive a confident-sounding label. This is dangerous because it creates a false sense of structure.</p>
+    <p>In interviews, say that LLMs improve <strong>interpretation and reporting</strong>, but cluster quality must still be validated against raw examples. The LLM is an amplifier, not a validator.</p>
+
+    <h3>Prompt Design for Topic Labeling</h3>
+    <p>Effective prompts for cluster labeling should:</p>
+    <ol>
+      <li>Provide 5-10 representative examples (not all items)</li>
+      <li>Specify the desired label format (length, style, audience)</li>
+      <li>Ask for a confidence assessment alongside the label</li>
+      <li>Request alternative labels when confidence is low</li>
+    </ol>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>LLMs make topic workflows faster and more readable, but they cannot validate cluster quality. Always verify LLM-generated labels against raw data.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> openai
+
+<span class="kw">def</span> <span class="fn">compare_clusters</span>(cluster_a_examples, cluster_b_examples, client):
+    <span class="str">"""Ask an LLM to describe how two clusters differ."""</span>
+    prompt = <span class="str">f"""You are analyzing two clusters of customer feedback.
+
+Cluster A examples:
+{chr(<span class="num">10</span>).join(<span class="str">'- '</span> + e <span class="kw">for</span> e <span class="kw">in</span> cluster_a_examples[:<span class="num">5</span>])}
+
+Cluster B examples:
+{chr(<span class="num">10</span>).join(<span class="str">'- '</span> + e <span class="kw">for</span> e <span class="kw">in</span> cluster_b_examples[:<span class="num">5</span>])}
+
+1. Provide a short label for each cluster (5-8 words).
+2. Describe the key difference between them in 1-2 sentences.
+3. Should they be merged or kept separate? Why?"""</span>
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}],
+        temperature=<span class="num">0.0</span>,
+    )
+    <span class="kw">return</span> response.choices[<span class="num">0</span>].message.content
+
+<span class="com"># Caution: always validate LLM output against raw examples!</span>
+<span class="com"># The LLM will produce confident labels even for messy clusters</span></code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>Can LLMs replace the entire clustering pipeline?</summary>
+      <div class="fq-a">Not yet at scale. LLMs can classify individual items into topics, but doing so for millions of items is <strong>prohibitively expensive</strong> and slow. Clustering with embeddings is orders of magnitude cheaper. The sweet spot is embedding-based clustering for grouping, followed by LLM-based labeling for the much smaller set of cluster representatives.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle LLM hallucination in cluster labels?</summary>
+      <div class="fq-a">Cross-check the label against the actual examples. If the label mentions a concept that does not appear in <strong>any</strong> representative example, it is likely hallucinated. A simple validation step is to ask a second LLM call: "Does this label accurately describe these examples? Answer yes/no with reasoning."</div>
+    </details>
+    <details class="fq-item">
+      <summary>What about using LLMs for embedding instead of sentence transformers?</summary>
+      <div class="fq-a">LLM APIs (e.g., OpenAI embeddings) can produce high-quality embeddings, but at <strong>higher cost and latency</strong> than dedicated sentence transformer models. For large-scale topic discovery (100K+ items), dedicated models like BGE or E5 running locally are more practical. Use LLM embeddings when quality matters more than cost.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var uses = {
+    labeling: '<strong style="color:#38bdf8;">Cluster Labeling</strong><br><br>Feed 5-10 representative examples to an LLM and ask for a concise operational label.<br><br><span style="color:#94a3b8;">Input:</span> "My order never arrived", "Package lost in transit", "Delivery missing 5 days"...<br><span style="color:#4ade80;">Output:</span> "Undelivered package complaints"<br><br><span style="color:#facc15;">Warning:</span> Always verify the label against random (not just centroid-near) examples.',
+    summarization: '<strong style="color:#a78bfa;">Theme Summarization</strong><br><br>Generate paragraph-length summaries of each theme for executive reports and dashboards.<br><br><span style="color:#94a3b8;">Input:</span> 10 representative tickets from Cluster 3<br><span style="color:#4ade80;">Output:</span> "This cluster contains complaints about being charged after canceling a subscription. Most users report the charge appeared 1-3 days after cancellation confirmation..."<br><br><span style="color:#facc15;">Warning:</span> Summaries sound authoritative even for noisy clusters.',
+    comparison: '<strong style="color:#34d399;">Cluster Comparison</strong><br><br>Ask the LLM to describe how two adjacent clusters differ, helping decide whether to merge or keep separate.<br><br><span style="color:#94a3b8;">Use case:</span> "Cluster A seems similar to Cluster B &mdash; should we merge them?"<br><span style="color:#4ade80;">Output:</span> "Cluster A focuses on mobile app crashes, while Cluster B covers slow load times. Keep separate &mdash; different root causes require different engineering responses."',
+    taxonomy: '<strong style="color:#fb923c;">Taxonomy Bootstrap</strong><br><br>Once latent topics are discovered, ask an LLM to propose a hierarchical taxonomy organizing themes into categories and sub-categories.<br><br><span style="color:#94a3b8;">Input:</span> List of 15 cluster labels<br><span style="color:#4ade80;">Output:</span> A tree structure like:<br>&bull; Technical Issues<br>&nbsp;&nbsp;- App Crashes<br>&nbsp;&nbsp;- Performance / Slowness<br>&bull; Billing<br>&nbsp;&nbsp;- Overcharges<br>&nbsp;&nbsp;- Refund Delays'
+  };
+
+  document.querySelectorAll('#c07t09-visual .vis-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#c07t09-visual .vis-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('c07t09-use-detail').innerHTML = uses[btn.getAttribute('data-use')];
+    });
+  });
+  document.getElementById('c07t09-use-detail').innerHTML = uses.labeling;
+})();
+</script>
+
+<!-- ==================== TOPIC 10 ==================== -->
+<style>
+.c07t10-mistake { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.c07t10-mistake:hover { border-color: #f87171; }
+.c07t10-mistake.expanded { border-color: #f87171; background: rgba(248,113,113,0.05); }
+.c07t10-mistake-title { font-size: 0.88rem; font-weight: 600; color: #f87171; display: flex; align-items: center; gap: 8px; }
+.c07t10-mistake-fix { margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e293b; font-size: 0.82rem; color: #94a3b8; display: none; }
+.c07t10-mistake.expanded .c07t10-mistake-fix { display: block; }
+.c07t10-mistake-fix strong { color: #4ade80; }
+</style>
+
+<section id="topic-10" class="topic">
+  <div class="topic-header"><span class="topic-num">10</span><h2>Common Mistakes at Scale</h2></div>
+
+  <div class="quick-take">Common mistakes include using the wrong unit of analysis, clustering noisy boilerplate, overinterpreting weak visualizations, and treating automatically generated labels as truth. The strongest interview answer emphasizes that topic discovery is iterative sense-making, not just chart generation.<button class="qt-copy">Copy</button></div>
+
+  <div class="mental-model"><span class="mm-icon">&#x1f4a1;</span> Topic modeling mistakes are like optical illusions &mdash; they look convincing until you check the raw data beneath the surface.</div>
+
+  <div class="visual-container" id="c07t10-visual">
+    <div id="c07t10-mistakes"></div>
+  </div>
+
+  <div class="deep-dive">
+    <h3>The Validation Imperative</h3>
+    <p>Topic discovery should be treated as <strong>iterative sense-making</strong>. The goal is insight you can trust, not just an impressive chart. Every stage of the pipeline (see <a href="#topic-3" class="xref">Topic 3: The Discovery Pipeline</a>) can introduce errors that compound downstream.</p>
+
+    <h3>Mistake Taxonomy</h3>
+    <table>
+      <thead><tr><th>Mistake</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Wrong unit of analysis</td><td>Clusters are too broad or incoherent</td><td>Try paragraph or sentence-level embedding</td></tr>
+        <tr><td>Clustering boilerplate</td><td>Largest cluster is auto-replies or signatures</td><td>Clean text before embedding</td></tr>
+        <tr><td>Trusting 2D plots</td><td>Clusters look separated in UMAP but overlap in reality</td><td>Validate with original embeddings</td></tr>
+        <tr><td>Auto labels as truth</td><td>Teams act on LLM-generated labels without verification</td><td>Human review of random samples</td></tr>
+        <tr><td>Ignoring temporal drift</td><td>Stale clusters no longer match current data</td><td>Periodic re-clustering and monitoring</td></tr>
+        <tr><td>Too many clusters</td><td>Adjacent clusters are nearly identical</td><td>Merge similar clusters; reduce k</td></tr>
+        <tr><td>Too few clusters</td><td>Clusters contain obviously different themes</td><td>Increase k; try HDBSCAN</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Interview Signal</h3>
+    <p>The strongest interview answer emphasizes <strong>validation at every stage</strong>. Weak candidates describe the algorithm; strong candidates describe how they verified the results. Mention that you would inspect representative examples, check cluster stability across reruns, and present results to domain experts before trusting them. See <a href="#topic-8" class="xref">Topic 8: Evaluating Topic Quality</a> for the evaluation framework.</p>
+  </div>
+
+  <div class="key-takeaway"><span class="kt-icon">&#x2192;</span> <strong>The most dangerous mistake is skipping validation. Topic discovery produces hypotheses, not facts &mdash; treat every output as something that must earn your trust.</strong></div>
+
+  <details class="code-block">
+    <summary>Python Example</summary>
+    <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> KMeans
+
+<span class="kw">def</span> <span class="fn">validate_cluster_stability</span>(embeddings, n_clusters=<span class="num">8</span>, n_runs=<span class="num">5</span>):
+    <span class="str">"""Check if clusters are stable across random seeds."""</span>
+    <span class="kw">from</span> sklearn.metrics <span class="kw">import</span> adjusted_rand_score
+
+    all_labels = []
+    <span class="kw">for</span> seed <span class="kw">in</span> <span class="fn">range</span>(n_runs):
+        km = KMeans(n_clusters=n_clusters, random_state=seed, n_init=<span class="num">10</span>)
+        all_labels.<span class="fn">append</span>(km.<span class="fn">fit_predict</span>(embeddings))
+
+    <span class="com"># Compare all pairs of runs</span>
+    scores = []
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(n_runs):
+        <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(i + <span class="num">1</span>, n_runs):
+            scores.<span class="fn">append</span>(<span class="fn">adjusted_rand_score</span>(all_labels[i], all_labels[j]))
+
+    avg_ari = np.<span class="fn">mean</span>(scores)
+    <span class="fn">print</span>(<span class="str">f"Average ARI across {n_runs} runs: {avg_ari:.3f}"</span>)
+    <span class="com"># ARI > 0.8: stable clusters</span>
+    <span class="com"># ARI 0.5-0.8: some instability, investigate</span>
+    <span class="com"># ARI < 0.5: clusters are not reliable</span>
+    <span class="kw">return</span> avg_ari</code></pre>
+  </details>
+
+  <div class="followup-section">
+    <div class="followup-heading">Follow-up Questions</div>
+    <details class="fq-item">
+      <summary>How do you convince stakeholders that cluster labels are provisional?</summary>
+      <div class="fq-a">Frame results as <strong>hypotheses</strong>, not conclusions. Present labels alongside representative examples and confidence indicators. Use language like "this cluster appears to be about X" rather than "this category is X." Showing the raw examples builds trust and calibrates expectations.</div>
+    </details>
+    <details class="fq-item">
+      <summary>What is the biggest difference between a notebook demo and a production topic system?</summary>
+      <div class="fq-a">A notebook demo runs once on static data. A production system handles <strong>incremental data, temporal drift, monitoring, alerting, and human-in-the-loop validation</strong>. It also needs reproducibility (pinned seeds, versioned embeddings), access control for labeled data, and integration with downstream workflows like ticket routing or dashboards.</div>
+    </details>
+    <details class="fq-item">
+      <summary>How do you handle topics that are genuinely ambiguous?</summary>
+      <div class="fq-a">Some items legitimately belong to multiple topics. Options include <strong>soft clustering</strong> (probabilistic membership), multi-label assignment, or an explicit "ambiguous" category. Do not force ambiguous items into a single cluster &mdash; this degrades the quality of the clusters they are forced into.</div>
+    </details>
+  </div>
+</section>
+
+<script>
+(function() {
+  var mistakes = [
+    { title: '1. Clustering without cleaning the text first', fix: '<strong>Fix:</strong> Remove boilerplate, auto-replies, signatures, and duplicate text before embedding. Garbage in, garbage out is especially true for unsupervised methods.' },
+    { title: '2. Using the wrong unit of analysis', fix: '<strong>Fix:</strong> Test different granularities (sentence, paragraph, document). The unit should match the granularity of themes you want to discover.' },
+    { title: '3. Trusting 2D UMAP plots as ground truth', fix: '<strong>Fix:</strong> UMAP distorts distances. Use 2D plots for intuition only, then validate clusters using original high-dimensional similarity and representative examples.' },
+    { title: '4. Treating auto-generated labels as facts', fix: '<strong>Fix:</strong> LLM and algorithmic labels are hypotheses. Verify every label against random samples from the cluster, not just centroid-near examples.' },
+    { title: '5. Ignoring temporal drift', fix: '<strong>Fix:</strong> Schedule periodic re-clustering and track cluster distribution changes over time. Stale clusters lead to stale decisions.' },
+    { title: '6. Skipping human validation', fix: '<strong>Fix:</strong> Have domain experts review 10-20 random items per cluster. Measure inter-annotator agreement. If experts disagree with the labels, the clusters need work.' }
+  ];
+
+  var container = document.getElementById('c07t10-mistakes');
+  mistakes.forEach(function(m) {
+    var el = document.createElement('div');
+    el.className = 'c07t10-mistake';
+    el.innerHTML = '<div class="c07t10-mistake-title">&#x26a0; ' + m.title + '</div><div class="c07t10-mistake-fix">' + m.fix + '</div>';
+    el.addEventListener('click', function() {
+      el.classList.toggle('expanded');
+    });
+    container.appendChild(el);
+  });
+})();
+</script>
+
+  </main>
+</div>
+
+<script>
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  document.getElementById('progress-bar').style.width = Math.min((h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100, 100) + '%';
+});
+var topics = document.querySelectorAll('.topic');
+var tocLinks = document.querySelectorAll('.toc a');
+var activeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) { tocLinks.forEach(function(l) { l.classList.remove('active'); }); var link = document.querySelector('.toc a[href="#' + e.target.id + '"]'); if (link) link.classList.add('active'); } });
+}, { threshold: 0.1, rootMargin: '-10% 0px -60% 0px' });
+var fadeObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.05 });
+topics.forEach(function(t) { activeObs.observe(t); fadeObs.observe(t); });
+document.querySelectorAll('.qt-copy').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text = btn.parentElement.textContent.replace('Copy', '').trim();
+    navigator.clipboard.writeText(text).then(function() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500); });
+  });
+});
+</script>
+</body>
+</html>
