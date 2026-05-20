@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q08: Truncation vs Sliding Windows vs Summarization</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; }
+
+  .section {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    margin-bottom: 3rem;
+  }
+  .section.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, #38bdf8, #818cf8, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    position: relative;
+    color: #f1f5f9;
+  }
+  h2::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 2px;
+  }
+  .section:nth-of-type(1) h2::before { background: #38bdf8; }
+  .section:nth-of-type(2) h2::before { background: #818cf8; }
+  .section:nth-of-type(3) h2::before { background: #f472b6; }
+  .section:nth-of-type(4) h2::before { background: #38bdf8; }
+
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+  .hook { font-size: 1.1rem; color: #e2e8f0; }
+
+  /* ---- Visual ---- */
+  .visual-container {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #334155;
+  }
+
+  .budget-control {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .budget-control label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .budget-slider {
+    flex: 1;
+    min-width: 120px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 5px;
+    background: linear-gradient(90deg, #ef4444, #eab308, #22c55e);
+    border-radius: 3px;
+    outline: none;
+  }
+  .budget-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(226,232,240,0.3);
+    border: 2px solid #0f172a;
+  }
+  .budget-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #38bdf8;
+    min-width: 80px;
+  }
+
+  /* Source document */
+  .source-doc {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem;
+    background: #0f172a;
+    border-radius: 8px;
+    border: 1px solid #334155;
+  }
+  .source-doc .s-label {
+    width: 100%;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+  .src-block {
+    width: 28px;
+    height: 22px;
+    border-radius: 3px;
+    font-size: 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.7);
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  /* Three panels */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .panel {
+    background: #0f172a;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .panel-title .icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+  }
+  .panel-truncate .panel-title { color: #ef4444; }
+  .panel-truncate .icon { background: rgba(239,68,68,0.2); }
+  .panel-sliding .panel-title { color: #38bdf8; }
+  .panel-sliding .icon { background: rgba(56,189,248,0.2); }
+  .panel-summarize .panel-title { color: #eab308; }
+  .panel-summarize .icon { background: rgba(234,179,8,0.2); }
+
+  .panel-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .p-block {
+    border-radius: 3px;
+    font-size: 0.55rem;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+    transition: all 0.45s ease;
+    overflow: hidden;
+    white-space: nowrap;
+    min-height: 0;
+  }
+  .p-block.kept {
+    height: 18px;
+    min-height: 18px;
+  }
+  .p-block.cut {
+    height: 12px;
+    min-height: 12px;
+    opacity: 0.25;
+    text-decoration: line-through;
+  }
+  .p-block.hidden-block {
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    opacity: 0;
+    margin: 0;
+  }
+  .p-block.window-on {
+    height: 18px;
+    min-height: 18px;
+  }
+  .p-block.window-off {
+    height: 14px;
+    min-height: 14px;
+    opacity: 0.2;
+  }
+  .p-block.overlap-zone {
+    height: 18px;
+    min-height: 18px;
+    border: 1px dashed rgba(56,189,248,0.5);
+  }
+  .p-block.full-block {
+    height: 18px;
+    min-height: 18px;
+  }
+  .p-block.compressed {
+    height: 6px;
+    min-height: 6px;
+    opacity: 0.5;
+  }
+  .p-block.compressed.hidden-block {
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    opacity: 0;
+  }
+  .p-block.summary-golden {
+    min-height: 24px;
+    height: 24px;
+    background: linear-gradient(90deg, #f59e0b, #d97706) !important;
+    border: 1px solid #fbbf24;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 0.6rem;
+  }
+
+  .panel-stats {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #1e293b;
+    font-size: 0.65rem;
+    color: #64748b;
+  }
+  .panel-stats .s-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .panel-stats .s-val { font-weight: 600; }
+  .panel-truncate .panel-stats .s-val { color: #ef4444; }
+  .panel-sliding .panel-stats .s-val { color: #38bdf8; }
+  .panel-summarize .panel-stats .s-val { color: #eab308; }
+
+  .play-btn {
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    background: rgba(56,189,248,0.15);
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+    align-self: center;
+  }
+  .play-btn:hover { background: rgba(56,189,248,0.25); }
+
+  .instructions {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 1rem;
+    font-style: italic;
+    text-align: center;
+  }
+
+  /* Code */
+  pre {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    border: 1px solid #334155;
+    font-size: 0.82rem;
+    line-height: 1.65;
+  }
+  code { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Consolas, monospace; }
+  .kw { color: #c084fc; }
+  .fn { color: #38bdf8; }
+  .str { color: #34d399; }
+  .cmt { color: #64748b; font-style: italic; }
+  .num { color: #f472b6; }
+  .op { color: #94a3b8; }
+  .var { color: #e2e8f0; }
+  .bi { color: #fbbf24; }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    .panels { grid-template-columns: 1fr; }
+    .panel { min-height: 200px; }
+    .source-doc { gap: 2px; }
+    .src-block { width: 20px; height: 18px; font-size: 0.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Truncation vs Sliding Windows vs Summarization</h1>
+  <p class="subtitle">Chapter 2 / Q08 — Three Strategies for Context Overflow</p>
+
+  <!-- QUICK TAKE -->
+  <div class="section">
+    <h2>Quick Take</h2>
+    <p class="hook">Three ways to handle too-long input. Truncation is a guillotine -- fast but ruthless. Sliding windows are a spotlight scanning a dark room. Summarization is a note-taker who captures the gist but loses the quotes. Each trades off speed, fidelity, and coverage differently.</p>
+  </div>
+
+  <!-- INTERACTIVE VISUAL -->
+  <div class="section">
+    <h2>Interactive Visual</h2>
+    <div class="visual-container">
+      <div class="budget-control">
+        <label>Context budget</label>
+        <input type="range" class="budget-slider" id="budget-slider" min="3" max="18" value="10">
+        <span class="budget-value" id="budget-value">10 / 20 blocks</span>
+      </div>
+
+      <div class="source-doc" id="source-doc">
+        <span class="s-label">Source Document (20 sentence blocks)</span>
+      </div>
+
+      <div class="panels">
+        <!-- Truncation Panel -->
+        <div class="panel panel-truncate">
+          <div class="panel-title"><span class="icon">&#9986;</span> Truncation</div>
+          <div class="panel-blocks" id="trunc-blocks"></div>
+          <div class="panel-stats">
+            <div class="s-row"><span>Kept</span><span class="s-val" id="trunc-kept">10</span></div>
+            <div class="s-row"><span>Lost</span><span class="s-val" id="trunc-lost">10</span></div>
+            <div class="s-row"><span>Fidelity</span><span class="s-val" id="trunc-fidelity">100%</span></div>
+          </div>
+        </div>
+
+        <!-- Sliding Window Panel -->
+        <div class="panel panel-sliding">
+          <div class="panel-title"><span class="icon">&#9654;</span> Sliding Window</div>
+          <div class="panel-blocks" id="slide-blocks"></div>
+          <div class="panel-stats">
+            <div class="s-row"><span>Window</span><span class="s-val" id="slide-window">10</span></div>
+            <div class="s-row"><span>Passes</span><span class="s-val" id="slide-passes">3</span></div>
+            <div class="s-row"><span>Overlap</span><span class="s-val" id="slide-overlap">2</span></div>
+          </div>
+          <button class="play-btn" id="play-btn">&#9654; Play</button>
+        </div>
+
+        <!-- Summarization Panel -->
+        <div class="panel panel-summarize">
+          <div class="panel-title"><span class="icon">&#9733;</span> Summarize</div>
+          <div class="panel-blocks" id="summ-blocks"></div>
+          <div class="panel-stats">
+            <div class="s-row"><span>Full</span><span class="s-val" id="summ-full">10</span></div>
+            <div class="s-row"><span>Compressed</span><span class="s-val" id="summ-compressed">10</span></div>
+            <div class="s-row"><span>Gist kept</span><span class="s-val" id="summ-gist">~75%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="instructions">Drag the budget slider to see how all three strategies adapt. Press Play to animate the sliding window.</p>
+    </div>
+  </div>
+
+  <!-- DEEP DIVE -->
+  <div class="section">
+    <h2>Deep Dive</h2>
+    <p>Truncation drops tokens from the start or end -- O(1) complexity, zero compute overhead, but potentially catastrophic if it cuts instructions or key evidence. A prompt that says "summarize the document above and answer the question below" loses all meaning if the question at the bottom gets truncated. In practice, most frameworks default to truncating from the start (keeping the most recent tokens), which works for chat but fails for document analysis.</p>
+    <p>Sliding windows process the document in overlapping segments, each fitting within the context limit. This preserves local detail and handles arbitrarily long documents, but the model never sees the full picture at once -- cross-document reasoning suffers. You need a merge step to combine window outputs, and that merge step introduces its own failure modes. The overlap between windows is critical: too little and you miss information at window boundaries, too much and you waste tokens on redundancy.</p>
+    <p>Summarization uses a model (or heuristic) to compress earlier content into fewer tokens. It preserves intent and gist better than truncation, but introduces abstraction loss: exact numbers, quotes, and edge cases may vanish. In production, teams often combine strategies: summarize old conversation history, retrieve the most relevant chunks via embedding search (not all chunks), and reserve a strict token budget for the model's output. The best strategy depends on your data -- structured data tolerates truncation better; narrative text benefits from summarization.</p>
+  </div>
+
+  <!-- CODE -->
+  <div class="section">
+    <h2>Code</h2>
+    <pre><code><span class="kw">def</span> <span class="fn">truncate</span>(<span class="var">tokens</span>, <span class="var">max_len</span>, <span class="var">side</span><span class="op">=</span><span class="str">"end"</span>):
+    <span class="str">"""Drop tokens from start or end."""</span>
+    <span class="kw">if</span> <span class="var">side</span> <span class="op">==</span> <span class="str">"end"</span>:
+        <span class="kw">return</span> <span class="var">tokens</span>[:<span class="var">max_len</span>]
+    <span class="kw">return</span> <span class="var">tokens</span>[<span class="op">-</span><span class="var">max_len</span>:]
+
+<span class="kw">def</span> <span class="fn">sliding_window</span>(<span class="var">tokens</span>, <span class="var">window_size</span>, <span class="var">stride</span>):
+    <span class="str">"""Yield overlapping windows."""</span>
+    <span class="kw">for</span> <span class="var">i</span> <span class="kw">in</span> <span class="bi">range</span>(<span class="num">0</span>, <span class="bi">len</span>(<span class="var">tokens</span>), <span class="var">stride</span>):
+        <span class="kw">yield</span> <span class="var">tokens</span>[<span class="var">i</span>:<span class="var">i</span> <span class="op">+</span> <span class="var">window_size</span>]
+
+<span class="kw">def</span> <span class="fn">summarize_and_append</span>(<span class="var">old_context</span>, <span class="var">new_context</span>, <span class="var">budget</span>):
+    <span class="str">"""Compress old context, keep new context full."""</span>
+    <span class="cmt"># In practice: call LLM to summarize old_context</span>
+    <span class="var">summary</span> <span class="op">=</span> <span class="var">old_context</span>[:<span class="var">budget</span> <span class="op">//</span> <span class="num">4</span>]  <span class="cmt"># placeholder compression</span>
+    <span class="kw">return</span> <span class="var">summary</span> <span class="op">+</span> <span class="var">new_context</span>[:<span class="var">budget</span> <span class="op">-</span> <span class="bi">len</span>(<span class="var">summary</span>)]
+
+<span class="cmt"># Demo</span>
+<span class="var">doc</span> <span class="op">=</span> <span class="bi">list</span>(<span class="bi">range</span>(<span class="num">100</span>))  <span class="cmt"># 100 "tokens"</span>
+<span class="bi">print</span>(<span class="str">"Truncate (keep 30):"</span>, <span class="fn">truncate</span>(<span class="var">doc</span>, <span class="num">30</span>))
+<span class="bi">print</span>(<span class="str">"Windows (size=20, stride=15):"</span>,
+      [<span class="bi">list</span>(<span class="var">w</span>) <span class="kw">for</span> <span class="var">w</span> <span class="kw">in</span> <span class="fn">sliding_window</span>(<span class="var">doc</span>, <span class="num">20</span>, <span class="num">15</span>)])
+<span class="bi">print</span>(<span class="str">"Summarize+Append:"</span>,
+      <span class="fn">summarize_and_append</span>(<span class="var">doc</span>[:<span class="num">60</span>], <span class="var">doc</span>[<span class="num">60</span>:], <span class="var">budget</span><span class="op">=</span><span class="num">50</span>))</code></pre>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  // ---- Intersection Observer ----
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.section').forEach(s => observer.observe(s));
+
+  // ---- Constants ----
+  const TOTAL = 20;
+  const COLORS = [];
+  for (let i = 0; i < TOTAL; i++) {
+    const h = (i / TOTAL) * 280 + 200; // hue range
+    COLORS.push(`hsl(${h % 360}, 55%, 50%)`);
+  }
+  const LABELS = [
+    "Sys prompt", "User role", "Policy A", "Policy B", "History 1",
+    "History 2", "History 3", "Docs A", "Docs B", "Docs C",
+    "FAQ 1", "FAQ 2", "Data 1", "Data 2", "Data 3",
+    "Code ref", "Errors", "Context", "Question", "Format"
+  ];
+
+  // ---- State ----
+  let budget = 10;
+  let sliding_pos = 0;
+  let playing = false;
+  let animFrame = null;
+
+  // ---- DOM ----
+  const budgetSlider = document.getElementById('budget-slider');
+  const budgetValue = document.getElementById('budget-value');
+  const sourceDoc = document.getElementById('source-doc');
+  const truncBlocks = document.getElementById('trunc-blocks');
+  const slideBlocks = document.getElementById('slide-blocks');
+  const summBlocks = document.getElementById('summ-blocks');
+  const playBtn = document.getElementById('play-btn');
+
+  // ---- Build source blocks ----
+  function buildSource() {
+    // Keep the label
+    const label = sourceDoc.querySelector('.s-label');
+    sourceDoc.innerHTML = '';
+    sourceDoc.appendChild(label);
+    for (let i = 0; i < TOTAL; i++) {
+      const b = document.createElement('div');
+      b.className = 'src-block';
+      b.style.background = COLORS[i];
+      b.textContent = i + 1;
+      b.id = 'src-' + i;
+      sourceDoc.appendChild(b);
+    }
+  }
+
+  // ---- Truncation panel ----
+  function updateTruncation() {
+    truncBlocks.innerHTML = '';
+    for (let i = 0; i < TOTAL; i++) {
+      const b = document.createElement('div');
+      b.className = 'p-block';
+      b.style.background = COLORS[i];
+      if (i < budget) {
+        b.classList.add('kept');
+        b.textContent = LABELS[i];
+      } else {
+        b.classList.add('cut');
+        b.style.background = '#334155';
+        b.textContent = LABELS[i];
+      }
+      truncBlocks.appendChild(b);
+    }
+    document.getElementById('trunc-kept').textContent = budget;
+    document.getElementById('trunc-lost').textContent = TOTAL - budget;
+    document.getElementById('trunc-fidelity').textContent =
+      budget >= TOTAL ? '100%' : `100% of first ${budget}`;
+  }
+
+  // ---- Sliding Window panel ----
+  function updateSliding() {
+    const windowSize = budget;
+    const overlap = Math.max(1, Math.floor(windowSize * 0.2));
+    const stride = windowSize - overlap;
+    const maxStart = Math.max(0, TOTAL - windowSize);
+    const numPasses = Math.ceil(Math.max(1, (TOTAL - windowSize) / stride)) + 1;
+
+    const currentStart = Math.min(Math.floor(sliding_pos * maxStart), maxStart);
+    const currentEnd = Math.min(currentStart + windowSize, TOTAL);
+
+    slideBlocks.innerHTML = '';
+    for (let i = 0; i < TOTAL; i++) {
+      const b = document.createElement('div');
+      b.className = 'p-block';
+      b.style.background = COLORS[i];
+      if (i >= currentStart && i < currentEnd) {
+        // Check if in overlap zone
+        const prevEnd = currentStart; // blocks before current window that would overlap with prev
+        const nextStart = currentEnd - overlap;
+        if (i >= nextStart && currentEnd < TOTAL) {
+          b.classList.add('overlap-zone');
+          b.textContent = LABELS[i] + ' (overlap)';
+        } else {
+          b.classList.add('window-on');
+          b.textContent = LABELS[i];
+        }
+      } else {
+        b.classList.add('window-off');
+        b.style.background = '#334155';
+        b.textContent = LABELS[i];
+      }
+      slideBlocks.appendChild(b);
+    }
+
+    document.getElementById('slide-window').textContent = windowSize + ' blocks';
+    document.getElementById('slide-passes').textContent = numPasses;
+    document.getElementById('slide-overlap').textContent = overlap + ' blocks';
+  }
+
+  // ---- Summarization panel ----
+  function updateSummarization() {
+    summBlocks.innerHTML = '';
+    // Split: compress first half, keep second half full
+    // Budget determines how many we keep full at the end
+    const keepFull = Math.min(budget, TOTAL);
+    const compressed = TOTAL - keepFull;
+
+    if (compressed > 0) {
+      // Summary block
+      const sb = document.createElement('div');
+      sb.className = 'p-block summary-golden';
+      sb.textContent = `Summary (${compressed} blocks compressed)`;
+      summBlocks.appendChild(sb);
+
+      // Compressed blocks shown as tiny remnants
+      for (let i = 0; i < compressed; i++) {
+        const b = document.createElement('div');
+        b.className = 'p-block compressed hidden-block';
+        b.style.background = COLORS[i];
+        summBlocks.appendChild(b);
+      }
+    }
+
+    // Full blocks
+    for (let i = compressed; i < TOTAL; i++) {
+      const b = document.createElement('div');
+      b.className = 'p-block full-block';
+      b.style.background = COLORS[i];
+      b.textContent = LABELS[i];
+      summBlocks.appendChild(b);
+    }
+
+    document.getElementById('summ-full').textContent = keepFull;
+    document.getElementById('summ-compressed').textContent = compressed;
+    const gist = compressed > 0 ? `~${Math.round(((keepFull + compressed * 0.25) / TOTAL) * 100)}%` : '100%';
+    document.getElementById('summ-gist').textContent = gist;
+  }
+
+  // ---- Highlight source blocks ----
+  function highlightSource() {
+    for (let i = 0; i < TOTAL; i++) {
+      const el = document.getElementById('src-' + i);
+      if (el) {
+        el.style.opacity = '1';
+        el.style.transform = 'scale(1)';
+      }
+    }
+  }
+
+  // ---- Update all ----
+  function updateAll() {
+    budgetValue.textContent = `${budget} / ${TOTAL} blocks`;
+    updateTruncation();
+    updateSliding();
+    updateSummarization();
+    highlightSource();
+  }
+
+  // ---- Budget slider ----
+  budgetSlider.addEventListener('input', () => {
+    budget = parseInt(budgetSlider.value);
+    sliding_pos = 0;
+    updateAll();
+  });
+
+  // ---- Play/pause sliding window ----
+  playBtn.addEventListener('click', () => {
+    playing = !playing;
+    playBtn.innerHTML = playing ? '&#9646;&#9646; Pause' : '&#9654; Play';
+    if (playing) animateSliding();
+  });
+
+  function animateSliding() {
+    if (!playing) return;
+    sliding_pos += 0.008;
+    if (sliding_pos > 1) {
+      sliding_pos = 0;
+    }
+    updateSliding();
+
+    // Highlight corresponding source blocks
+    const windowSize = budget;
+    const maxStart = Math.max(0, TOTAL - windowSize);
+    const currentStart = Math.min(Math.floor(sliding_pos * maxStart), maxStart);
+    const currentEnd = Math.min(currentStart + windowSize, TOTAL);
+    for (let i = 0; i < TOTAL; i++) {
+      const el = document.getElementById('src-' + i);
+      if (el) {
+        if (i >= currentStart && i < currentEnd) {
+          el.style.opacity = '1';
+          el.style.transform = 'scale(1.15)';
+          el.style.boxShadow = '0 0 6px rgba(56,189,248,0.6)';
+          el.style.transition = 'all 0.15s ease';
+        } else {
+          el.style.opacity = '0.35';
+          el.style.transform = 'scale(1)';
+          el.style.boxShadow = 'none';
+          el.style.transition = 'all 0.15s ease';
+        }
+      }
+    }
+
+    animFrame = requestAnimationFrame(animateSliding);
+  }
+
+  // ---- Init ----
+  buildSource();
+  updateAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q07: What Happens When Input Exceeds the Context Window?</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; }
+
+  .section {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    margin-bottom: 3rem;
+  }
+  .section.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, #38bdf8, #818cf8, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    position: relative;
+    color: #f1f5f9;
+  }
+  h2::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 2px;
+  }
+  .section:nth-of-type(1) h2::before { background: #38bdf8; }
+  .section:nth-of-type(2) h2::before { background: #818cf8; }
+  .section:nth-of-type(3) h2::before { background: #f472b6; }
+  .section:nth-of-type(4) h2::before { background: #38bdf8; }
+
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+  .hook { font-size: 1.1rem; color: #e2e8f0; }
+
+  /* Interactive Visual */
+  .visual-container {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #334155;
+  }
+
+  .strategy-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .strategy-btn {
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    border: 2px solid #334155;
+    background: #0f172a;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+  }
+  .strategy-btn:hover { border-color: #475569; color: #e2e8f0; }
+  .strategy-btn.active-truncate { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.1); }
+  .strategy-btn.active-sliding { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.1); }
+  .strategy-btn.active-summarize { border-color: #eab308; color: #eab308; background: rgba(234,179,8,0.1); }
+
+  .sim-area {
+    position: relative;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    min-height: 420px;
+  }
+
+  .document-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+
+  .chunk-block {
+    height: 28px;
+    border-radius: 4px;
+    transition: all 0.4s ease;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+    position: relative;
+    overflow: hidden;
+  }
+  .chunk-block.included {
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+    box-shadow: 0 0 8px rgba(34,197,94,0.25);
+  }
+  .chunk-block.excluded {
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
+    box-shadow: 0 0 8px rgba(220,38,38,0.15);
+    opacity: 0.55;
+  }
+  .chunk-block.excluded.truncated {
+    opacity: 0.15;
+    transform: scaleY(0.4);
+  }
+  .chunk-block.window-active {
+    background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+    box-shadow: 0 0 12px rgba(56,189,248,0.35);
+  }
+  .chunk-block.window-inactive {
+    background: #334155;
+    opacity: 0.4;
+  }
+  .chunk-block.summarized {
+    background: linear-gradient(90deg, #eab308, #ca8a04);
+    box-shadow: 0 0 10px rgba(234,179,8,0.3);
+    height: 24px;
+  }
+  .chunk-block.summary-block {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    box-shadow: 0 0 14px rgba(245,158,11,0.4);
+    border: 1px solid #fbbf24;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .context-limit-line {
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    height: 3px;
+    background: #f472b6;
+    cursor: ns-resize;
+    z-index: 10;
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(244,114,182,0.5);
+    transition: top 0.1s ease;
+  }
+  .context-limit-line::before {
+    content: 'Context Limit';
+    position: absolute;
+    right: 0;
+    top: -20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #f472b6;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .context-limit-line .drag-handle {
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 24px;
+    background: #f472b6;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ns-resize;
+  }
+  .context-limit-line .drag-handle::after {
+    content: '⋮';
+    color: #0f172a;
+    font-size: 0.8rem;
+    font-weight: 900;
+  }
+
+  .info-panel {
+    flex: 0 0 200px;
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #334155;
+    font-size: 0.8rem;
+    position: sticky;
+    top: 1rem;
+  }
+  .info-panel h3 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 0.75rem;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    color: #94a3b8;
+  }
+  .stat-row .value { color: #e2e8f0; font-weight: 600; }
+  .stat-row .value.green { color: #22c55e; }
+  .stat-row .value.red { color: #ef4444; }
+  .stat-row .value.gold { color: #eab308; }
+
+  .window-controls {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #334155;
+  }
+  .window-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: #334155;
+    border-radius: 2px;
+    outline: none;
+    margin-top: 0.5rem;
+  }
+  .window-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(56,189,248,0.5);
+  }
+
+  .instructions {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 1rem;
+    font-style: italic;
+    text-align: center;
+  }
+
+  /* Code Section */
+  pre {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    border: 1px solid #334155;
+    font-size: 0.82rem;
+    line-height: 1.65;
+  }
+  code { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Consolas, monospace; }
+  .kw { color: #c084fc; }
+  .fn { color: #38bdf8; }
+  .str { color: #34d399; }
+  .cmt { color: #64748b; font-style: italic; }
+  .num { color: #f472b6; }
+  .op { color: #94a3b8; }
+  .var { color: #e2e8f0; }
+  .bi { color: #fbbf24; }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    .sim-area { flex-direction: column; }
+    .info-panel { flex: none; width: 100%; position: static; }
+    .strategy-buttons { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>What Happens When Input Exceeds the Context Window?</h1>
+  <p class="subtitle">Chapter 2 / Q07 — Context Overflow Strategies</p>
+
+  <!-- QUICK TAKE -->
+  <div class="section">
+    <h2>Quick Take</h2>
+    <p class="hook">When your input exceeds the context window, something has to give. The system must truncate, compress, or selectively retrieve -- and doing it badly means the model confidently answers with missing evidence. The question is not <em>whether</em> you lose information, but <em>which</em> information you can afford to lose.</p>
+  </div>
+
+  <!-- INTERACTIVE VISUAL -->
+  <div class="section">
+    <h2>Interactive Visual</h2>
+    <div class="visual-container">
+      <div class="strategy-buttons">
+        <button class="strategy-btn active-truncate" data-strategy="truncate" id="btn-truncate">Truncate</button>
+        <button class="strategy-btn" data-strategy="sliding" id="btn-sliding">Sliding Window</button>
+        <button class="strategy-btn" data-strategy="summarize" id="btn-summarize">Summarize</button>
+      </div>
+      <div class="sim-area">
+        <div class="document-col" id="doc-col"></div>
+        <div class="context-limit-line" id="limit-line">
+          <div class="drag-handle"></div>
+        </div>
+        <div class="info-panel" id="info-panel">
+          <h3>Status</h3>
+          <div class="stat-row"><span>Total chunks</span><span class="value" id="stat-total">16</span></div>
+          <div class="stat-row"><span>Included</span><span class="value green" id="stat-included">8</span></div>
+          <div class="stat-row"><span>Excluded</span><span class="value red" id="stat-excluded">8</span></div>
+          <div class="stat-row"><span>Info retained</span><span class="value" id="stat-retained">50%</span></div>
+          <div class="window-controls" id="window-controls" style="display:none;">
+            <span style="color:#64748b;font-size:0.75rem;">Window position</span>
+            <input type="range" class="window-slider" id="window-slider" min="0" max="100" value="0">
+          </div>
+        </div>
+      </div>
+      <p class="instructions" id="instructions-text">Drag the pink context limit line up or down to change the cutoff point.</p>
+    </div>
+  </div>
+
+  <!-- DEEP DIVE -->
+  <div class="section">
+    <h2>Deep Dive</h2>
+    <p>Models have hard limits. GPT-4 Turbo allows ~128k tokens, Claude supports up to 200k, but many production models are far smaller. When input exceeds the limit, naive truncation -- cutting from the end or the beginning -- is the simplest fix, but it can remove the very instructions or evidence the model needs. A prompt that says "answer the question at the end of this document" becomes useless if the end gets chopped off.</p>
+    <p>Sliding windows process the document in overlapping chunks, preserving local context but losing global coherence. Each window gets its own model call, and stitching the answers together is its own engineering problem. Summarization compresses earlier content, preserving gist but losing exact wording -- useful for conversation history, dangerous for legal or medical documents where precision matters.</p>
+    <p>The real lesson: even with large context windows, you rarely want to stuff everything in. Retrieval-based selection -- pick the most relevant chunks via embedding search -- almost always outperforms brute-force context filling, and it scales to corpora far larger than any context window.</p>
+  </div>
+
+  <!-- CODE -->
+  <div class="section">
+    <h2>Code</h2>
+    <pre><code><span class="kw">def</span> <span class="fn">handle_overflow</span>(<span class="var">chunks</span>: <span class="bi">list</span>[<span class="bi">str</span>], <span class="var">max_tokens</span>: <span class="bi">int</span>, <span class="var">strategy</span>: <span class="bi">str</span> <span class="op">=</span> <span class="str">"truncate"</span>):
+    <span class="str">"""Demonstrate three strategies for handling context overflow."""</span>
+    <span class="var">token_counts</span> <span class="op">=</span> [<span class="bi">len</span>(<span class="var">c</span>.<span class="fn">split</span>()) <span class="op">*</span> <span class="num">1.3</span> <span class="kw">for</span> <span class="var">c</span> <span class="kw">in</span> <span class="var">chunks</span>]  <span class="cmt"># rough estimate</span>
+
+    <span class="kw">if</span> <span class="var">strategy</span> <span class="op">==</span> <span class="str">"truncate"</span>:
+        <span class="var">selected</span>, <span class="var">total</span> <span class="op">=</span> [], <span class="num">0</span>
+        <span class="kw">for</span> <span class="var">chunk</span>, <span class="var">count</span> <span class="kw">in</span> <span class="bi">zip</span>(<span class="var">chunks</span>, <span class="var">token_counts</span>):
+            <span class="kw">if</span> <span class="var">total</span> <span class="op">+</span> <span class="var">count</span> <span class="op">&gt;</span> <span class="var">max_tokens</span>:
+                <span class="kw">break</span>
+            <span class="var">selected</span>.<span class="fn">append</span>(<span class="var">chunk</span>)
+            <span class="var">total</span> <span class="op">+=</span> <span class="var">count</span>
+        <span class="kw">return</span> <span class="var">selected</span>
+
+    <span class="kw">elif</span> <span class="var">strategy</span> <span class="op">==</span> <span class="str">"sliding_window"</span>:
+        <span class="var">window_size</span> <span class="op">=</span> <span class="num">3</span>
+        <span class="var">windows</span> <span class="op">=</span> []
+        <span class="kw">for</span> <span class="var">i</span> <span class="kw">in</span> <span class="bi">range</span>(<span class="num">0</span>, <span class="bi">len</span>(<span class="var">chunks</span>), <span class="var">window_size</span> <span class="op">-</span> <span class="num">1</span>):
+            <span class="var">windows</span>.<span class="fn">append</span>(<span class="var">chunks</span>[<span class="var">i</span>:<span class="var">i</span> <span class="op">+</span> <span class="var">window_size</span>])
+        <span class="kw">return</span> <span class="var">windows</span>  <span class="cmt"># process each window separately</span>
+
+    <span class="kw">elif</span> <span class="var">strategy</span> <span class="op">==</span> <span class="str">"summarize"</span>:
+        <span class="cmt"># In practice, you'd call an LLM to summarize</span>
+        <span class="var">early</span> <span class="op">=</span> <span class="str">" "</span>.<span class="fn">join</span>(<span class="var">chunks</span>[:<span class="bi">len</span>(<span class="var">chunks</span>)<span class="op">//</span><span class="num">2</span>])
+        <span class="var">summary</span> <span class="op">=</span> <span class="str">f"[Summary of </span>{<span class="bi">len</span>(<span class="var">chunks</span>)<span class="op">//</span><span class="num">2</span>}<span class="str"> chunks: </span>{<span class="var">early</span>[:<span class="num">100</span>]}<span class="str">...]"</span>
+        <span class="kw">return</span> [<span class="var">summary</span>] <span class="op">+</span> <span class="var">chunks</span>[<span class="bi">len</span>(<span class="var">chunks</span>)<span class="op">//</span><span class="num">2</span>:]
+
+<span class="var">chunks</span> <span class="op">=</span> [<span class="str">f"Chunk </span>{<span class="var">i</span>}<span class="str">: </span>{<span class="str">'content '</span> <span class="op">*</span> <span class="num">20</span>}<span class="str">"</span> <span class="kw">for</span> <span class="var">i</span> <span class="kw">in</span> <span class="bi">range</span>(<span class="num">10</span>)]
+<span class="kw">for</span> <span class="var">strategy</span> <span class="kw">in</span> [<span class="str">"truncate"</span>, <span class="str">"sliding_window"</span>, <span class="str">"summarize"</span>]:
+    <span class="var">result</span> <span class="op">=</span> <span class="fn">handle_overflow</span>(<span class="var">chunks</span>, <span class="var">max_tokens</span><span class="op">=</span><span class="num">200</span>, <span class="var">strategy</span><span class="op">=</span><span class="var">strategy</span>)
+    <span class="bi">print</span>(<span class="str">f"\n</span>{<span class="var">strategy</span>}<span class="str">: kept </span>{<span class="bi">len</span>(<span class="var">result</span>)}<span class="str"> items"</span>)</code></pre>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  // ---- Intersection Observer for fade-in ----
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.section').forEach(s => observer.observe(s));
+
+  // ---- Configuration ----
+  const TOTAL_CHUNKS = 16;
+  const CHUNK_HEIGHT = 28;
+  const CHUNK_GAP = 4;
+  const CHUNK_LABELS = [
+    "System prompt & instructions",
+    "User background context",
+    "Company policy document",
+    "Product specifications",
+    "Customer conversation history",
+    "Previous assistant replies",
+    "Technical documentation",
+    "Database query results",
+    "Error logs and traces",
+    "Related FAQ entries",
+    "Legal disclaimers",
+    "User preferences data",
+    "Analytics summary",
+    "Code snippets",
+    "Final user question",
+    "Output format instructions"
+  ];
+
+  // ---- State ----
+  let strategy = 'truncate';
+  let limitIndex = 8; // chunks 0..7 included
+  let windowPos = 0;
+
+  // ---- DOM refs ----
+  const docCol = document.getElementById('doc-col');
+  const limitLine = document.getElementById('limit-line');
+  const statTotal = document.getElementById('stat-total');
+  const statIncluded = document.getElementById('stat-included');
+  const statExcluded = document.getElementById('stat-excluded');
+  const statRetained = document.getElementById('stat-retained');
+  const windowControls = document.getElementById('window-controls');
+  const windowSlider = document.getElementById('window-slider');
+  const instructionsText = document.getElementById('instructions-text');
+
+  // ---- Build chunk blocks ----
+  function buildChunks() {
+    docCol.innerHTML = '';
+    for (let i = 0; i < TOTAL_CHUNKS; i++) {
+      const block = document.createElement('div');
+      block.className = 'chunk-block';
+      block.textContent = CHUNK_LABELS[i];
+      block.dataset.index = i;
+      docCol.appendChild(block);
+    }
+  }
+
+  // ---- Position limit line ----
+  function positionLimitLine() {
+    const top = limitIndex * (CHUNK_HEIGHT + CHUNK_GAP) - 2;
+    limitLine.style.top = top + 'px';
+  }
+
+  // ---- Update visualization ----
+  function update() {
+    const blocks = docCol.querySelectorAll('.chunk-block');
+    const WINDOW_SIZE = 5;
+
+    if (strategy === 'truncate') {
+      windowControls.style.display = 'none';
+      limitLine.style.display = 'block';
+      blocks.forEach((b, i) => {
+        b.className = 'chunk-block';
+        if (i < limitIndex) {
+          b.classList.add('included');
+          b.style.height = CHUNK_HEIGHT + 'px';
+          b.textContent = CHUNK_LABELS[i];
+        } else {
+          b.classList.add('excluded', 'truncated');
+          b.textContent = CHUNK_LABELS[i];
+        }
+      });
+      statIncluded.textContent = limitIndex;
+      statExcluded.textContent = TOTAL_CHUNKS - limitIndex;
+      const pct = Math.round((limitIndex / TOTAL_CHUNKS) * 100);
+      statRetained.textContent = pct + '%';
+      statRetained.className = 'value ' + (pct >= 60 ? 'green' : pct >= 30 ? '' : 'red');
+      instructionsText.textContent = 'Drag the pink context limit line up or down to change the cutoff point.';
+    }
+
+    else if (strategy === 'sliding') {
+      windowControls.style.display = 'block';
+      limitLine.style.display = 'block';
+      const maxStart = TOTAL_CHUNKS - WINDOW_SIZE;
+      const start = Math.round((windowPos / 100) * maxStart);
+      const end = Math.min(start + WINDOW_SIZE, TOTAL_CHUNKS);
+      blocks.forEach((b, i) => {
+        b.className = 'chunk-block';
+        b.style.height = CHUNK_HEIGHT + 'px';
+        b.textContent = CHUNK_LABELS[i];
+        if (i >= start && i < end) {
+          b.classList.add('window-active');
+        } else {
+          b.classList.add('window-inactive');
+        }
+      });
+      statIncluded.textContent = WINDOW_SIZE;
+      statExcluded.textContent = TOTAL_CHUNKS - WINDOW_SIZE;
+      const pct = Math.round((WINDOW_SIZE / TOTAL_CHUNKS) * 100);
+      statRetained.textContent = `${pct}% per pass`;
+      statRetained.className = 'value';
+      instructionsText.textContent = 'Use the slider in the panel to move the window across the document.';
+    }
+
+    else if (strategy === 'summarize') {
+      windowControls.style.display = 'none';
+      limitLine.style.display = 'block';
+      const summarizedCount = limitIndex;
+      blocks.forEach((b, i) => {
+        b.className = 'chunk-block';
+        if (i < summarizedCount) {
+          if (i === 0) {
+            b.classList.add('summary-block');
+            b.style.height = (CHUNK_HEIGHT + 4) + 'px';
+            b.textContent = `Summary of chunks 1-${summarizedCount}`;
+          } else {
+            b.classList.add('summarized');
+            b.style.height = '0px';
+            b.style.marginBottom = '0px';
+            b.style.padding = '0';
+            b.style.overflow = 'hidden';
+            b.textContent = '';
+          }
+        } else {
+          b.classList.add('included');
+          b.style.height = CHUNK_HEIGHT + 'px';
+          b.textContent = CHUNK_LABELS[i];
+        }
+      });
+      const keptFull = TOTAL_CHUNKS - limitIndex;
+      statIncluded.textContent = keptFull + ' + 1 summary';
+      statExcluded.textContent = '0 (compressed)';
+      const pct = Math.round(((keptFull / TOTAL_CHUNKS) * 100) + ((limitIndex / TOTAL_CHUNKS) * 25));
+      statRetained.textContent = Math.min(pct, 100) + '% (approx)';
+      statRetained.className = 'value gold';
+      instructionsText.textContent = 'Drag the limit line. Chunks above it get compressed into a single summary block.';
+    }
+  }
+
+  // ---- Strategy buttons ----
+  document.querySelectorAll('.strategy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.strategy-btn').forEach(b => {
+        b.className = 'strategy-btn';
+      });
+      const s = btn.dataset.strategy;
+      strategy = s;
+      btn.classList.add(
+        s === 'truncate' ? 'active-truncate' :
+        s === 'sliding' ? 'active-sliding' : 'active-summarize'
+      );
+      // Rebuild chunks in case summarize hid some
+      buildChunks();
+      positionLimitLine();
+      update();
+    });
+  });
+
+  // ---- Drag limit line ----
+  let dragging = false;
+  limitLine.addEventListener('mousedown', (e) => { dragging = true; e.preventDefault(); });
+  limitLine.addEventListener('touchstart', (e) => { dragging = true; e.preventDefault(); }, { passive: false });
+
+  function handleDrag(clientY) {
+    if (!dragging) return;
+    const rect = docCol.getBoundingClientRect();
+    const y = clientY - rect.top;
+    const step = CHUNK_HEIGHT + CHUNK_GAP;
+    let idx = Math.round(y / step);
+    idx = Math.max(1, Math.min(TOTAL_CHUNKS, idx));
+    if (idx !== limitIndex) {
+      limitIndex = idx;
+      positionLimitLine();
+      if (strategy !== 'sliding') {
+        buildChunks();
+      }
+      update();
+    }
+  }
+
+  document.addEventListener('mousemove', (e) => handleDrag(e.clientY));
+  document.addEventListener('touchmove', (e) => handleDrag(e.touches[0].clientY), { passive: false });
+  document.addEventListener('mouseup', () => { dragging = false; });
+  document.addEventListener('touchend', () => { dragging = false; });
+
+  // ---- Window slider ----
+  windowSlider.addEventListener('input', () => {
+    windowPos = parseInt(windowSlider.value);
+    update();
+  });
+
+  // ---- Init ----
+  statTotal.textContent = TOTAL_CHUNKS;
+  buildChunks();
+  positionLimitLine();
+  update();
+})();
+</script>
+</body>
+</html>

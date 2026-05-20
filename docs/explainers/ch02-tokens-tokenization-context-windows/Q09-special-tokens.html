@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Special Tokens</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7; padding: 2rem 1rem;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  .section {
+    opacity: 0; transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    margin-bottom: 3rem;
+  }
+  .section.visible { opacity: 1; transform: translateY(0); }
+  h1 { font-size: 2rem; color: #38bdf8; margin-bottom: 0.25rem; }
+  .subtitle { color: #818cf8; font-size: 0.95rem; margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.35rem; color: #e2e8f0; margin-bottom: 1rem;
+    padding-left: 1rem; border-left: 4px solid #38bdf8;
+  }
+  .section:nth-child(3) h2 { border-left-color: #818cf8; }
+  .section:nth-child(4) h2 { border-left-color: #f472b6; }
+  .section:nth-child(5) h2 { border-left-color: #38bdf8; }
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+  .hook { font-size: 1.1rem; color: #e2e8f0; }
+  strong { color: #38bdf8; }
+
+  /* Toggle Controls */
+  .view-controls {
+    display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .view-btn {
+    padding: 8px 18px; border-radius: 8px; border: 1px solid #334155;
+    background: #1e293b; color: #94a3b8; cursor: pointer;
+    font-size: 0.88rem; font-family: inherit; transition: all 0.25s;
+  }
+  .view-btn:hover { border-color: #818cf8; color: #e2e8f0; }
+  .view-btn.active {
+    background: #818cf820; border-color: #818cf8; color: #818cf8;
+  }
+  .break-btn {
+    padding: 8px 18px; border-radius: 8px; border: 1px solid #ef4444;
+    background: #1e293b; color: #ef4444; cursor: pointer;
+    font-size: 0.88rem; font-family: inherit; transition: all 0.25s;
+    margin-left: auto;
+  }
+  .break-btn:hover { background: #ef444420; }
+  .break-btn.active {
+    background: #ef444430; border-color: #f87171; color: #f87171;
+  }
+
+  /* Chat bubbles */
+  .chat-container {
+    background: #1e293b; border-radius: 12px; padding: 1.25rem;
+    border: 1px solid #334155; min-height: 300px;
+    transition: background 0.3s;
+  }
+  .chat-bubble {
+    max-width: 85%; padding: 10px 16px; border-radius: 12px;
+    margin-bottom: 10px; font-size: 0.92rem; line-height: 1.55;
+    animation: bubbleIn 0.3s ease;
+  }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .bubble-system {
+    background: #f472b615; border: 1px solid #f472b640;
+    color: #f9a8d4; margin: 0 auto 10px auto; text-align: center;
+    font-size: 0.82rem; max-width: 90%;
+  }
+  .bubble-user {
+    background: #38bdf815; border: 1px solid #38bdf840;
+    color: #7dd3fc; margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+  .bubble-assistant {
+    background: #818cf815; border: 1px solid #818cf840;
+    color: #a5b4fc; margin-right: auto;
+    border-bottom-left-radius: 4px;
+  }
+  .bubble-label {
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 4px; opacity: 0.7;
+  }
+
+  /* Model view tokens */
+  .model-view-container {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.82rem; line-height: 2.2;
+  }
+  .model-token {
+    display: inline; padding: 2px 0; cursor: default;
+  }
+  .special-token {
+    padding: 2px 7px; border-radius: 4px; cursor: pointer;
+    font-weight: 600; position: relative;
+    transition: all 0.2s;
+  }
+  .special-token:hover {
+    filter: brightness(1.3);
+    transform: scale(1.05);
+  }
+  .st-im-start {
+    background: #38bdf825; border: 1px solid #38bdf8; color: #38bdf8;
+  }
+  .st-im-end {
+    background: #f472b625; border: 1px solid #f472b6; color: #f472b6;
+  }
+  .st-role-system {
+    background: #fb923c25; border: 1px solid #fb923c; color: #fb923c;
+  }
+  .st-role-user {
+    background: #34d39925; border: 1px solid #34d399; color: #34d399;
+  }
+  .st-role-assistant {
+    background: #a78bfa25; border: 1px solid #a78bfa; color: #a78bfa;
+  }
+  .st-pad {
+    background: #64748b25; border: 1px solid #64748b; color: #64748b;
+  }
+  .plain-text-token {
+    color: #94a3b8;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    display: none; position: fixed;
+    background: #0f172a; border: 1px solid #38bdf8;
+    border-radius: 8px; padding: 10px 14px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.82rem; color: #e2e8f0; max-width: 280px;
+    z-index: 1000; pointer-events: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    line-height: 1.5;
+  }
+  .tooltip .tt-name {
+    color: #38bdf8; font-weight: 700; font-family: "SF Mono", "Fira Code", monospace;
+    margin-bottom: 4px; font-size: 0.88rem;
+  }
+
+  /* Broken view */
+  .broken-warning {
+    background: #ef444420; border: 1px solid #ef4444; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 12px; color: #fca5a5;
+    font-size: 0.88rem; display: none;
+  }
+  .broken-text {
+    color: #94a3b8; font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.82rem; line-height: 2;
+  }
+  .broken-highlight {
+    background: #ef444430; border-radius: 3px; padding: 1px 4px;
+    color: #fca5a5;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem;
+    padding-top: 1rem; border-top: 1px solid #334155;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px; font-size: 0.78rem;
+    color: #94a3b8;
+  }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  /* Code Block */
+  pre {
+    background: #1e293b; border-radius: 8px; padding: 1.25rem;
+    overflow-x: auto; font-size: 0.85rem; line-height: 1.65;
+    border: 1px solid #334155;
+  }
+  code { font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace; }
+  .kw { color: #818cf8; }
+  .fn { color: #38bdf8; }
+  .str { color: #34d399; }
+  .cm { color: #64748b; }
+  .num { color: #f472b6; }
+  .var { color: #e2e8f0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="section">
+    <h1>Special Tokens</h1>
+    <p class="subtitle">Chapter 2 &mdash; Tokens, Tokenization &amp; Context Windows</p>
+  </div>
+
+  <!-- Quick Take -->
+  <div class="section">
+    <h2>Quick Take</h2>
+    <p class="hook">
+      Special tokens are invisible traffic signals &mdash; <strong>[BOS]</strong>,
+      <strong>[EOS]</strong>, <strong>[SEP]</strong>, <strong>[PAD]</strong>,
+      <strong>[MASK]</strong> &mdash; that tell the model where sequences start, end,
+      and transition. They never appear in the text you read, but they shape every
+      prediction the model makes. Get them wrong and the model misinterprets the
+      entire input structure.
+    </p>
+  </div>
+
+  <!-- Interactive Visual -->
+  <div class="section">
+    <h2>Chat Message Visualizer</h2>
+    <p style="margin-bottom:0.5rem;color:#94a3b8;font-size:0.9rem;">
+      Toggle between what you see and what the model sees. Click any special token for details.
+    </p>
+    <div class="view-controls">
+      <button class="view-btn active" id="btnHuman" onclick="setView('human')">Human View</button>
+      <button class="view-btn" id="btnModel" onclick="setView('model')">Model View</button>
+      <button class="break-btn" id="btnBreak" onclick="toggleBreak()">Break It</button>
+    </div>
+    <div class="broken-warning" id="brokenWarning">
+      Without special tokens, the model sees one undifferentiated stream of text.
+      Role boundaries vanish &mdash; it cannot tell who said what, and the system prompt
+      bleeds into user content.
+    </div>
+    <div class="chat-container" id="chatContainer"></div>
+    <div class="legend" id="legend" style="display:none;">
+      <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> im_start</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f472b6;"></div> im_end</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div> system role</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34d399;"></div> user role</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a78bfa;"></div> assistant role</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#64748b;"></div> padding</div>
+    </div>
+  </div>
+
+  <!-- Tooltip -->
+  <div class="tooltip" id="tooltip">
+    <div class="tt-name" id="ttName"></div>
+    <div id="ttDesc"></div>
+  </div>
+
+  <!-- Deep Dive -->
+  <div class="section">
+    <h2>Deep Dive</h2>
+    <p>
+      Special tokens are <strong>metadata embedded in the token stream</strong>. They&rsquo;re
+      never shown to users but they&rsquo;re critical for the model&rsquo;s understanding of structure.
+      <strong>[BOS]</strong> and <strong>[EOS]</strong> mark sequence boundaries &mdash; without them,
+      the model doesn&rsquo;t know where one input ends and another begins. In chat models, role
+      markers (<strong>&lt;|user|&gt;</strong>, <strong>&lt;|assistant|&gt;</strong>) tell the model
+      whose turn it is; remove them and the model can&rsquo;t distinguish instructions from conversation.
+      <strong>[PAD]</strong> tokens fill batches to equal length for efficient GPU processing.
+      <strong>[MASK]</strong> tokens (in BERT-style models) mark positions the model should predict.
+    </p>
+    <p>
+      During fine-tuning, mismatched special token handling is one of the most common
+      <strong>silent bugs</strong> &mdash; the model trains successfully but behaves unpredictably
+      because it learned the wrong structural patterns. If you switch tokenizers or model
+      families, the special token vocabulary changes too, and your carefully formatted
+      prompts may parse into nonsense.
+    </p>
+    <p>
+      Think of special tokens as the punctuation of machine understanding: invisible to
+      readers, indispensable to parsers. Every chat template, every fine-tuning run, and
+      every API call relies on them being exactly right. The &ldquo;Break It&rdquo; button
+      above shows what happens when they&rsquo;re not.
+    </p>
+  </div>
+
+  <!-- Code -->
+  <div class="section">
+    <h2>Code</h2>
+    <pre><code><span class="kw">from</span> <span class="var">transformers</span> <span class="kw">import</span> <span class="var">AutoTokenizer</span>
+
+<span class="var">tokenizer</span> = <span class="var">AutoTokenizer</span>.<span class="fn">from_pretrained</span>(<span class="str">"bert-base-uncased"</span>)
+
+<span class="cm"># Show special tokens in the vocabulary</span>
+<span class="fn">print</span>(<span class="str">"Special tokens:"</span>, <span class="var">tokenizer</span>.<span class="var">all_special_tokens</span>)
+<span class="fn">print</span>(<span class="str">"Special token IDs:"</span>, <span class="var">tokenizer</span>.<span class="var">all_special_ids</span>)
+
+<span class="cm"># See how special tokens frame a sequence</span>
+<span class="var">text</span> = <span class="str">"Tokens are the atoms of language models."</span>
+<span class="var">encoded</span> = <span class="var">tokenizer</span>(<span class="var">text</span>, <span class="var">add_special_tokens</span>=<span class="kw">True</span>)
+<span class="var">tokens</span> = <span class="var">tokenizer</span>.<span class="fn">convert_ids_to_tokens</span>(<span class="var">encoded</span>[<span class="str">"input_ids"</span>])
+<span class="fn">print</span>(<span class="str">f"\nInput: </span><span class="var">{text}</span><span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"With special tokens: </span><span class="var">{tokens}</span><span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"IDs: </span><span class="var">{encoded['input_ids']}</span><span class="str">"</span>)
+
+<span class="cm"># Chat-style formatting (GPT-style)</span>
+<span class="var">chat</span> = [
+    {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"You are helpful."</span>},
+    {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"What is a token?"</span>},
+]
+<span class="cm"># In practice, each role boundary is marked by special tokens</span>
+<span class="cm"># that the model learned during instruction tuning</span></code></pre>
+  </div>
+
+</div>
+
+<script>
+// ── Chat data ──
+const MESSAGES = [
+  { role: 'system', content: 'You are a helpful coding assistant. Be concise.' },
+  { role: 'user', content: 'What is a hash map?' },
+  { role: 'assistant', content: 'A hash map is a data structure that stores key-value pairs using a hash function for O(1) average lookups.' },
+  { role: 'user', content: 'How does it handle collisions?' },
+];
+
+const TOKEN_INFO = {
+  '<|im_start|>': 'Marks the beginning of a message turn. Tells the model a new role segment is starting. Without this, the model cannot detect turn boundaries.',
+  '<|im_end|>': 'Marks the end of a message turn. Signals that the current speaker is done. The model uses this to know when to stop generating or when to expect a role switch.',
+  '<|system|>': 'Identifies the following text as a system instruction. This content sets behavior rules the model should follow for the entire conversation.',
+  '<|user|>': 'Identifies the following text as user input. The model treats this as the human side of the conversation and knows it should respond to it.',
+  '<|assistant|>': 'Identifies the following text as the assistant\'s response. During generation, the model produces text in this role until it emits an end token.',
+  '[PAD]': 'Padding token used to fill sequences to equal length in a batch. The attention mask zeros these out so they don\'t affect computation. Necessary for efficient GPU parallelism.',
+};
+
+let currentView = 'human';
+let isBroken = false;
+const tooltip = document.getElementById('tooltip');
+
+function setView(view) {
+  currentView = view;
+  isBroken = false;
+  document.getElementById('btnBreak').classList.remove('active');
+  document.getElementById('brokenWarning').style.display = 'none';
+  document.getElementById('btnHuman').classList.toggle('active', view === 'human');
+  document.getElementById('btnModel').classList.toggle('active', view === 'model');
+  document.getElementById('legend').style.display = view === 'model' ? 'flex' : 'none';
+  renderChat();
+}
+
+function toggleBreak() {
+  if (currentView === 'human') setView('model');
+  isBroken = !isBroken;
+  document.getElementById('btnBreak').classList.toggle('active', isBroken);
+  document.getElementById('brokenWarning').style.display = isBroken ? 'block' : 'none';
+  renderChat();
+}
+
+function renderChat() {
+  const container = document.getElementById('chatContainer');
+  if (currentView === 'human') {
+    renderHumanView(container);
+  } else if (isBroken) {
+    renderBrokenView(container);
+  } else {
+    renderModelView(container);
+  }
+}
+
+function renderHumanView(container) {
+  let html = '';
+  MESSAGES.forEach(msg => {
+    if (msg.role === 'system') {
+      html += `<div class="chat-bubble bubble-system">
+        <div class="bubble-label">System</div>${esc(msg.content)}</div>`;
+    } else if (msg.role === 'user') {
+      html += `<div class="chat-bubble bubble-user">
+        <div class="bubble-label">You</div>${esc(msg.content)}</div>`;
+    } else {
+      html += `<div class="chat-bubble bubble-assistant">
+        <div class="bubble-label">Assistant</div>${esc(msg.content)}</div>`;
+    }
+  });
+  container.innerHTML = html;
+}
+
+function renderModelView(container) {
+  const roleClassMap = { system: 'st-role-system', user: 'st-role-user', assistant: 'st-role-assistant' };
+  const roleTokenMap = { system: '<|system|>', user: '<|user|>', assistant: '<|assistant|>' };
+  let html = '<div class="model-view-container">';
+
+  MESSAGES.forEach(msg => {
+    html += makeSpecial('<|im_start|>', 'st-im-start');
+    html += makeSpecial(roleTokenMap[msg.role], roleClassMap[msg.role]);
+    html += `<span class="plain-text-token"> ${esc(msg.content)} </span>`;
+    html += makeSpecial('<|im_end|>', 'st-im-end');
+    html += '<br>';
+  });
+
+  // Add padding tokens at the end
+  for (let i = 0; i < 5; i++) {
+    html += makeSpecial('[PAD]', 'st-pad');
+    if (i < 4) html += ' ';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Attach tooltip listeners
+  container.querySelectorAll('.special-token').forEach(el => {
+    el.addEventListener('mouseenter', showTooltip);
+    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('click', function(e) {
+      // Toggle on mobile
+      if (tooltip.style.display === 'block') {
+        hideTooltip();
+      } else {
+        showTooltip.call(this, e);
+      }
+    });
+  });
+}
+
+function renderBrokenView(container) {
+  let html = '<div class="broken-text">';
+  // Show what the model sees without any special tokens
+  let raw = '';
+  MESSAGES.forEach(msg => {
+    raw += msg.content + ' ';
+  });
+
+  html += '<span style="color:#64748b;font-size:0.75rem;display:block;margin-bottom:8px;">' +
+    'Model receives one continuous stream with no structure:</span>';
+
+  // Show the raw text with annotations for where confusion happens
+  const systemContent = MESSAGES[0].content;
+  const userContent1 = MESSAGES[1].content;
+  const assistantContent = MESSAGES[2].content;
+  const userContent2 = MESSAGES[3].content;
+
+  html += `<span class="broken-highlight" title="Is this an instruction or user text? The model can't tell.">${esc(systemContent)}</span> `;
+  html += `<span class="plain-text-token">${esc(userContent1)}</span> `;
+  html += `<span class="broken-highlight" title="Without role markers, the model might think it's still the user talking.">${esc(assistantContent)}</span> `;
+  html += `<span class="plain-text-token">${esc(userContent2)}</span>`;
+
+  html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #334155;">';
+  html += '<span style="color:#ef4444;font-size:0.82rem;font-weight:600;">Problems detected:</span>';
+  html += '<ul style="margin-top:6px;padding-left:18px;color:#fca5a5;font-size:0.82rem;font-family:inherit;line-height:1.8;">';
+  html += '<li>No turn boundaries &mdash; all text merges into one blob</li>';
+  html += '<li>System prompt <span style="color:#fb923c;">"Be concise"</span> is indistinguishable from user input</li>';
+  html += '<li>Model cannot tell who said what &mdash; it may repeat the assistant\'s prior answer</li>';
+  html += '<li>No end-of-sequence signal &mdash; model doesn\'t know when to stop generating</li>';
+  html += '</ul></div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+function makeSpecial(text, cls) {
+  return `<span class="special-token ${cls}" data-token="${esc(text)}">${esc(text)}</span>`;
+}
+
+function showTooltip(e) {
+  const tokenName = this.getAttribute('data-token');
+  const info = TOKEN_INFO[tokenName];
+  if (!info) return;
+  document.getElementById('ttName').textContent = tokenName;
+  document.getElementById('ttDesc').textContent = info;
+  tooltip.style.display = 'block';
+  const rect = this.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 8;
+  // Keep tooltip in viewport
+  if (left + 280 > window.innerWidth) left = window.innerWidth - 290;
+  if (left < 10) left = 10;
+  if (top + 120 > window.innerHeight) top = rect.top - 100;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
+function hideTooltip() {
+  tooltip.style.display = 'none';
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Initial render
+renderChat();
+
+// ── Scroll-reveal ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.section').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
