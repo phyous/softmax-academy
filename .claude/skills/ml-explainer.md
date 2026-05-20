@@ -38,6 +38,7 @@ Group related topics with brief transition sentences between groups.
    - Use **h4** for sub-points within sections
    - Keep paragraphs to 2-3 sentences — never a wall of text
    - Use bullet points for lists, tables for comparisons
+   - **Tables**: use plain `<table>` inside `.deep-dive` — no extra class needed. The shell CSS styles all tables inside `.deep-dive` automatically (rounded corners, header tint, zebra striping, hover highlight, bold first column). Always include `<thead>` and `<tbody>`.
    - Use `.key-box` callouts for critical insights
    - Use `<code>` inline for technical terms
    - Include **cross-references** to other topics using `<a href="#topic-N" class="xref">Topic N: Title</a>` links

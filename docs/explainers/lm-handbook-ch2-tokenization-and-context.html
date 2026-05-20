@@ -94,11 +94,13 @@
   .deep-dive .xref { color: #38bdf8; text-decoration: none; border-bottom: 1px dotted rgba(56,189,248,0.4); transition: border-color 0.15s; }
   .deep-dive .xref:hover { border-bottom-color: #38bdf8; }
 
-  /* --- Tables --- */
-  .dive-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.82rem; }
-  .dive-table th { text-align: left; padding: 0.45rem 0.6rem; background: rgba(56,189,248,0.08); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; }
-  .dive-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
-  .dive-table tr:hover td { background: rgba(56,189,248,0.03); }
+  /* --- Tables (match both .dive-table and bare tables inside .deep-dive) --- */
+  .deep-dive table, .dive-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .deep-dive th, .dive-table th { text-align: left; padding: 0.55rem 0.85rem; background: rgba(56,189,248,0.1); color: #38bdf8; border-bottom: 1px solid #334155; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.01em; }
+  .deep-dive td, .dive-table td { padding: 0.5rem 0.85rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .deep-dive tbody tr:nth-child(even) td { background: rgba(30,41,59,0.4); }
+  .deep-dive tr:hover td, .dive-table tr:hover td { background: rgba(56,189,248,0.05); }
+  .deep-dive td:first-child { color: #e2e8f0; font-weight: 500; }
 
   /* === KEY TAKEAWAY === */
   .key-takeaway { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.18); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 1rem 0; font-size: 0.85rem; color: #86efac; display: flex; align-items: flex-start; gap: 0.5rem; }
@@ -141,7 +143,7 @@
   .vis-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
 
   /* --- Mobile --- */
-  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .dive-table { font-size: 0.75rem; } .dive-table th, .dive-table td { padding: 0.3rem 0.4rem; } .chapter-intro { padding: 1rem; } }
+  @media (max-width: 768px) { .toc { display: none; } .content { padding: 1rem; } .doc-header h1 { font-size: 1.4rem; } .deep-dive table, .dive-table { font-size: 0.75rem; } .deep-dive th, .deep-dive td, .dive-table th, .dive-table td { padding: 0.35rem 0.5rem; } .chapter-intro { padding: 1rem; } }
 </style>
 </head>
 <body>
