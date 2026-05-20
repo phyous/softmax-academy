@@ -81,7 +81,15 @@ Group related topics with brief transition sentences between groups.
 - `.group-intro` — italic transition text under group dividers
 
 ### Naming convention
-`ch{NN}-kebab-case-title.html`
+`<source>-<chapter>-<short-description>.html`
+
+Where `<source>` is a short name for the source material:
+- Language Model Interview Handbook → `lm-handbook`
+- Build a Large Language Model → `build-llm`
+
+Examples:
+- `lm-handbook-ch2-tokenization-and-context.html`
+- `build-llm-ch5-pretraining.html`
 
 ### File location
-`docs/explainers/ch{NN}-kebab-case-title.html`
+`docs/explainers/<source>-<chapter>-<short-description>.html`
