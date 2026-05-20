@@ -443,26 +443,23 @@ print(f"Tokens     : {len(token_ids)}")
 print(f"Ratio      : {len(text)/len(token_ids):.1f} chars/token")</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How does vocabulary size affect model performance?</summary>
       <div class="fq-a">Larger vocabularies (100K–200K) produce fewer tokens per input, improving speed and fitting more text in the context window. The tradeoff is a larger <strong>embedding matrix</strong>, which increases model size and memory usage. Most modern models settle around 100K–200K as the sweet spot.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Why do different models tokenize the same text differently?</summary>
       <div class="fq-a">Each model family trains its own tokenizer on its own training corpus. GPT-4 uses <strong>o200k_base</strong>, Claude uses its own BPE variant, and Llama uses <strong>SentencePiece</strong>. Different training data produces different merge rules and different vocabularies.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What happens when a model encounters text it has never seen?</summary>
       <div class="fq-a">Modern tokenizers using <strong>byte-level BPE</strong> can always fall back to individual bytes, so nothing is truly "unseen." The text just gets split into more, smaller tokens — which costs more and may reduce comprehension quality.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How does the tokenizer handle whitespace and newlines?</summary>
       <div class="fq-a">Most modern tokenizers encode leading whitespace as part of the token itself — <code>" the"</code> (with a space) is a different token than <code>"the"</code>. Newlines, tabs, and multiple spaces each get their own tokens or are absorbed into adjacent tokens. This is why <strong>formatting changes can alter token counts</strong>.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function(){
@@ -656,22 +653,19 @@ for label, text in samples.items():
 # impacts your API bill and context window usage</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>Does it really cost more to use non-English languages with LLMs?</summary>
       <div class="fq-a">Yes, measurably. A Japanese or Arabic prompt may use 2–3x as many tokens as English for the same meaning, directly increasing cost. Newer tokenizers like <strong>o200k_base</strong> have improved multilingual efficiency, but a gap remains.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Can I write prompts to be more token-efficient?</summary>
       <div class="fq-a">Somewhat. Removing redundant whitespace, using common words over rare jargon, and preferring concise phrasing all help. But the gains are modest — 10–20% at best. The biggest lever is <strong>choosing what to include</strong>, not how to phrase it.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Should I chunk text by tokens or by words when building RAG systems?</summary>
       <div class="fq-a">Always chunk by tokens. Word-based chunking leads to unpredictable token counts, which can cause context window overflows. Use <strong>tiktoken</strong> (or your model's tokenizer) to count and split precisely.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function(){
@@ -911,26 +905,23 @@ for i, rule in enumerate(merge_rules):
     print(f"  {i+1}. {rule[0]} + {rule[1]} → {rule[0]+rule[1]}")</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>What is byte-level BPE and how does it differ from character-level?</summary>
       <div class="fq-a">Byte-level BPE starts from the 256 possible byte values instead of Unicode characters. This guarantees <strong>any byte sequence</strong> can be tokenized — no special handling needed for unusual characters, binary data, or new emoji.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Is there an optimal vocabulary size?</summary>
       <div class="fq-a">No single optimum exists. Larger vocabularies compress text better (fewer tokens) but increase the <strong>embedding matrix size</strong> and memory usage. Current best practice lands between 32K and 200K, depending on how multilingual the model needs to be.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How does BPE compare to the Unigram algorithm?</summary>
       <div class="fq-a">BPE builds vocabulary bottom-up (merging); Unigram works top-down (starting large, pruning). Unigram can assign <strong>probabilities to multiple segmentations</strong>, enabling sampling-based tokenization. In practice, both produce similar results; BPE is more common in Western-focused models.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Can BPE merges cross word boundaries?</summary>
       <div class="fq-a">In standard BPE, merges only happen within pre-tokenized words (split by whitespace/punctuation first). <strong>Byte-level BPE</strong> in GPT-2+ uses regex-based pre-splitting to prevent cross-word merges while still operating on bytes.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function(){
@@ -1228,22 +1219,19 @@ for text in texts:
 # No need for MeCab (Japanese), PyThaiNLP (Thai), etc.</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How does SentencePiece compare to tiktoken?</summary>
       <div class="fq-a"><strong>tiktoken</strong> is a fast BPE encoder/decoder library (by OpenAI) that applies a pre-trained merge table. SentencePiece is both a trainer and encoder — it can learn new tokenizations from scratch. They solve different parts of the same problem.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What is NFKC normalization and why does SentencePiece use it?</summary>
       <div class="fq-a">NFKC collapses visually similar characters into a single canonical form — for example, full-width <code>Ａ</code> becomes <code>A</code>. SentencePiece applies this by default to <strong>reduce vocabulary waste</strong> on duplicate character forms. It can be disabled if exact byte preservation is needed.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Can I add custom pre-tokenization rules to SentencePiece?</summary>
       <div class="fq-a">Yes. SentencePiece supports custom normalization rules via a TSV file and allows <strong>user-defined symbols</strong> that are always kept as single tokens. However, adding language-specific splitting rules defeats the purpose — the algorithm works best when it learns segmentation from data.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function(){
@@ -1469,22 +1457,19 @@ for i, tid in enumerate(token_ids[:30]):  # first 30 for brevity
 # they can only appear when explicitly added by the template</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How do I debug special token mismatches when fine-tuning?</summary>
       <div class="fq-a">Decode your training examples token-by-token and check that special tokens appear at the expected positions. Use <code>tokenizer.convert_ids_to_tokens()</code> to inspect. If you see <strong>role markers inside regular text</strong> or missing turn boundaries, your template is wrong.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What is the ChatML format?</summary>
       <div class="fq-a">ChatML wraps each message in <code>&lt;|im_start|&gt;role\ncontent&lt;|im_end|&gt;\n</code> tags. It was introduced by OpenAI and is now used by many models. The <strong>im</strong> stands for "imaginary monologue" — the original internal name for the chat format.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How do special tokens interact with the attention mask?</summary>
       <div class="fq-a"><code>&lt;PAD&gt;</code> tokens must have an attention mask of <strong>0</strong> so the model ignores them. All other special tokens typically get mask <strong>1</strong> — the model needs to "see" them to understand structure. Incorrectly masking <code>&lt;BOS&gt;</code> or role tokens degrades performance.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function(){
@@ -1763,26 +1748,23 @@ for w in result["warnings"]:
 #   Utilization: 62.4%</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>What exactly is "lost in the middle" and how bad is it?</summary>
       <div class="fq-a">Models recall facts placed at the <strong>start</strong> and <strong>end</strong> of the context far more reliably than those in the middle. In benchmark tests, recall for middle-placed facts can drop by 20-40%. The fix is to place your most important context at the boundaries.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Does a larger context window increase latency even if I don't fill it?</summary>
       <div class="fq-a">Latency scales with <strong>actual tokens processed</strong>, not the window's maximum size. An 8K prompt in a 128K window costs the same as an 8K prompt in an 8K window. You only pay for what you use.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What is the difference between effective and theoretical context length?</summary>
       <div class="fq-a">The <strong>theoretical</strong> limit is the advertised window size. The <strong>effective</strong> limit is how much context the model can actually use well — typically 60-80% of theoretical before quality degrades. Needle-in-a-haystack benchmarks measure this gap.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How do different models' context windows compare in practice?</summary>
       <div class="fq-a">GPT-4o supports 128K, Claude 3.5 supports 200K, and Gemini 1.5 Pro supports up to 1M. However, <strong>effective recall quality</strong> varies — a model with 128K and strong attention may outperform one with 1M and weaker retrieval on practical tasks.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function t06_init() {
@@ -2066,26 +2048,23 @@ print(f"Savings: {(1 - concise['total_cost']/verbose['total_cost'])*100:.0f}%")
 #   Savings: 84%</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How does prompt caching reduce costs?</summary>
       <div class="fq-a">Providers like Anthropic and Google cache the <strong>KV representations</strong> of repeated prompt prefixes. If your system prompt is identical across requests, cached input tokens cost 50-90% less. The cache is keyed on exact token sequences from the start of the prompt.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What are practical ways to reduce output tokens?</summary>
       <div class="fq-a">Set a low <code>max_tokens</code>, request <strong>structured output</strong> (JSON schemas), add explicit constraints like "respond in under 50 words," and use <code>stop</code> sequences to terminate early. Switching from prose to bullet points alone can cut output tokens by 40%.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Does batching requests save money?</summary>
       <div class="fq-a">Some providers offer <strong>batch APIs</strong> at 50% discount (e.g., OpenAI's Batch API). The tradeoff is latency — batch jobs may take hours. For non-real-time workloads like evaluation, classification, or data processing, batching is almost always worth it.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Why is output pricing so much higher than input?</summary>
       <div class="fq-a">Input tokens are processed in <strong>one parallel pass</strong>. Output tokens require <strong>sequential autoregressive generation</strong> — each token needs a full forward pass that attends to all prior tokens. This serial bottleneck makes output 3-10x more compute-intensive per token.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function t07_init() {
@@ -2478,22 +2457,19 @@ for chunk, score in retrieved:
     print(f"  [{score}] {chunk[:60]}...")</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>When is truncation actually the right choice over retrieval?</summary>
       <div class="fq-a">Truncation works well for <strong>chronologically ordered</strong> data where recency matters most, like chat history. It's also the only practical option when you can't afford the latency of embedding or summarization, such as real-time streaming applications.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How does hierarchical summarization handle very long documents?</summary>
       <div class="fq-a"><strong>Hierarchical summarization</strong> splits a document into sections, summarizes each section independently, then summarizes the summaries. This avoids feeding the entire document through one LLM call and produces more balanced coverage of the content.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What is the map-reduce pattern for context overflow?</summary>
       <div class="fq-a">Map-reduce sends each chunk to the LLM independently (the "map" step), then combines the individual results in a final "reduce" call. This <strong>parallelizes processing</strong> across chunks and handles arbitrarily large inputs, though it increases total cost linearly with chunk count.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function t08_init() {
@@ -2906,22 +2882,19 @@ print(f"Summarize:  {len(h)} messages (includes summary)")
 </code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How do you size the overlap in a sliding window?</summary>
       <div class="fq-a">Overlap typically ranges from <strong>10-20% of the window size</strong>. Too little overlap and the model loses conversational coherence at the boundary. Too much overlap wastes budget on redundant tokens. Start with 2-3 turns of overlap and adjust based on task continuity needs.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What is recursive summarization and when is it needed?</summary>
       <div class="fq-a"><strong>Recursive summarization</strong> re-summarizes a summary when it grows too large, creating a cascade of increasingly compressed representations. This is needed for very long interactions (100+ turns) where even a single summary would overflow. Each level loses more detail but preserves the arc.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>Can summarization happen incrementally while the conversation is streaming?</summary>
       <div class="fq-a">Yes — <strong>incremental summarization</strong> updates the running summary after each turn rather than batch-processing old history. This spreads the LLM cost across turns and avoids a latency spike when the window fills up. The tradeoff is higher total cost due to more frequent, smaller summarization calls.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function t09_init() {
@@ -3317,26 +3290,23 @@ for w in r["warnings"]:
     print(f"  ⚠ {w}")</code></pre></details>
 
   <div class="followup-section"><div class="followup-heading">Follow-up Questions</div>
-  
     <details class="fq-item">
       <summary>How do multi-turn agent loops handle budgets across many iterations?</summary>
       <div class="fq-a">Agent loops typically use a <strong>rolling budget</strong>: after each tool call, the agent re-evaluates what fits. Old tool results get summarized, and the most recent result plus the original task description are always preserved. The key constraint is that every iteration must leave enough room for both the next tool call and the final answer.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What metrics should I monitor for token budget health?</summary>
       <div class="fq-a">Track <strong>p95 input tokens</strong>, truncation rate, output completion rate (how often responses hit max_tokens), and cost variance across requests. Set alerts when truncation exceeds 5% or when p95 input crosses 80% of your window size.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>How does prompt caching interact with token budgets?</summary>
       <div class="fq-a"><strong>Prompt caching</strong> (e.g., Anthropic's cache_control) lets you mark stable prefixes that get cached across requests. This doesn't change your token budget — you still use the same window — but it dramatically reduces cost for the cached portion (up to 90% discount) and improves latency.</div>
-  </details>
+    </details>
     <details class="fq-item">
       <summary>What does graceful degradation look like for token budgets?</summary>
       <div class="fq-a">Graceful degradation means <strong>progressively dropping lower-priority content</strong> rather than failing hard. First cut few-shot examples, then reduce retrieved chunks, then summarize history, and as a last resort truncate. Each step should log a warning so you know quality is being traded for fit.</div>
-    </div>
-  </details>
-  </div>
-</section>
+    </details>
+  </div></section>
 
 <script>
 (function t10_init() {
