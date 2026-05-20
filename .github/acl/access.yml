@@ -6,6 +6,8 @@ resource: repository
 where:
 configuration:
   manageAccess:
+  - member: ihvoitka
+    role: Maintain
   - member: pedramr
     role: Maintain
   - member: pyoussef
