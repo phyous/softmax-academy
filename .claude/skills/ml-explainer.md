@@ -11,71 +11,77 @@ One `.html` file per chapter saved to `docs/explainers/`. The file is a single s
 
 ### Document structure
 1. **Title & intro** — Chapter name, one-line description, topic count
-2. **Table of Contents** — Sticky/fixed sidebar or top nav with anchor links to each topic. Show topic numbers and short titles. Highlight active section on scroll.
-3. **Topic sections** — Each topic is a section in the document (see Topic format below)
+2. **Chapter intro** — 3-4 sentences framing why this chapter matters and what the reader will understand by the end
+3. **Table of Contents** — Sticky sidebar with anchor links. Group labels with short transition sentences between groups.
+4. **Progress bar** — Thin gradient bar fixed at top, fills as user scrolls
+5. **Topic sections** — Each topic is a section (see format below)
 
 ### Topic ordering
-Don't just follow the source numbering blindly. Reorder topics to build understanding naturally:
+Reorder topics to build understanding naturally:
 - Start with foundational "what is X" concepts
 - Layer in "how it works" mechanics
 - Then "why it matters" practical implications
 - End with system design / production concerns
 
-Group related topics and add brief transition sentences between groups.
+Group related topics with brief transition sentences between groups.
 
 ### Topic section format
-Each topic section is compact and glanceable:
 
-1. **Quick Take** — 2-3 sentences max. Plain language. Displayed prominently but not oversized — think callout box, not hero banner.
+1. **Quick Take** — 2-3 sentences max. Plain language. Callout box with a small "Copy" button (top right, appears on hover) so it's quotable/shareable.
 
-2. **Interactive Visual** — HTML/CSS/JS visualization. Canvas, SVG, or DOM-based. Must respond to user input (hover, click, drag, sliders). This is the centerpiece of each topic.
+2. **Mental Model** — One-line analogy or metaphor that makes the concept stick. Uses a lightbulb icon. Styled as a subtle purple-tinted box. E.g., "Think of BPE like ZIP compression — for vocabulary."
 
-3. **Deep Dive** — This is where real teaching happens. Be thorough — explain the concept well enough that someone unfamiliar could understand it. Use whatever format best serves the topic:
-   - Bullet points for lists of properties/characteristics
-   - Tables for comparisons and tradeoffs
-   - Inline mini-charts/diagrams for relationships
-   - Narrative paragraphs when building intuition or explaining a process
-   - Use more words than the Quick Take — aim for real understanding, not just bullet-point skimming
-   - Use bold for key terms, but don't sacrifice explanation depth for brevity
-   - Include "why this matters" and "how this connects to other concepts" where relevant
+3. **Interactive Visual** — HTML/CSS/JS visualization. Canvas, SVG, or DOM. Must respond to user input. This is the centerpiece.
 
-4. **Code** (if applicable) — Python snippet in a `<details>` element, **collapsed by default**. Summary label: "Python Example".
-   - **Syntax highlighting is required**: use `<span>` classes for keywords (`.kw`, purple), functions (`.fn`, blue), strings (`.str`, green), numbers (`.num`, pink), comments (`.com`, gray italic)
-   - **Heavily commented**: every non-trivial line should have a comment explaining what it does and why. The code should teach, not just demonstrate.
-   - Use `<pre><code>` blocks inside the details element
+4. **Deep Dive** — Thorough explanation. Structure for scannability:
+   - Use **h3** section headers to break into logical sub-topics (e.g., "The Algorithm", "Why It Matters", "Practical Implications")
+   - Use **h4** for sub-points within sections
+   - Keep paragraphs to 2-3 sentences — never a wall of text
+   - Use bullet points for lists, tables for comparisons
+   - Use `.key-box` callouts for critical insights
+   - Use `<code>` inline for technical terms
+   - Include **cross-references** to other topics using `<a href="#topic-N" class="xref">Topic N: Title</a>` links
+   - Be thorough but scannable — a reader should be able to skim headers and bold terms and get the gist
 
-5. **Follow-up Questions** — 3-5 natural follow-up questions that stem from the topic. Displayed as a `<details>` element, **collapsed by default**. Summary label: "Follow-up Questions".
-   - Each question is shown with its **full detailed answer** — not just the question text
-   - Format: question as a bold heading, then 2-4 sentences answering it thoroughly
-   - These are mini-explainers in their own right — someone should learn something new from each one
+5. **Key Takeaway** — Single bold sentence after the deep dive, before code. Green-tinted box. The "one thing to remember" closer. Different from Quick Take (opener) — this is the conclusion after the reader has gone deep.
 
-### Design system — CRITICAL
-- Dark theme: bg `#0f172a`, cards/sections `#1e293b`, text `#e2e8f0`
-- Accents: `#38bdf8` (blue), `#818cf8` (purple), `#f472b6` (pink)
-- System font stack, body text ~0.9rem for density
-- Max-width 860px centered, mobile-friendly
-- No external dependencies — all CSS and JS inline
+6. **Code** (if applicable) — `<details class="code-block">` collapsed by default. Summary: "Python Example".
+   - Syntax highlighting required: `.kw` (purple), `.fn` (blue), `.str` (green), `.num` (pink), `.com` (gray italic)
+   - Heavily commented: every non-trivial line explains what AND why
 
-**Interactive visual styling (IMPORTANT — must blend with dark theme):**
-- Input fields: bg `#0f172a` or `#1e293b`, border `#334155`, text `#e2e8f0`, placeholder `#64748b`
-- Buttons: bg transparent or `rgba(56,189,248,0.1)`, border `#475569`, text `#94a3b8`, hover: border `#38bdf8`
-- Active/selected buttons: bg `rgba(56,189,248,0.15)`, border `#38bdf8`, text `#38bdf8`
-- Token chips / colored elements: use semi-transparent accent colors (`rgba(...)`) that blend with dark bg
-- **NEVER use white or light gray backgrounds** for inputs, buttons, or containers inside visuals
-- **NEVER use black text on white backgrounds** — everything must feel cohesive with the dark theme
-- Charts and canvases: use dark backgrounds matching `#1e293b`, draw with accent colors
-- Sliders: style with accent colors, dark track
+7. **Follow-up Questions** — `<details class="followup">` collapsed by default. 3-5 questions with detailed answers.
+   - Question text in purple/indigo (`#a5b4fc`), NOT prefixed with "Q:"
+   - Answer in muted gray (`#7f8ea3`), 0.8rem, generous line-height (1.6)
+   - Keep answers to 2-4 SHORT sentences — concise, not walls of text
+   - Use `<strong>` for key terms in answers (slightly brighter gray `#94a3b8`)
+   - Separate items with `<div class="fq-divider"></div>` (thin line), NOT card-style boxes
+   - No background color on individual items — keep it clean and airy
+   - Bold key terms within answers to aid scanning
 
-Other design details:
-- Section headers: compact, with colored left-border accent bars (3px)
-- Quick Take: styled as a subtle callout box (slightly lighter bg, left accent)
-- Spacing: tighter than typical — optimize for glanceability over airiness
-- Smooth scroll between TOC links
-- IntersectionObserver to highlight active TOC item
-- `<details>` elements styled to match theme (custom arrow, padding)
+### Design system
+- Dark theme: bg `#0f172a`, cards `#1e293b`, text `#e2e8f0`
+- Accents: `#38bdf8` (blue), `#818cf8` (purple), `#f472b6` (pink), `#4ade80` (green)
+- System font stack, body ~0.9rem
+- Max-width 860px content area, 240px TOC sidebar
+- No external dependencies — all inline
+
+**Interactive visuals (CRITICAL):**
+- ALL elements must use dark theme — NEVER white/light backgrounds
+- Inputs: bg `#0f172a`, border `#334155`, text `#e2e8f0`
+- Buttons: bg transparent, border `#475569`, active: `rgba(56,189,248,0.15)`
+- Token chips: semi-transparent accent `rgba(...)` backgrounds
+- Charts/canvas: dark bg, accent-colored data
+
+**New structural elements:**
+- `.mental-model` — purple-tinted analogy box with lightbulb icon
+- `.key-takeaway` — green-tinted conclusion box with arrow icon
+- `.qt-copy` — copy button on Quick Take (appears on hover)
+- `.xref` — cross-reference links between topics (blue, dotted underline)
+- `.progress-bar` — fixed top gradient bar
+- `.group-intro` — italic transition text under group dividers
 
 ### Naming convention
-`ch{NN}-kebab-case-title.html` (e.g., `ch02-tokens-tokenization-context-windows.html`)
+`ch{NN}-kebab-case-title.html`
 
 ### File location
 `docs/explainers/ch{NN}-kebab-case-title.html`
