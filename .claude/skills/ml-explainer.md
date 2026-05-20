@@ -49,14 +49,26 @@ Group related topics with brief transition sentences between groups.
    - Syntax highlighting required: `.kw` (purple), `.fn` (blue), `.str` (green), `.num` (pink), `.com` (gray italic)
    - Heavily commented: every non-trivial line explains what AND why
 
-7. **Follow-up Questions** — `<details class="followup">` collapsed by default. 3-5 questions with detailed answers.
-   - Question text in purple/indigo (`#a5b4fc`), NOT prefixed with "Q:"
-   - Answer in muted gray (`#7f8ea3`), 0.8rem, generous line-height (1.6)
-   - Keep answers to 2-4 SHORT sentences — concise, not walls of text
-   - Use `<strong>` for key terms in answers (slightly brighter gray `#94a3b8`)
-   - Separate items with `<div class="fq-divider"></div>` (thin line), NOT card-style boxes
-   - No background color on individual items — keep it clean and airy
-   - Bold key terms within answers to aid scanning
+7. **Follow-up Questions** — Always visible (NOT collapsed). 3-5 questions, each individually expandable to show its answer.
+   - Wrap in `<div class="followup-section">` with a `<div class="followup-heading">Follow-up Questions</div>` label
+   - Each question is a `<details class="fq-item">` (collapsed by default)
+   - Question text as `<summary>` — purple/indigo color, no "Q:" prefix
+   - Answer in `<div class="fq-a">` — muted gray, 0.8rem, 2-3 SHORT sentences
+   - Use `<strong>` for key terms in answers
+   - Structure:
+     ```html
+     <div class="followup-section">
+       <div class="followup-heading">Follow-up Questions</div>
+       <details class="fq-item">
+         <summary>Question text here?</summary>
+         <div class="fq-a">Concise answer with <strong>key terms</strong> bolded.</div>
+       </details>
+       <details class="fq-item">
+         <summary>Another question?</summary>
+         <div class="fq-a">Another concise answer.</div>
+       </details>
+     </div>
+     ```
 
 ### Design system
 - Dark theme: bg `#0f172a`, cards `#1e293b`, text `#e2e8f0`
