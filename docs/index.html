@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Softmax Academy — Language Models Handbook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: #0f172a; color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.95rem; line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  /* --- Animated gradient accent bar --- */
+  .top-bar {
+    height: 3px;
+    background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6, #38bdf8);
+    background-size: 300% 100%;
+    animation: shimmer 6s ease-in-out infinite;
+  }
+  @keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+  /* --- Hero --- */
+  .hero {
+    text-align: center;
+    padding: 4rem 1.5rem 3rem;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 0.25rem 1rem;
+    background: rgba(56,189,248,0.08);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 100px;
+    font-size: 0.72rem;
+    color: #38bdf8;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .hero h1 span {
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero .subtitle {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    max-width: 560px;
+    margin: 1rem auto 0;
+    line-height: 1.7;
+  }
+
+  /* --- Stats row --- */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin: 2rem auto 0;
+    padding: 1.2rem 0;
+    border-top: 1px solid #1e293b;
+    border-bottom: 1px solid #1e293b;
+    max-width: 500px;
+  }
+  .stat { text-align: center; }
+  .stat-num { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; }
+  .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.15rem; }
+
+  /* --- Section titles --- */
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: 900px;
+    margin: 3rem auto 1.5rem;
+    padding: 0 1.5rem;
+  }
+  .section-title h2 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    white-space: nowrap;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+
+  /* --- Card grid --- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.4rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(56,189,248,0.08);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .card:hover::before { opacity: 1; }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+  .card-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+  .card:hover .card-num {
+    background: var(--accent);
+    color: #0f172a;
+  }
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    line-height: 1.3;
+  }
+  .card-desc {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.6;
+    flex: 1;
+  }
+  .card-arrow {
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    color: #475569;
+    transition: color 0.2s;
+  }
+  .card:hover .card-arrow { color: #38bdf8; }
+
+  .grid .card { --accent: #38bdf8; --accent-bg: rgba(56,189,248,0.12); }
+
+  /* --- Footer --- */
+  footer {
+    text-align: center;
+    padding: 3rem 1.5rem 2rem;
+    color: #475569;
+    font-size: 0.78rem;
+    border-top: 1px solid #1e293b;
+    max-width: 900px;
+    margin: 4rem auto 0;
+  }
+  footer a { color: #64748b; text-decoration: none; }
+  footer a:hover { color: #94a3b8; }
+
+  /* --- Responsive --- */
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 2rem; }
+    .hero { padding: 3rem 1rem 2rem; }
+    .grid { grid-template-columns: 1fr; padding: 0 1rem; }
+    .stats { gap: 1.5rem; }
+    .section-title { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+
+<section class="hero">
+  <div class="hero-badge">Interactive Study Guide</div>
+  <h1><span>Softmax</span> Academy</h1>
+  <p class="subtitle">A practitioner's deep-dive into language models &mdash; from tokenization fundamentals through production deployment. Each chapter is a self-contained, interactive explainer built for engineers who learn by doing.</p>
+  <div class="stats">
+    <div class="stat"><div class="stat-num">15</div><div class="stat-label">Chapters</div></div>
+    <div class="stat"><div class="stat-num">&infin;</div><div class="stat-label">Follow-ups</div></div>
+  </div>
+</section>
+
+<div class="section-title"><h2>Chapters</h2></div>
+<div class="grid">
+
+  <a class="card" href="explainers/lm-handbook-ch2-tokenization-and-context.html">
+    <div class="card-top">
+      <div class="card-num">2</div>
+      <div class="card-title">Tokens, Tokenization &amp; Context Windows</div>
+    </div>
+    <div class="card-desc">How LLMs convert raw text into computable units &mdash; and why every engineering decision downstream traces back to the token.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch3-embeddings-and-representations.html">
+    <div class="card-top">
+      <div class="card-num">3</div>
+      <div class="card-title">Embeddings &amp; Semantic Representations</div>
+    </div>
+    <div class="card-desc">How LLMs convert meaning into geometry &mdash; and why the quality of that geometry determines retrieval, clustering, and recommendation quality.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch4-transformer-architecture.html">
+    <div class="card-top">
+      <div class="card-num">4</div>
+      <div class="card-title">Transformer Architecture, Attention &amp; Positional Reasoning</div>
+    </div>
+    <div class="card-desc">How attention replaced recurrence, why every token can consult every other token, and the engineering consequences of that power.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch5-pretraining-and-model-families.html">
+    <div class="card-top">
+      <div class="card-num">5</div>
+      <div class="card-title">Pretraining Objectives &amp; Model Families</div>
+    </div>
+    <div class="card-desc">Why the training objective determines what a model becomes good at &mdash; and how to compare model families by design, not brand name.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch6-classification-with-llms.html">
+    <div class="card-top">
+      <div class="card-num">6</div>
+      <div class="card-title">Classification with LLMs</div>
+    </div>
+    <div class="card-desc">How to use LLMs as classifiers &mdash; and when a smaller, dedicated model is the smarter production choice.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch7-topic-modeling-and-clustering.html">
+    <div class="card-top">
+      <div class="card-num">7</div>
+      <div class="card-title">Topic Modeling, Clustering &amp; Theme Discovery</div>
+    </div>
+    <div class="card-desc">How to move from raw text to interpretable themes &mdash; and why cluster discovery is only the beginning.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch8-retrieval-foundations.html">
+    <div class="card-top">
+      <div class="card-num">8</div>
+      <div class="card-title">Retrieval Foundations for LLM Systems</div>
+    </div>
+    <div class="card-desc">How to find the right evidence before the model generates &mdash; because a good LLM answer begins as a good retrieval problem.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch9-production-rag.html">
+    <div class="card-top">
+      <div class="card-num">9</div>
+      <div class="card-title">Production RAG &amp; Grounded Answering</div>
+    </div>
+    <div class="card-desc">Moving beyond naive retrieve-and-generate demos to build RAG systems that are grounded, attributable, and production-ready.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch10-prompting-and-orchestration.html">
+    <div class="card-top">
+      <div class="card-num">10</div>
+      <div class="card-title">Prompting, In-Context Learning &amp; Orchestration</div>
+    </div>
+    <div class="card-desc">Treating prompts as system design &mdash; not clever wording &mdash; to build reliable, maintainable, and evaluatable LLM applications.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch11-multimodal-llms.html">
+    <div class="card-top">
+      <div class="card-num">11</div>
+      <div class="card-title">Multimodal Large Language Models</div>
+    </div>
+    <div class="card-desc">How LLMs extend beyond text to process images, audio, and video &mdash; and why alignment between modalities is the central engineering challenge.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch12-custom-embeddings.html">
+    <div class="card-top">
+      <div class="card-num">12</div>
+      <div class="card-title">Custom Embeddings &amp; Retrieval Optimization</div>
+    </div>
+    <div class="card-desc">When off-the-shelf embeddings plateau &mdash; how to diagnose gaps, adapt representations, and systematically improve retrieval quality.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch13-finetuning-and-peft.html">
+    <div class="card-top">
+      <div class="card-num">13</div>
+      <div class="card-title">Fine-Tuning, PEFT &amp; Adaptation Strategies</div>
+    </div>
+    <div class="card-desc">When to fine-tune, what method to choose, and how to avoid turning a strong foundation model into an expensive liability.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch14-optimization-and-math.html">
+    <div class="card-top">
+      <div class="card-num">14</div>
+      <div class="card-title">Optimization &amp; Math Foundations</div>
+    </div>
+    <div class="card-desc">The mathematical tools that make transformers trainable &mdash; softmax, cross-entropy, gradients, and the structures that keep deep networks stable.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch15-generation-and-serving.html">
+    <div class="card-top">
+      <div class="card-num">15</div>
+      <div class="card-title">Text Generation, Decoding &amp; Serving at Scale</div>
+    </div>
+    <div class="card-desc">How decoding strategies, serving infrastructure, and safety controls combine into a single operational system that determines what users actually experience.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+  <a class="card" href="explainers/lm-handbook-ch16-architectures-and-deployment.html">
+    <div class="card-top">
+      <div class="card-num">16</div>
+      <div class="card-title">Architectures, Extensions &amp; Practical Deployment</div>
+    </div>
+    <div class="card-desc">From sparse expert routing to deployment governance &mdash; the decisions that separate a solid prototype from a durable production system.</div>
+    <div class="card-arrow">Read chapter &rarr;</div>
+  </a>
+
+</div>
+
+<footer>
+  <p>Softmax Academy &mdash; Built as a companion to the <a href="https://github.com/phyous/softmax-academy">Language Models Interview Handbook</a></p>
+</footer>
+
+</body>
+</html>
