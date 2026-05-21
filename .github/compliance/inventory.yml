@@ -1,0 +1,4 @@
+inventory:
+- source: DirectOwners
+  items:
+  - id: pyoussef@microsoft.com
